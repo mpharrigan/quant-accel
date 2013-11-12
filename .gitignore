@@ -34,3 +34,9 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# My stuff
+*.job.o*
+*.job.po*
+*.npy
+quant/*
