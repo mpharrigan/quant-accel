@@ -218,6 +218,8 @@ def actually_do(directory, generators):
         ws, trajs = load_trajs_by_round(rounds, i)
         tmatrices.append(build_msm(trajs, generators, lag_time=LAG_TIME))
         wall_steps[i] = ws
+        
+    import pdb; pdb.set_trace()
 
     with open(os.path.join(directory, 'tmats.pickl'), 'w') as f:
         pickle.dump((directory, wall_steps, tmatrices), f, protocol=2)
@@ -250,6 +252,15 @@ def do_tmatrices(which):
     if MPIRANK < n_leftovers:
         dirs = xx_dirs[n_jobs * MPISIZE + MPIRANK]
         actually_do(dirs, generators)
+        
+def load_tmatrices(which):
+    
+    with open('quant/lpt/lpt-2000-15/tmats.pickl') as f:
+        dir, ws, tmats = pickle.load(f)
+    
+    print "dir", dir
+    print "ws", ws
+    print "len", len(tmats)   
 
 
 if __name__ == "__main__":
@@ -261,6 +272,8 @@ if __name__ == "__main__":
             do_tmatrices(2)
         elif sys.argv[1] == 'test':
             do_tmatrices(1)
+        elif sys.argv[1] == 'errors':
+            load_tmatrices(1)
         else:
             print "Not specified"
     else:
