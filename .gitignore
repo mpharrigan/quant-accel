@@ -40,3 +40,7 @@ nosetests.xml
 *.job.po*
 *.npy
 *.sge
+
+*/trajs/*
+*/starting_states/*
+*/models/*
