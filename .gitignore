@@ -39,7 +39,6 @@ nosetests.xml
 *.job.o*
 *.job.po*
 *.npy
-*.sge
 
 trajs
 starting_states
