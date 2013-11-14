@@ -27,7 +27,7 @@ LPT_DIR = 'tmat/lpt'
 CLUSTER_FN = 'tmat/Gens.h5'
 DISTANCE_CUTOFF = 0.25
 MEDOID_ITERS = 0
-LOAD_STRIDE = 50 # TODO: Change
+LOAD_STRIDE = 1
 LAG_TIME = 1
 
 def cluster():
@@ -250,6 +250,7 @@ if __name__ == "__main__":
             do_tmatrices(1)
             do_tmatrices(2)
         elif sys.argv[1] == 'test':
+            LOAD_STRIDE = 50
             do_tmatrices(2)
         else:
             print "Not specified"
