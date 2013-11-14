@@ -21,14 +21,16 @@ COMM = MPI.COMM_WORLD
 MPIRANK = COMM.Get_rank()
 MPISIZE = COMM.Get_size()
 
-GOLD_DIR = 'quant/gold'
-LL_DIR = 'quant/ll'
-LPT_DIR = 'quant/lpt'
-CLUSTER_FN = 'cluster_gens.npy'
+GOLD_DIR = 'muller/gold'
+LL_DIR = 'muller/ll'
+LPT_DIR = 'muller/lpt'
+CLUSTER_FN = 'muller/cluster_gens.npy'
 DISTANCE_CUTOFF = 0.25
 MEDOID_ITERS = 0
 LOAD_STRIDE = 1
 LAG_TIME = 20
+NEIGS = 5
+EPS = 1.0e-10
 
 def cluster():
     traj_fns = os.listdir(os.path.join(GOLD_DIR, 'trajs/'))
@@ -209,7 +211,7 @@ def do_cluster():
     print "Clustering"
     cluster()
 
-def actually_do(directory, generators):
+def actually_do_tmats(directory, generators):
     print "Doing", directory
     rounds = _get_trajs_fns(directory)
     tmatrices = list()
@@ -218,28 +220,44 @@ def actually_do(directory, generators):
         ws, trajs = load_trajs_by_round(rounds, i)
         tmatrices.append(build_msm(trajs, generators, lag_time=LAG_TIME))
         wall_steps[i] = ws
-        
-    import pdb; pdb.set_trace()
 
     with open(os.path.join(directory, 'tmats.pickl'), 'w') as f:
         pickle.dump((directory, wall_steps, tmatrices), f, protocol=2)
 
+def actually_do_errors(directory):
+    print "Doing", directory
+    with open(os.path.join(directory, 'tmats.pickl')) as f:
+        saved_dir, wall_steps, tmatrices = pickle.load(f)
 
-def do_tmatrices(which):
+    its = np.zeros((len(tmatrices), NEIGS + 1))
+    its[:, 0] = wall_steps
+
+    for i in xrange(len(tmatrices)):
+        tmat = tmatrices[i]
+        vals, vecs = msma.get_eigenvectors(t_matrix=tmat, n_eigs=NEIGS + 1)
+        np.savetxt(os.path.join(directory, 'vecs-%d.dat' % wall_steps[i]), vecs)
+
+        for j, v in enumerate(vals[1:]):
+            if np.abs(v - 1.0) < EPS:
+                its[i, j + 1] = 1.0 / EPS
+            else:
+                its[i, j + 1] = -LAG_TIME / np.log(v)
+    np.savetxt(os.path.join(directory, 'its.dat'), its)
+
+
+def do_tmatrices(dir_stride=1):
 
     print "Rank %d/%d reporting in!" % (MPIRANK, MPISIZE)
 
-    # Divvy
-    if which == 1:
-        xx_dirs = get_lpt_dirs()
-    elif which == 2:
-        xx_dirs = get_ll_dirs()
-    else:
-        return
+    xx_dirs = get_lpt_dirs() + get_ll_dirs()
+    xx_dirs = xx_dirs[::dir_stride]
 
     n_tmats = len(xx_dirs)
     n_jobs = n_tmats // MPISIZE
     n_leftovers = n_tmats % MPISIZE
+
+    print ("%d things to do with %d rounds with %d left over"
+           % n_tmats, n_jobs, n_leftovers)
 
     gens = np.load(CLUSTER_FN)
     generators = ShimTrajectory(gens)
@@ -247,33 +265,47 @@ def do_tmatrices(which):
     # Do normal
     for i in xrange(n_jobs):
         dirs = xx_dirs[i * MPISIZE + MPIRANK]
-        actually_do(dirs, generators)
+        actually_do_tmats(dirs, generators)
 
     if MPIRANK < n_leftovers:
         dirs = xx_dirs[n_jobs * MPISIZE + MPIRANK]
-        actually_do(dirs, generators)
-        
-def load_tmatrices(which):
-    
-    with open('quant/lpt/lpt-2000-15/tmats.pickl') as f:
-        dir, ws, tmats = pickle.load(f)
-    
-    print "dir", dir
-    print "ws", ws
-    print "len", len(tmats)   
+        actually_do_tmats(dirs, generators)
 
+def do_errors(dir_stride=1):
+
+    print "Rank %d/%d reporting in!" % (MPIRANK, MPISIZE)
+
+    xx_dirs = get_lpt_dirs() + get_ll_dirs()
+    xx_dirs = xx_dirs[::dir_stride]
+
+    n_tmats = len(xx_dirs)
+    n_jobs = n_tmats // MPISIZE
+    n_leftovers = n_tmats % MPISIZE
+
+    print ("%d things to do with %d rounds with %d left over"
+           % (n_tmats, n_jobs, n_leftovers))
+
+    # Do normal
+    for i in xrange(n_jobs):
+        dirs = xx_dirs[i * MPISIZE + MPIRANK]
+        actually_do_errors(dirs)
+
+    if MPIRANK < n_leftovers:
+        dirs = xx_dirs[n_jobs * MPISIZE + MPIRANK]
+        actually_do_errors(dirs)
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         if sys.argv[1] == 'cluster':
             do_cluster()
         elif sys.argv[1] == 'tmatrices':
-            do_tmatrices(1)
-            do_tmatrices(2)
+            do_tmatrices()
         elif sys.argv[1] == 'test':
-            do_tmatrices(1)
+            do_tmatrices(dir_stride=4)
         elif sys.argv[1] == 'errors':
-            load_tmatrices(1)
+            do_errors()
+        elif sys.argv[1] == 'testerrors':
+            do_errors(4)  # 11 + 6 = 17 ~ do every four = 5 procs
         else:
             print "Not specified"
     else:
