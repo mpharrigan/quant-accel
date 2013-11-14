@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<System type="System" version="1">
+	<PeriodicBoxVectors>
+		<A x="2" y="0" z="0" />
+		<B x="0" y="2" z="0" />
+		<C x="0" y="0" z="2" />
+	</PeriodicBoxVectors>
+	<Particles>
+		<Particle mass="12" />
+	</Particles>
+	<Constraints />
+	<Forces>
+		<Force energy="0.5*(1000.0 * z^2+ -200*exp(-1 *(x - 1)^2 + 0 * (x - 1)&#x0A;                               * (y - 0) + -10 * (y - 0)^2)+ -100*exp(-1 *(x - 0)^2 + 0 * (x - 0)&#x0A;                               * (y - 0.5) + -10 * (y - 0.5)^2)+ -170*exp(-6.5 *(x - -0.5)^2 + 11 * (x - -0.5)&#x0A;                               * (y - 1.5) + -6.5 * (y - 1.5)^2)+ 15*exp(0.7 *(x - -1)^2 + 0.6 * (x - -1)&#x0A;                               * (y - 1) + 0.7 * (y - 1)^2))" type="CustomExternalForce" version="1">
+			<PerParticleParameters />
+			<GlobalParameters />
+			<Particles>
+				<Particle index="0" />
+			</Particles>
+		</Force>
+	</Forces>
+</System>

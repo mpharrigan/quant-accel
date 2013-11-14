@@ -41,6 +41,6 @@ nosetests.xml
 *.npy
 *.sge
 
-*/trajs/*
-*/starting_states/*
-*/models/*
+trajs
+starting_states
+models
