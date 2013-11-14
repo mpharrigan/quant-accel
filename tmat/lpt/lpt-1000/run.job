@@ -1,0 +1,11 @@
+#$ -cwd
+#$ -j y
+#$ -N t1k
+#$ -M harrigan@stanford.edu
+#$ -m bea
+#$ -l h_vmem=8g
+
+accelerator serve &> serve.out &
+my_pid=$!
+./run.sh
+kill $my_pid

@@ -1,0 +1,8 @@
+#$ -cwd
+#$ -j y
+#$ -N t20-30
+
+accelerator serve &> serve.out &
+my_pid=$!
+./run.sh
+kill $my_pid

@@ -43,3 +43,7 @@ nosetests.xml
 trajs
 starting_states
 models
+logs
+
+tProb.mtx
+Gens.h5
