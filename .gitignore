@@ -37,8 +37,8 @@ nosetests.xml
 
 # My stuff
 *.job.o*
+*.pbs.o*
 *.job.po*
-*.npy
 
 trajs
 starting_states
