@@ -39,4 +39,4 @@ nosetests.xml
 *.job.o*
 *.job.po*
 *.npy
-quant/*
+*.sge
