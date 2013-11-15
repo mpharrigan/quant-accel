@@ -25,6 +25,7 @@ GOLD_DIR = 'muller/gold'
 LL_DIR = 'muller/ll'
 LPT_DIR = 'muller/lpt'
 CLUSTER_FN = 'muller/cluster_gens.npy'
+ERROR_FN = 'muller/errors.pickl'
 DISTANCE_CUTOFF = 0.25
 MEDOID_ITERS = 0
 LOAD_STRIDE = 1
@@ -72,26 +73,6 @@ def build_msm(trajs, generators, lag_time):
     _, t_matrix, _, _ = msml.build_msm(counts, ergodic_trimming=False, symmetrize='transpose')
     return t_matrix
 
-def calculate_errors(n_eigen, comp_tmatrices, wall_steps, gold_tmatrix):
-
-    _, gvecs = msma.get_eigenvectors(gold_tmatrix, n_eigs=n_eigen)
-    errors = np.zeros((len(comp_tmatrices), 2))
-    errors[:, 0] = wall_steps
-
-    for i in xrange(len(comp_tmatrices)):
-        _, vecs = msma.get_eigenvectors(comp_tmatrices[i], n_eigs=n_eigen)
-        if gvecs.shape[0] != vecs.shape[0]:
-            print "Error: Vectors are not the same shape!"
-
-        error = 0.0
-        for j in xrange(n_eigen):
-            diff = vecs[:, j] - gvecs[:, j]
-            error += np.dot(diff, diff)
-
-        errors[i, 1] = error
-
-    return errors
-
 def load_trajs_by_percent(directory, load_up_to_this_percent):
     """Load trajectories by percentage."""
 
@@ -101,9 +82,9 @@ def load_trajs_by_percent(directory, load_up_to_this_percent):
     traj_fns = [os.path.join(directory, 'trajs/', tfn) for tfn in traj_fns]
     trajs = [mdtraj.load(traj_fn) for traj_fn in traj_fns]
 
-    max_end = trajs[0].shape[0]
+    max_end = trajs[0].xyz.shape[0]
     load_end = int(load_up_to_this_percent * max_end)
-    print "Loading trajectory up to index {:,} out of {:,}".format(load_end, max_end)
+    print "Loading trajectories up to index {:,} out of {:,}".format(load_end, max_end)
     partial_trajs = [traj[:load_end] for traj in trajs]
 
     wall_steps = load_end
@@ -244,6 +225,42 @@ def actually_do_errors(directory):
                 its[i, j + 1] = -LAG_TIME / np.log(v)
     np.savetxt(os.path.join(directory, 'its.dat'), its)
 
+def gather_errors():
+    gold_its = np.loadtxt(os.path.join(GOLD_DIR, 'its.dat'))
+    gold_its = gold_its[1:]
+    n_eigs = len(gold_its)
+
+    xx_dirs = get_lpt_dirs() + get_ll_dirs()
+
+    errors_list = list()
+    for dirr in xx_dirs:
+        its = np.loadtxt(os.path.join(dirr, 'its.dat'))
+        if len(its.shape) == 1: its = its[np.newaxis,:]
+        assert its.shape[1] - 1 == n_eigs, 'Not matching neigs to gold. %s' % dirr
+        errs = np.zeros((its.shape[0], n_eigs))
+        for num_to_consider in range(n_eigs):
+            # Calculate error from first, first-two, first-three, etc
+            for j in range(num_to_consider):
+                diff = its[:, 1:num_to_consider + 1] - gold_its[:num_to_consider]
+                dot = np.sum(diff ** 2, axis=1)
+                errvec = np.sqrt(dot)
+                errs[:, j] = errvec
+        errors_list.append((its[:, 0], errs))
+    with open(ERROR_FN, 'w') as f:
+        pickle.dump(errors_list, f, protocol=2)
+
+
+def get_gold_everything():
+    gens = np.load(CLUSTER_FN)
+    generators = ShimTrajectory(gens)
+    tmatrices = list()
+    wall_steps = np.zeros(1)
+    wall_steps[0], trajs = load_trajs_by_percent(GOLD_DIR, 1.0)
+    tmatrices.append(build_msm(trajs, generators, lag_time=LAG_TIME))
+
+    with open(os.path.join(GOLD_DIR, 'tmats.pickl'), 'w') as f:
+        pickle.dump((GOLD_DIR, wall_steps, tmatrices), f, protocol=2)
+    actually_do_errors(GOLD_DIR)
 
 def do_tmatrices(dir_stride=1):
 
@@ -306,6 +323,10 @@ if __name__ == "__main__":
             do_errors()
         elif sys.argv[1] == 'testerrors':
             do_errors(4)  # 11 + 6 = 17 ~ do every four = 5 procs
+        elif sys.argv[1] == 'gold':
+            get_gold_everything()
+        elif sys.argv[1] == 'gather':
+            gather_errors()
         else:
             print "Not specified"
     else:
