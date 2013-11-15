@@ -232,22 +232,22 @@ def gather_errors():
     gold_its = np.loadtxt(os.path.join(GOLD_DIR, 'its.dat'))
     gold_its = gold_its[1:]
     n_eigs = len(gold_its)
+    print n_eigs, "implied timescales."
 
     xx_dirs = get_lpt_dirs() + get_ll_dirs()
 
     errors_list = list()
     for dirr in xx_dirs:
         its = np.loadtxt(os.path.join(dirr, 'its.dat'))
-        if len(its.shape) == 1: its = its[np.newaxis,:]
+        if len(its.shape) == 1: its = its[np.newaxis, :]
         assert its.shape[1] - 1 == n_eigs, 'Not matching neigs to gold. %s' % dirr
         errs = np.zeros((its.shape[0], n_eigs))
         for num_to_consider in range(n_eigs):
             # Calculate error from first, first-two, first-three, etc
-            for j in range(num_to_consider):
-                diff = its[:, 1:num_to_consider + 1] - gold_its[:num_to_consider]
-                dot = np.sum(diff ** 2, axis=1)
-                errvec = np.sqrt(dot)
-                errs[:, j] = errvec
+            diff = its[:, 1:num_to_consider + 2] - gold_its[:num_to_consider + 1]
+            dot = np.sum(diff ** 2, axis=1)
+            errvec = np.sqrt(dot)
+            errs[:, num_to_consider] = errvec
         errors_list.append((dirr, its[:, 0], errs))
     with open(ERROR_FN, 'w') as f:
         pickle.dump(errors_list, f, protocol=2)
