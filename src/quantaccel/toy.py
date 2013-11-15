@@ -65,9 +65,12 @@ def build_msm(trajs, generators, lag_time):
     for i, traj in enumerate(shim_trajs):
         ptraj = metric.prepare_trajectory(traj)
 
-        for j in xrange(len(traj)):
-            d = metric.one_to_all(ptraj, pgens, j)
-            assignments[i, j] = np.argmin(d)
+        distances = np.inf * np.ones(len(ptraj), dtype='float32')
+        for m in xrange(len(generators)):
+            d = metric.one_to_all(pgens, ptraj, m)
+            closer = np.where(d < distances)[0]
+            distances[closer] = d[closer]
+            assignments[i, closer] = m
 
     counts = msml.get_count_matrix_from_assignments(assignments, n_states=len(generators), lag_time=lag_time)
     _, t_matrix, _, _ = msml.build_msm(counts, ergodic_trimming=False, symmetrize='transpose')
@@ -245,7 +248,7 @@ def gather_errors():
                 dot = np.sum(diff ** 2, axis=1)
                 errvec = np.sqrt(dot)
                 errs[:, j] = errvec
-        errors_list.append((its[:, 0], errs))
+        errors_list.append((dirr, its[:, 0], errs))
     with open(ERROR_FN, 'w') as f:
         pickle.dump(errors_list, f, protocol=2)
 
