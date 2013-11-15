@@ -1,0 +1,11 @@
+#$ -cwd
+#$ -j y
+#$ -pe orte 8
+#$ -M harrigan@stanford.edu
+#$ -m bea
+#$ -l h_vmem=8g
+#$ -R y
+#$ -w e
+
+module load mpi
+mpirun -np 8 python -u src/quantaccel/toy.py errors
