@@ -25,6 +25,7 @@ GOLD_DIR = 'tmat/tProb.mtx'
 LL_DIR = 'tmat/ll'
 LPT_DIR = 'tmat/lpt'
 CLUSTER_FN = 'tmat/Gens.h5'
+RELATIVE_CLUSTER_FN = '../../Gens.h5'
 DISTANCE_CUTOFF = 0.25
 MEDOID_ITERS = 0
 LOAD_STRIDE = 1
@@ -62,9 +63,12 @@ def build_msm(trajs, generators, lag_time):
     for i, traj in enumerate(shim_trajs):
         ptraj = metric.prepare_trajectory(traj)
 
-        for j in xrange(len(traj)):
-            d = metric.one_to_all(ptraj, pgens, j)
-            assignments[i, j] = np.argmin(d)
+        distances = np.inf * np.ones(len(ptraj), dtype='float32')
+        for m in xrange(len(generators)):
+            d = metric.one_to_all(pgens, ptraj, m)
+            closer = np.where(d < distances)[0]
+            distances[closer] = d[closer]
+            assignments[i, closer] = m
 
     counts = msml.get_count_matrix_from_assignments(assignments, n_states=len(generators), lag_time=lag_time)
     _, t_matrix, _, _ = msml.build_msm(counts, ergodic_trimming=False, symmetrize='transpose')
@@ -252,6 +256,10 @@ if __name__ == "__main__":
         elif sys.argv[1] == 'test':
             LOAD_STRIDE = 50
             do_tmatrices(2)
+        elif sys.argv[1] == 'thisdir':
+            gens = mdtraj.load(RELATIVE_CLUSTER_FN)
+            generators = ShimTrajectory(gens.xyz)
+            actually_do('.', generators)
         else:
             print "Not specified"
     else:
