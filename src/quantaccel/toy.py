@@ -13,13 +13,17 @@ from msmbuilder.metrics.baseclasses import Vectorized
 from msmaccelerator.core import markovstatemodel
 import sys
 import pickle
-from mpi4py import MPI
 import sqlite3 as sql
 
-
-COMM = MPI.COMM_WORLD
-MPIRANK = COMM.Get_rank()
-MPISIZE = COMM.Get_size()
+MPIRANK = 0
+MPISIZE = 0
+def load_mpi():
+    from mpi4py import MPI
+    global MPIRANK
+    global MPISIZE
+    COMM = MPI.COMM_WORLD
+    MPIRANK = COMM.Get_rank()
+    MPISIZE = COMM.Get_size()
 
 GOLD_DIR = 'muller/gold'
 LL_DIR = 'muller/ll'
@@ -49,10 +53,9 @@ def cluster():
     genxyz = generators['XYZList']
     np.save(CLUSTER_FN, genxyz)
 
-def build_msm(trajs, generators, lag_time):
+def build_msm(trajs, generators, lag_time, metric):
     # Do assignment
     shim_trajs = [ShimTrajectory(traj.xyz) for traj in trajs]
-    metric = Euclidean2d()
 
     # Allocate array
     n_trajs = len(trajs)
@@ -64,13 +67,11 @@ def build_msm(trajs, generators, lag_time):
 
     for i, traj in enumerate(shim_trajs):
         ptraj = metric.prepare_trajectory(traj)
-
-        distances = np.inf * np.ones(len(ptraj), dtype='float32')
-        for m in xrange(len(generators)):
-            d = metric.one_to_all(pgens, ptraj, m)
-            closer = np.where(d < distances)[0]
-            distances[closer] = d[closer]
-            assignments[i, closer] = m
+        
+        for j in xrange(len(traj)):
+            d = metric.one_to_all(ptraj, pgens, j)
+            ind = np.argmin(d)
+            assignments[i, j] = ind
 
     counts = msml.get_count_matrix_from_assignments(assignments, n_states=len(generators), lag_time=lag_time)
     _, t_matrix, _, _ = msml.build_msm(counts, ergodic_trimming=False, symmetrize='transpose')
@@ -266,7 +267,7 @@ def get_gold_everything():
     actually_do_errors(GOLD_DIR)
 
 def do_tmatrices(dir_stride=1):
-
+    load_mpi()
     print "Rank %d/%d reporting in!" % (MPIRANK, MPISIZE)
 
     xx_dirs = get_lpt_dirs() + get_ll_dirs()
@@ -292,7 +293,7 @@ def do_tmatrices(dir_stride=1):
         actually_do_tmats(dirs, generators)
 
 def do_errors(dir_stride=1):
-
+    load_mpi()
     print "Rank %d/%d reporting in!" % (MPIRANK, MPISIZE)
 
     xx_dirs = get_lpt_dirs() + get_ll_dirs()
