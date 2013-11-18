@@ -231,8 +231,7 @@ def actually_do_errors(directory):
 
 def gather_errors():
     gold_its = np.loadtxt(os.path.join(GOLD_DIR, 'its.dat'))
-    gold_its = gold_its[1:]
-    n_eigs = len(gold_its)
+    n_eigs = len(gold_its) - 1
     print n_eigs, "implied timescales."
 
     xx_dirs = get_lpt_dirs() + get_ll_dirs()
@@ -241,11 +240,13 @@ def gather_errors():
     for dirr in xx_dirs:
         its = np.loadtxt(os.path.join(dirr, 'its.dat'))
         if len(its.shape) == 1: its = its[np.newaxis, :]
-        assert its.shape[1] - 1 == n_eigs, 'Not matching neigs to gold. %s' % dirr
+        assert its.shape[1] == n_eigs + 1, 'Not matching neigs to gold. %s' % dirr
         errs = np.zeros((its.shape[0], n_eigs))
         for num_to_consider in range(n_eigs):
+            print "Considering", num_to_consider
             # Calculate error from first, first-two, first-three, etc
-            diff = its[:, 1:num_to_consider + 2] - gold_its[:num_to_consider + 1]
+            import pdb; pdb.set_trace()
+            diff = its[:, 1:num_to_consider + 2] - gold_its[1:num_to_consider + 2]
             dot = np.sum(diff ** 2, axis=1)
             errvec = np.sqrt(dot)
             errs[:, num_to_consider] = errvec
