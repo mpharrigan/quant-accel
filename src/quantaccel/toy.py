@@ -13,13 +13,17 @@ from msmbuilder.metrics.baseclasses import Vectorized
 from msmaccelerator.core import markovstatemodel
 import sys
 import pickle
-from mpi4py import MPI
 import sqlite3 as sql
 
-
-COMM = MPI.COMM_WORLD
-MPIRANK = COMM.Get_rank()
-MPISIZE = COMM.Get_size()
+MPIRANK = 0
+MPISIZE = 0
+def load_mpi():
+    from mpi4py import MPI
+    global MPIRANK
+    global MPISIZE
+    COMM = MPI.COMM_WORLD
+    MPIRANK = COMM.Get_rank()
+    MPISIZE = COMM.Get_size()
 
 GOLD_DIR = 'muller/gold'
 LL_DIR = 'muller/ll'
@@ -49,10 +53,9 @@ def cluster():
     genxyz = generators['XYZList']
     np.save(CLUSTER_FN, genxyz)
 
-def build_msm(trajs, generators, lag_time):
+def build_msm(trajs, generators, lag_time, metric):
     # Do assignment
     shim_trajs = [ShimTrajectory(traj.xyz) for traj in trajs]
-    metric = Euclidean2d()
 
     # Allocate array
     n_trajs = len(trajs)
@@ -64,10 +67,11 @@ def build_msm(trajs, generators, lag_time):
 
     for i, traj in enumerate(shim_trajs):
         ptraj = metric.prepare_trajectory(traj)
-
+        
         for j in xrange(len(traj)):
             d = metric.one_to_all(ptraj, pgens, j)
-            assignments[i, j] = np.argmin(d)
+            ind = np.argmin(d)
+            assignments[i, j] = ind
 
     counts = msml.get_count_matrix_from_assignments(assignments, n_states=len(generators), lag_time=lag_time)
     _, t_matrix, _, _ = msml.build_msm(counts, ergodic_trimming=False, symmetrize='transpose')
@@ -227,25 +231,26 @@ def actually_do_errors(directory):
 
 def gather_errors():
     gold_its = np.loadtxt(os.path.join(GOLD_DIR, 'its.dat'))
-    gold_its = gold_its[1:]
-    n_eigs = len(gold_its)
+    n_eigs = len(gold_its) - 1
+    print n_eigs, "implied timescales."
 
     xx_dirs = get_lpt_dirs() + get_ll_dirs()
 
     errors_list = list()
     for dirr in xx_dirs:
         its = np.loadtxt(os.path.join(dirr, 'its.dat'))
-        if len(its.shape) == 1: its = its[np.newaxis,:]
-        assert its.shape[1] - 1 == n_eigs, 'Not matching neigs to gold. %s' % dirr
+        if len(its.shape) == 1: its = its[np.newaxis, :]
+        assert its.shape[1] == n_eigs + 1, 'Not matching neigs to gold. %s' % dirr
         errs = np.zeros((its.shape[0], n_eigs))
         for num_to_consider in range(n_eigs):
+            print "Considering", num_to_consider
             # Calculate error from first, first-two, first-three, etc
-            for j in range(num_to_consider):
-                diff = its[:, 1:num_to_consider + 1] - gold_its[:num_to_consider]
-                dot = np.sum(diff ** 2, axis=1)
-                errvec = np.sqrt(dot)
-                errs[:, j] = errvec
-        errors_list.append((its[:, 0], errs))
+            import pdb; pdb.set_trace()
+            diff = its[:, 1:num_to_consider + 2] - gold_its[1:num_to_consider + 2]
+            dot = np.sum(diff ** 2, axis=1)
+            errvec = np.sqrt(dot)
+            errs[:, num_to_consider] = errvec
+        errors_list.append((dirr, its[:, 0], errs))
     with open(ERROR_FN, 'w') as f:
         pickle.dump(errors_list, f, protocol=2)
 
@@ -263,7 +268,7 @@ def get_gold_everything():
     actually_do_errors(GOLD_DIR)
 
 def do_tmatrices(dir_stride=1):
-
+    load_mpi()
     print "Rank %d/%d reporting in!" % (MPIRANK, MPISIZE)
 
     xx_dirs = get_lpt_dirs() + get_ll_dirs()
@@ -289,7 +294,7 @@ def do_tmatrices(dir_stride=1):
         actually_do_tmats(dirs, generators)
 
 def do_errors(dir_stride=1):
-
+    load_mpi()
     print "Rank %d/%d reporting in!" % (MPIRANK, MPISIZE)
 
     xx_dirs = get_lpt_dirs() + get_ll_dirs()
