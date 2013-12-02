@@ -47,3 +47,6 @@ logs
 
 tProb.mtx
 Gens.h5
+
+*.job
+*.log
