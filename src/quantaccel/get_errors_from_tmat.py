@@ -17,7 +17,7 @@ def do(which, how, whence):
     """
     which - muller, tmat
     how - round, percent
-    whence - tmatfromass, (tmatfromclus?)
+    whence - tmatfromass, tmatfromclus
     """
 
     if which == 'muller':
@@ -50,7 +50,9 @@ def do(which, how, whence):
                     its[i, j + 1] = -lag_time / np.log(v)
             i += 1
 
+    
     np.savetxt('its-%s.dat' % whence, its)
+    return its
 
 
 

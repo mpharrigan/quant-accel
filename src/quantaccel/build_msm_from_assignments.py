@@ -11,7 +11,7 @@ import numpy as np
 import mdtraj
 import scipy.io
 
-MULLER_GENS = '../../cluster_gens.npy'
+MULLER_GENS = '../../gens.npy'
 TMAT_GENS = '../../Gens.h5'
 NPOINTS = 20
 PERCENTS = np.linspace(0.05, 1.0, NPOINTS)
@@ -27,8 +27,8 @@ def do(round_i, which, how):
     if which == 'muller':
         metric = toy.Euclidean2d()
         lag_time = 20
-        gens = np.load(MULLER_GENS)
-        generators = toy.ShimTrajectory(gens)
+        gens = np.loadtxt(MULLER_GENS)
+        generators = toy.ShimTrajectory(gens[:, np.newaxis, :])
     elif which == 'tmat':
         metric = rmsd.RMSD()
         lag_time = 1

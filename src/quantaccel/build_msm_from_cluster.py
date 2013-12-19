@@ -31,7 +31,7 @@ def do(round_i, which, how):
     if which == 'muller':
         metric = toy.Euclidean2d()
         lag_time = 20
-        distance_cutoff = 0.2
+        distance_cutoff = 0.3
     elif which == 'tmat':
         metric = rmsd.RMSD()
         lag_time = 1
@@ -45,8 +45,10 @@ def do(round_i, which, how):
     assignments = hkm.get_assignments()
 
     if round_i == NPOINTS - 1:
-        print "Saving assignments"
-        np.savetxt('gens.npy', assignments)
+        print "Saving generators"
+        gens = hkm.get_generators_as_traj()
+        gens = metric.prepare_trajectory(gens)
+        np.savetxt('gens.npy', gens)
 
     counts = msml.get_count_matrix_from_assignments(assignments,
                                                     lag_time=lag_time)
