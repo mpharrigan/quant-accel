@@ -1,8 +1,11 @@
-
+"""Do adaptive sampling with a provided transition matrix (no molecular
+dynamics). We can fit the convergence over time to compute a 'speed up' vs.
+the parameters in adaptive sampling."""
 
 import scipy.io
 import numpy as np
 import logging as log
+import pickle
 
 from msmbuilder import MSMLib as msmlib
 from scipy import linalg
@@ -11,6 +14,8 @@ from matplotlib import pyplot as pp
 
 
 class TMatSimulator(object):
+
+    """Hold the transition matrix and run dynamics."""
 
     @property
     def n_states(self):
@@ -37,7 +42,7 @@ class TMatSimulator(object):
             state_i - initial state
 
         """
-        log.info('Starting TMat simulation...')
+        log.debug('Starting TMat simulation...')
 
         t_matrix = self.t_matrix
 
@@ -49,13 +54,15 @@ class TMatSimulator(object):
         for _ in xrange(number_of_steps):
             # Get stuff from our sparse matrix
 
-            csr_slicer = slice(t_matrix.indptr[state_i], t_matrix.indptr[state_i + 1])
+            csr_slicer = slice(
+                t_matrix.indptr[state_i],
+                t_matrix.indptr[state_i + 1])
             probs = t_matrix.data[csr_slicer]
             colinds = t_matrix.indices[csr_slicer]
 
             # Check for normalization
             np.testing.assert_almost_equal(np.sum(probs), 1,
-                    err_msg="TMatrix isn't row normalized.")
+                                           err_msg="TMatrix isn't row normalized.")
 
             # Find our new state and translate to actual indices
             prob_i = np.sum(np.cumsum(probs) < np.random.rand())
@@ -76,12 +83,14 @@ class TMatSimulator(object):
 
         if out_fn is not None:
             np.savetxt(out_fn, state_out)
-        log.info('Finished TMat simulation.')
+        log.debug('Finished TMat simulation.')
 
         return state_out
 
 
 class MSM(object):
+
+    """Hold all the trajectories and build and sample from msm."""
 
     def __init__(self, lag_time=1, beta=0):
         self.tmat = None
@@ -93,13 +102,15 @@ class MSM(object):
         self.beta = beta
 
     def add(self, traj):
+        """Add a new trajectory from which the next MSM will be built."""
         self.traj_list.append(traj)
 
     def build(self, sim):
-        counts = msmlib.get_count_matrix_from_assignments(np.array(self.traj_list),
-                                                          n_states=sim.n_states,
-                                                          lag_time=self.lag_time,
-                                                          sliding_window=True)
+        counts = msmlib.get_count_matrix_from_assignments(
+            np.array(self.traj_list),
+            n_states=sim.n_states,
+            lag_time=self.lag_time,
+            sliding_window=True)
 
         _, tmat, _, _ = msmlib.build_msm(counts,
                                          symmetrize='Transpose',
@@ -116,7 +127,8 @@ class MSM(object):
                                   \beta < 1 --> exploration
         """
 
-        counts_per_state = np.array(self.counts.sum(axis=1)).flatten() + 10.**-8
+        counts_per_state = np.array(
+            self.counts.sum(axis=1)).flatten() + 10. ** -8
         weights = np.power(counts_per_state, self.beta - 1.0)
         weights /= np.sum(weights)
 
@@ -126,21 +138,24 @@ class MSM(object):
         for i in range(n_new):
             new_states[i] = np.sum(cum_weights < np.random.rand())
 
-        log.info("Starting from states: %s", new_states)
+        log.debug("Starting from states: %s", new_states)
 
         return new_states
 
     def error_fro(self, sim):
+        """Frobenius norm between transition matrices."""
         diff = self.tmat - sim.t_matrix
         return linalg.norm(diff.todense(), ord='fro')
 
     def error_kl(self, sim):
+        """KL-divergence between 0-th eigenvector (equilibrium distribution).
+        """
         vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
-        q = vecs[:,0]
-        p = sim.vecs[:,0]
+        q = vecs[:, 0]
+        p = sim.vecs[:, 0]
 
-        q = q / np.sum(q)
-        p = p / np.sum(p)
+        q /= np.sum(q)
+        p /= np.sum(p)
 
         np.testing.assert_almost_equal(np.sum(p), 1.0)
         np.testing.assert_almost_equal(np.sum(q), 1.0)
@@ -148,11 +163,14 @@ class MSM(object):
         return np.sum(np.where(np.abs(p) > 1.e-8, p * np.log(p / q), 0))
 
     def error(self, sim, func=error_kl):
+        """Helper function that calls a specific error (convergence) function.
+        """
         return func(self, sim)
 
 
-
 class Accelerator(object):
+
+    """Runs rounds of adaptive sampling and keeps the convergence."""
 
     def __init__(self, simulator, msm, n_rounds=20):
         self.sim = simulator
@@ -174,39 +192,43 @@ class Accelerator(object):
         for round_i in range(n_rounds):
             for traj_i in range(n_tpr):
                 traj = self.sim.simulate(number_of_steps=n_spt,
-                                    state_i=starting_states[traj_i],
-                                    report_interval=1)
+                                         state_i=starting_states[traj_i],
+                                         report_interval=1)
                 self.msm.add(traj)
 
             walltime = n_spt * (round_i + 1)
             self.msm.build(self.sim)
             self.errors.append([walltime, self.msm.error(self.sim)])
             starting_states = self.msm.adapt(n_tpr)
+            log.info("Built model %4d / %4d", (round_i + 1), n_rounds)
 
         self.errors = np.array(self.errors)
 
-    def plot_errors(self):
-        errors = self.errors
-        pp.plot(errors)
-        pp.show()
 
 class RunResult(object):
+
+    """Hold the results of an adaptive run for pickling."""
+
     def __init__(self, params, errors):
         self.params = params
         self.errors = errors
 
     def plot(self):
-        pp.plot(self.errors[:,0], self.errors[:,1], 'o-', label=self.params['n_spt'])
+        """Plot the convergence vs. 'walltime'."""
+        pp.plot(self.errors[:, 0], self.errors[:, 1],
+                'o-', label=self.params['n_spt'])
+
 
 def main():
+    """Define our parameter sets and run the simulations."""
     tmat_sim = TMatSimulator('ntl9.mtx')
 
     defaults = {'lag_time': 1, 'beta': 0, 'n_rounds': 20,
                 'n_tpr': 20, 'n_spt': 1000}
 
     params = [
-        {'n_spt': 100, 'n_rounds': 200},
-        {'n_spt': 1000},
+        {'n_spt': 100},
+        {'n_spt': 10000, 'n_rounds': 3}
     ]
 
     multierrors = list()
@@ -216,17 +238,17 @@ def main():
         param.update(setparam)
         msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
         accelerator = Accelerator(tmat_sim, msm, n_rounds=param['n_rounds'])
-        accelerator.accelerator_loop(n_tpr=param['n_tpr'], n_spt=param['n_spt'])
+        accelerator.accelerator_loop(
+            n_tpr=param['n_tpr'],
+            n_spt=param['n_spt'])
 
-        multierrors.append(RunResult(param,accelerator.errors))
+        multierrors.append(RunResult(param, accelerator.errors))
 
-    for runres in multierrors:
-        runres.plot()
-    pp.legend()
-    pp.show()
+    for i, runres in enumerate(multierrors):
+        with open('result-a-%d.pickl' % i, 'w') as f:
+            pickle.dump(runres, f)
 
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.DEBUG)
+    log.basicConfig(level=log.INFO)
     main()
-
