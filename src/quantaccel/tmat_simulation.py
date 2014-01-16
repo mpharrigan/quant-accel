@@ -6,6 +6,7 @@ import scipy.io
 import numpy as np
 import logging as log
 import pickle
+import itertools
 
 from msmbuilder import MSMLib as msmlib
 from scipy import linalg
@@ -19,6 +20,7 @@ class TMatSimulator(object):
 
     @property
     def n_states(self):
+        """Number of states in the model."""
         return self.t_matrix.shape[0]
 
     def __init__(self, tmat_fn='ntl9.mtx'):
@@ -106,6 +108,12 @@ class MSM(object):
         self.traj_list.append(traj)
 
     def build(self, sim):
+        """Build an MSM
+
+        This method uses all the trajectories added to the object so far
+        and uses `sim` to get the number of states for easier convergence
+        calculation.
+        """
         counts = msmlib.get_count_matrix_from_assignments(
             np.array(self.traj_list),
             n_states=sim.n_states,
@@ -226,16 +234,26 @@ def main():
     defaults = {'lag_time': 1, 'beta': 0, 'n_rounds': 20,
                 'n_tpr': 20, 'n_spt': 1000}
 
+    beta = [0, 1, 2]
+
     params = [
-        {'n_spt': 100},
-        {'n_spt': 10000, 'n_rounds': 3}
+        {'n_spt': 2, 'n_rounds': 200},
+        {'n_spt': 10, 'n_rounds': 200},
+        {'n_spt': 100, 'n_rounds': 200},
+        {'n_spt': 1000, 'n_rounds': 20},
+        {'n_spt': 10000, 'n_rounds': 5},
+        {'n_tpr': 1},
+        {'n_tpr': 10},
+        {'n_tpr': 100},
+        {'n_tpr': 1000}
     ]
 
     multierrors = list()
 
-    for setparam in params:
+    for (setparam, setbeta) in itertools.product(params, beta):
         param = dict(defaults)
         param.update(setparam)
+        param.update(beta=setbeta)
         msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
         accelerator = Accelerator(tmat_sim, msm, n_rounds=param['n_rounds'])
         accelerator.accelerator_loop(
