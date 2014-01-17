@@ -9,6 +9,7 @@ import numpy as np
 import logging as log
 import pickle
 import itertools
+import sys
 
 from msmbuilder import MSMLib as msmlib
 from matplotlib import pyplot as pp
@@ -224,7 +225,7 @@ class RunResult(object):
                 'o-', label=self.params['n_spt'])
 
 
-def main(run_i = -1):
+def main(run_i=-1):
     """Define our parameter sets and run the simulations.
 
     run_i is for pbsdsh. If it is less than 0, all will be run
@@ -271,7 +272,11 @@ def main(run_i = -1):
         i += 1
 
 
-
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
-    main()
+    if len(sys.argv) != 1:
+        main()
+    elif len(sys.argv) == 2:
+        main(int(sys.argv[1]))
+    else:
+        print "Usage: python tmat_sumlation.py [index]"
