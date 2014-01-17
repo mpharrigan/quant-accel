@@ -46,6 +46,7 @@ models
 logs
 
 tProb.mtx
+ntl9.mtx
 Gens.h5
 
 *.job

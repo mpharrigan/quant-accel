@@ -135,10 +135,29 @@ class MSM(object):
                                   \beta > 1 --> refinement
                                   \beta < 1 --> exploration
         """
+        # TODO: Sampling knows all the states
+
+        num_fro = np.array(self.counts.sum(axis=1), dtype=int).flatten()
+        num_to = np.array(self.counts.sum(axis=0), dtype=int).flatten()
+
+        no_fro = np.where(num_fro == 0)[0]
+        no_to = np.where(num_to == 0)[0]
+
+        abs_no = np.intersect1d(no_fro, no_to)
+        only_no_fro = np.setdiff1d(no_fro, no_to)
+        only_no_to = np.setdiff1d(no_to, no_fro)
+
+        log.debug("Undiscovered states: %d", len(abs_no))
+        log.debug("Only no fro: %5d\tOnly no to: %5d", len(only_no_fro), len(only_no_to))
 
         counts_per_state = np.array(
             self.counts.sum(axis=1)).flatten() + 10. ** -8
+
         weights = np.power(counts_per_state, self.beta - 1.0)
+
+        # Set prob of choosing 'undiscovered' state to 0
+        weights[abs_no] = 0.0
+
         weights /= np.sum(weights)
 
         cum_weights = np.cumsum(weights)
@@ -191,6 +210,7 @@ class Accelerator(object):
             n_tpr - # trajectories per round (paralellization)
             n_spt - # of steps (length) per trajectory
         """
+
         n_rounds = self.n_rounds
         starting_states = np.random.randint(low=0, high=self.sim.n_states,
                                             size=n_tpr)
@@ -255,6 +275,7 @@ def main(run_i=-1):
     for (setparam, setbeta) in itertools.product(params, beta):
 
         if run_i < 0 or run_i == i:
+            log.debug("Setting params: %s and beta = %f", str(setparam), setbeta)
             param = dict(defaults)
             param.update(setparam)
             param.update(beta=setbeta)
@@ -271,12 +292,21 @@ def main(run_i=-1):
 
         i += 1
 
+NPROCS = 16
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
-    if len(sys.argv) != 1:
+    if len(sys.argv) == 1:
         main()
-    elif len(sys.argv) == 2:
-        main(int(sys.argv[1]))
     else:
-        print "Usage: python tmat_sumlation.py [index]"
+        if len(sys.argv) == 2:
+            run_i = int(sys.argv[1])
+            main(run_i)
+        elif len(sys.argv) == 3:
+            flipper = int(sys.argv[1])
+            offset = int(sys.argv[2])
+            run_i = NPROCS * flipper + offset
+            main(run_i)
+        else:
+            print "Usage: python tmat_sumlation.py [index]"
+
