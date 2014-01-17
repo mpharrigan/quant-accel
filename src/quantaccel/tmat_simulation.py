@@ -3,14 +3,14 @@ dynamics). We can fit the convergence over time to compute a 'speed up' vs.
 the parameters in adaptive sampling."""
 
 import scipy.io
+import scipy.linalg
+import scipy.sparse.linalg
 import numpy as np
 import logging as log
 import pickle
 import itertools
 
 from msmbuilder import MSMLib as msmlib
-from scipy import linalg
-import scipy.sparse.linalg
 from matplotlib import pyplot as pp
 
 
@@ -153,7 +153,7 @@ class MSM(object):
     def error_fro(self, sim):
         """Frobenius norm between transition matrices."""
         diff = self.tmat - sim.t_matrix
-        return linalg.norm(diff.todense(), ord='fro')
+        return scipy.linalg.norm(diff.todense(), ord='fro')
 
     def error_kl(self, sim):
         """KL-divergence between 0-th eigenvector (equilibrium distribution).
@@ -164,9 +164,6 @@ class MSM(object):
 
         q /= np.sum(q)
         p /= np.sum(p)
-
-        np.testing.assert_almost_equal(np.sum(p), 1.0)
-        np.testing.assert_almost_equal(np.sum(q), 1.0)
 
         return np.sum(np.where(np.abs(p) > 1.e-8, p * np.log(p / q), 0))
 
@@ -227,8 +224,11 @@ class RunResult(object):
                 'o-', label=self.params['n_spt'])
 
 
-def main():
-    """Define our parameter sets and run the simulations."""
+def main(run_i = -1):
+    """Define our parameter sets and run the simulations.
+
+    run_i is for pbsdsh. If it is less than 0, all will be run
+    """
     tmat_sim = TMatSimulator('ntl9.mtx')
 
     defaults = {'lag_time': 1, 'beta': 0, 'n_rounds': 20,
@@ -249,22 +249,27 @@ def main():
     ]
 
     multierrors = list()
+    i = 0
 
     for (setparam, setbeta) in itertools.product(params, beta):
-        param = dict(defaults)
-        param.update(setparam)
-        param.update(beta=setbeta)
-        msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
-        accelerator = Accelerator(tmat_sim, msm, n_rounds=param['n_rounds'])
-        accelerator.accelerator_loop(
-            n_tpr=param['n_tpr'],
-            n_spt=param['n_spt'])
 
-        multierrors.append(RunResult(param, accelerator.errors))
+        if run_i < 0 or run_i == i:
+            param = dict(defaults)
+            param.update(setparam)
+            param.update(beta=setbeta)
+            msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
+            accelerator = Accelerator(tmat_sim, msm, n_rounds=param['n_rounds'])
+            accelerator.accelerator_loop(
+                n_tpr=param['n_tpr'],
+                n_spt=param['n_spt'])
 
-    for i, runres in enumerate(multierrors):
-        with open('result-a-%d.pickl' % i, 'w') as f:
-            pickle.dump(runres, f)
+            rr = RunResult(param, accelerator.errors)
+            multierrors.append(rr)
+            with open('result-a-%d.pickl' % i, 'w') as f:
+                pickle.dump(rr, f)
+
+        i += 1
+
 
 
 if __name__ == "__main__":
