@@ -2,6 +2,8 @@
 dynamics). We can fit the convergence over time to compute a 'speed up' vs.
 the parameters in adaptive sampling."""
 
+from __future__ import division
+
 import scipy.io
 import scipy.linalg
 import scipy.sparse.linalg
@@ -10,6 +12,7 @@ import logging as log
 import pickle
 import itertools
 import sys
+import scipy.optimize
 
 from msmbuilder import MSMLib as msmlib
 from matplotlib import pyplot as pp
@@ -135,7 +138,6 @@ class MSM(object):
                                   \beta > 1 --> refinement
                                   \beta < 1 --> exploration
         """
-        # TODO: Sampling knows all the states
 
         num_fro = np.array(self.counts.sum(axis=1), dtype=int).flatten()
         num_to = np.array(self.counts.sum(axis=0), dtype=int).flatten()
@@ -148,7 +150,10 @@ class MSM(object):
         only_no_to = np.setdiff1d(no_to, no_fro)
 
         log.debug("Undiscovered states: %d", len(abs_no))
-        log.debug("Only no fro: %5d\tOnly no to: %5d", len(only_no_fro), len(only_no_to))
+        log.debug(
+            "Only no fro: %5d\tOnly no to: %5d",
+            len(only_no_fro),
+            len(only_no_to))
 
         counts_per_state = np.array(
             self.counts.sum(axis=1)).flatten() + 10. ** -8
@@ -256,38 +261,50 @@ def main(run_i=-1):
                 'n_tpr': 20, 'n_spt': 1000}
 
     beta = [0, 1, 2]
-
-    params = [
+    spt = [
         {'n_spt': 2, 'n_rounds': 200},
         {'n_spt': 10, 'n_rounds': 200},
         {'n_spt': 100, 'n_rounds': 200},
         {'n_spt': 1000, 'n_rounds': 20},
-        {'n_spt': 10000, 'n_rounds': 5},
-        {'n_tpr': 1},
-        {'n_tpr': 10},
-        {'n_tpr': 100},
-        {'n_tpr': 1000}
+        {'n_spt': 10000, 'n_rounds': 5}
     ]
+    tpr = [1, 10, 100, 1000]
+
+    log.info("Number of permutations = %d", len(beta) * len(spt) * len(tpr))
 
     multierrors = list()
     i = 0
 
-    for (setparam, setbeta) in itertools.product(params, beta):
+    for (setbeta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
 
         if run_i < 0 or run_i == i:
-            log.debug("Setting params: %s and beta = %f", str(setparam), setbeta)
+            log.debug(
+                "Setting beta = %f\tspt = %s\ttpr = %d",
+                setbeta, str(set_spt), set_tpr)
+
+            # Make param dict from defaults and set our set values
             param = dict(defaults)
-            param.update(setparam)
+            param.update(set_spt)
             param.update(beta=setbeta)
+            param.update(tpr=set_tpr)
+
+            # Make MSM container object
             msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
-            accelerator = Accelerator(tmat_sim, msm, n_rounds=param['n_rounds'])
+
+            # Make accelerator object
+            accelerator = Accelerator(
+                tmat_sim,
+                msm,
+                n_rounds=param['n_rounds'])
+
+            # Run it
             accelerator.accelerator_loop(
                 n_tpr=param['n_tpr'],
                 n_spt=param['n_spt'])
 
             rr = RunResult(param, accelerator.errors)
             multierrors.append(rr)
-            with open('result-a-%d.pickl' % i, 'w') as f:
+            with open('result-b-%d.pickl' % i, 'w') as f:
                 pickle.dump(rr, f)
 
         i += 1
@@ -300,13 +317,10 @@ if __name__ == "__main__":
         main()
     else:
         if len(sys.argv) == 2:
-            run_i = int(sys.argv[1])
-            main(run_i)
+            main(int(sys.argv[1]))
         elif len(sys.argv) == 3:
-            flipper = int(sys.argv[1])
-            offset = int(sys.argv[2])
-            run_i = NPROCS * flipper + offset
-            main(run_i)
+            TENS = int(sys.argv[1])
+            ONES = int(sys.argv[2])
+            main(NPROCS * TENS + ONES)
         else:
             print "Usage: python tmat_sumlation.py [index]"
-
