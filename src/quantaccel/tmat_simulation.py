@@ -286,7 +286,7 @@ def main(run_i=-1):
             param = dict(defaults)
             param.update(set_spt)
             param.update(beta=setbeta)
-            param.update(tpr=set_tpr)
+            param.update(n_tpr=set_tpr)
 
             # Make MSM container object
             msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
@@ -304,7 +304,7 @@ def main(run_i=-1):
 
             rr = RunResult(param, accelerator.errors)
             multierrors.append(rr)
-            with open('result-b-%d.pickl' % i, 'w') as f:
+            with open('result-c-%d.pickl' % i, 'w') as f:
                 pickle.dump(rr, f)
 
         i += 1
