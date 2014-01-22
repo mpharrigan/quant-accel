@@ -9,8 +9,25 @@ import scipy.io
 
 import numpy as np
 
+from quantaccel.tmat_simulation import RunResult
+import pickle
 
-NEIGS = 5
+GVECS_FN = "../../gold/gold/gold_vecs.pickl"
+
+def errors_kl(vecs, gold_vecs):
+    """KL-divergence between 0-th eigenvector (equilibrium distribution).
+    """
+
+    q = vecs[:, 0]
+    p = gold_vecs[:, 0]
+
+    q /= np.sum(q)
+    p /= np.sum(p)
+
+    return np.nan_to_num(np.sum(np.where(np.abs(p) > 1.e-8, p * np.log(p / q), 0)))
+
+
+NEIGS = 4
 EPS = 1.0e-10
 
 def do(which, how, whence):
@@ -19,6 +36,9 @@ def do(which, how, whence):
     how - round, percent
     whence - tmatfromass, tmatfromclus
     """
+    with open(GVECS_FN) as f:
+        gold_vecs = pickle.load(f)
+
 
     if which == 'muller':
         lag_time = 20
@@ -28,7 +48,8 @@ def do(which, how, whence):
     files = os.listdir('.')
     matchy = '%s-%s-[0-9]+.mtx' % (whence, how)
     i = 0
-    its = np.zeros((len(files), NEIGS + 1))
+
+    its = np.zeros((len(files), 2))
     for fn in files:
         if re.match(matchy, fn):
             with open(fn) as f:
@@ -43,15 +64,22 @@ def do(which, how, whence):
 
             vals, vecs = msma.get_eigenvectors(tmat, n_eigs=NEIGS + 1)
             its[i, 0] = wallsteps
-            for j, v in enumerate(vals[1:]):
-                if np.abs(v - 1.0) < EPS:
-                    its[i, j + 1] = 1.0 / EPS
-                else:
-                    its[i, j + 1] = -lag_time / np.log(v)
+            its[i, 1] = errors_kl(vecs, gold_vecs)
             i += 1
 
-    
-    np.savetxt('its-%s.dat' % whence, its)
+    # Fix format of errors array
+    its = its[:i]
+    its = its.transpose()
+
+    # Hacky get params
+    cwd = os.path.abspath(os.curdir)
+    folder_name = cwd[cwd.rfind('/')+1:]
+    fn_splits = folder_name.split('-')
+    params = {fn_splits[0]: fn_splits[1]}
+    rr = RunResult(params, its)
+    with open("%s-%s.kl.pickl" % (whence,how), 'w') as f:
+        pickle.dump(rr, f)
+
     return its
 
 
