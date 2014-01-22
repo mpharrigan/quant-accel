@@ -257,8 +257,7 @@ def main(run_i=-1):
     """
     tmat_sim = TMatSimulator('ntl9.mtx')
 
-    defaults = {'lag_time': 1, 'beta': 0, 'n_rounds': 20,
-                'n_tpr': 20, 'n_spt': 1000}
+    defaults = {'lag_time': 1}
 
     beta = [0, 1, 2]
     spt = [
