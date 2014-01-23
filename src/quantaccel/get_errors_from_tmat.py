@@ -4,7 +4,8 @@ import os
 import re
 import sys
 
-from msmbuilder import msm_analysis as msma
+#from msmbuilder import msm_analysis as msma
+import scipy.sparse.linalg
 import scipy.io
 
 import numpy as np
@@ -13,6 +14,7 @@ from quantaccel.tmat_simulation import RunResult
 import pickle
 
 GVECS_FN = "../../gold/gold/gold_vecs.pickl"
+GVECS_TMAT_FN = "../../gold-vecs2.pickl"
 
 def errors_kl(vecs, gold_vecs):
     """KL-divergence between 0-th eigenvector (equilibrium distribution).
@@ -24,7 +26,7 @@ def errors_kl(vecs, gold_vecs):
     q /= np.sum(q)
     p /= np.sum(p)
 
-    return np.nan_to_num(np.sum(np.where(np.abs(p) > 1.e-8, p * np.log(p / q), 0)))
+    return np.abs(np.sum(np.where(np.abs(p) > 1.e-8, p * np.log(p / q), 0)))
 
 
 NEIGS = 4
@@ -36,14 +38,15 @@ def do(which, how, whence):
     how - round, percent
     whence - tmatfromass, tmatfromclus
     """
-    with open(GVECS_FN) as f:
-        gold_vecs = pickle.load(f)
-
 
     if which == 'muller':
         lag_time = 20
+        with open(GVECS_FN) as f:
+            gold_vecs = pickle.load(f)
     elif which == 'tmat':
         lag_time = 1
+        with open(GVECS_TMAT_FN) as f:
+            gold_vecs = pickle.load(f)
 
     files = os.listdir('.')
     matchy = '%s-%s-[0-9]+.mtx' % (whence, how)
@@ -62,7 +65,7 @@ def do(which, how, whence):
                     wallsteps = -1
                 print "Number of wallsteps: %d" % wallsteps
 
-            vals, vecs = msma.get_eigenvectors(tmat, n_eigs=NEIGS + 1)
+            vals, vecs = scipy.sparse.linalg.eigs(tmat)
             its[i, 0] = wallsteps
             its[i, 1] = errors_kl(vecs, gold_vecs)
             i += 1
