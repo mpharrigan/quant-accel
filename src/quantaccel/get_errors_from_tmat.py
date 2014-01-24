@@ -13,7 +13,7 @@ import numpy as np
 from quantaccel.tmat_simulation import RunResult
 import pickle
 
-GVECS_FN = "../../gold/gold/gold_vecs.pickl"
+GVECS_FN = "../../gold/gold/gold_vecs2.pickl"
 GVECS_TMAT_FN = "../../gold-vecs2.pickl"
 
 def errors_kl(vecs, gold_vecs):
