@@ -17,6 +17,8 @@ import scipy.optimize
 from msmbuilder import MSMLib as msmlib
 from matplotlib import pyplot as pp
 
+from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
+
 
 class TMatSimulator(object):
 
@@ -27,13 +29,14 @@ class TMatSimulator(object):
         """Number of states in the model."""
         return self.t_matrix.shape[0]
 
-    def __init__(self, tmat_fn='ntl9.mtx'):
+    def __init__(self, tmat_fn='../ntl9.mtx'):
         # Load transition matrix
         t_matrix = scipy.io.mmread(tmat_fn)
         t_matrix = t_matrix.tocsr()
         self.t_matrix = t_matrix
 
         self.vals, self.vecs = scipy.sparse.linalg.eigs(t_matrix)
+        self.vecs = np.real_if_close(self.vecs)
 
         log.info('Loaded transition matrix of shape %s',
                  self.t_matrix.shape)
@@ -183,16 +186,55 @@ class MSM(object):
     def error_kl(self, sim):
         """KL-divergence between 0-th eigenvector (equilibrium distribution).
         """
-        vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
-        q = vecs[:, 0]
-        p = sim.vecs[:, 0]
+        p = sim.vecs[:,0]
+        try:
+            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
+            vecs = np.real_if_close(vecs)
+            q = vecs[:,0]
+        except ArpackNoConvergence:
+            log.warn("No eigenv convergence")
+            q = np.ones(p.shape)
 
         q /= np.sum(q)
         p /= np.sum(p)
 
-        return np.sum(np.where(np.abs(p) > 1.e-8, p * np.log(p / q), 0))
+        return np.sum(np.nan_to_num(np.where(np.abs(p) > 1.e-6, p * np.log(p / q), 0)))
 
-    def error(self, sim, func=error_kl):
+    def error_tvd(self, sim):
+        """Total variation distance."""
+        p = sim.vecs[:,0]
+        try:
+            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
+            vecs = np.real_if_close(vecs)
+            q = vecs[:,0]
+        except ArpackNoConvergence:
+            log.warn("No eigenv convergence")
+            q = np.ones(p.shape)
+
+        q /= np.sum(q)
+        p /= np.sum(p)
+
+        return 0.5 * np.sum(np.abs(p-q))
+
+    def error_euc(self, sim):
+        """Euclidean distance."""
+        p = sim.vecs[:,0]
+        try:
+            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
+            vecs = np.real_if_close(vecs)
+            q = vecs[:,0]
+        except ArpackNoConvergence:
+            log.warn("No eigenv convergence")
+            q = np.ones(p.shape)
+
+        q /= np.sum(q)
+        p /= np.sum(p)
+
+        diff = p-q
+
+        return np.sqrt(np.dot(diff, diff))
+
+    def error(self, sim, func=error_tvd):
         """Helper function that calls a specific error (convergence) function.
         """
         return func(self, sim)
@@ -250,22 +292,22 @@ class RunResult(object):
                 'o-', label=self.params['n_spt'])
 
 
-def main(run_i=-1):
+def main(run_i=-1, runcopy=0):
     """Define our parameter sets and run the simulations.
 
     run_i is for pbsdsh. If it is less than 0, all will be run
     """
     tmat_sim = TMatSimulator('ntl9.mtx')
 
-    defaults = {'lag_time': 1}
+    defaults = {'lag_time': 1, 'runcopy': runcopy}
 
     beta = [0, 1, 2]
     spt = [
-        {'n_spt': 2, 'n_rounds': 200},
+        {'n_spt': 4, 'n_rounds': 200},
         {'n_spt': 10, 'n_rounds': 200},
-        {'n_spt': 100, 'n_rounds': 200},
+        {'n_spt': 30, 'n_rounds': 100},
+        {'n_spt': 100, 'n_rounds': 100},
         {'n_spt': 1000, 'n_rounds': 20},
-        {'n_spt': 10000, 'n_rounds': 5}
     ]
     tpr = [1, 10, 100, 1000]
 
@@ -277,7 +319,7 @@ def main(run_i=-1):
     for (setbeta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
 
         if run_i < 0 or run_i == i:
-            log.debug(
+            log.info(
                 "Setting beta = %f\tspt = %s\ttpr = %d",
                 setbeta, str(set_spt), set_tpr)
 
@@ -303,8 +345,8 @@ def main(run_i=-1):
 
             rr = RunResult(param, accelerator.errors)
             multierrors.append(rr)
-            with open('result-c-%d.pickl' % i, 'w') as f:
-                pickle.dump(rr, f)
+            with open('result-d-runcopy-%d-%d.pickl' % (runcopy,i), 'w') as f:
+                pickle.dump(rr, f, protocol=2)
 
         i += 1
 
@@ -314,12 +356,16 @@ if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
     if len(sys.argv) == 1:
         main()
+    elif len(sys.argv) == 2:
+        main(int(sys.argv[1]))
+    elif len(sys.argv) == 3:
+        TENS = int(sys.argv[1])
+        ONES = int(sys.argv[2])
+        main(NPROCS * TENS + ONES)
+    elif len(sys.argv) == 4:
+        TENS = int(sys.argv[1])
+        ONES = int(sys.argv[2])
+        RUNCOPY = int(sys.argv[3])
+        main(NPROCS * TENS + ONES, runcopy=RUNCOPY)
     else:
-        if len(sys.argv) == 2:
-            main(int(sys.argv[1]))
-        elif len(sys.argv) == 3:
-            TENS = int(sys.argv[1])
-            ONES = int(sys.argv[2])
-            main(NPROCS * TENS + ONES)
-        else:
-            print "Usage: python tmat_sumlation.py [index]"
+        print "Usage: python tmat_sumlation.py [index]"
