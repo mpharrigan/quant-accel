@@ -52,3 +52,5 @@ Gens.h5
 
 *.job
 *.log
+
+*result-*-*.pickl
