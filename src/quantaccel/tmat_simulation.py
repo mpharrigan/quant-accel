@@ -297,7 +297,7 @@ def main(run_i=-1, runcopy=0):
 
     run_i is for pbsdsh. If it is less than 0, all will be run
     """
-    tmat_sim = TMatSimulator('ntl9.mtx')
+    tmat_sim = TMatSimulator('../ntl9.mtx')
 
     defaults = {'lag_time': 1, 'runcopy': runcopy}
 
