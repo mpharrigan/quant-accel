@@ -34,8 +34,10 @@ def fix_result(r):
 
     e.g. make real, remove outliers.
     """
+    if not np.all(np.isreal(r.errors)):
+        raise Exception("Unreal!")
 
-    r.errors = np.delete(r.errors, np.where(r.errors[:, 1] > 1)[0], 0)
+    r.errors = np.delete(r.errors, np.where(r.errors[:, 1] > 1.0)[0], 0)
     return r
 
 
@@ -104,6 +106,9 @@ def fit_results(results, fig_out_dir, fit_func=expifunc, p0=None):
 
             # If the parameters do not change, it probably didn't fit
             if np.all(np.abs(popt - p0) < 1e-6):
+                raise Exception
+
+            if np.any(popt<0):
                 raise Exception
 
             # Make fit curve
