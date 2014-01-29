@@ -51,9 +51,13 @@ def ifunc_off(x, a, offset):
     return a / x - offset
 
 
-def exp(x, tau, c, offset):
+def simple_exp(x, tau):
     """Exponential with a y-offset."""
-    return c * np.exp(-x / tau) + offset
+    return np.exp(-x / tau)
+
+def bendy_exp(x, tau, n):
+    """Exponential where the power of the exponent can vary."""
+    return np.exp(- (x / tau) ** n)
 
 
 def expifunc(x, a, n):
@@ -78,15 +82,23 @@ def calc_speedup(fit_func, popt, err_bits=0.1):
     if fit_func == expifunc:
         a, n = popt
         return 1e6 * (err_bits / a) ** (1.0 / n)
+    elif fit_func == simple_exp:
+        tau = popt
+        return -1e6 * (1/(tau * np.log(err_bits)))
 
 
-def fit_results(results, fig_out_dir, fit_func=expifunc, p0=None):
+def fit_results(results, fig_out_dir, fit_func=simple_exp, p0=None, show=False):
     """Fit all the results from a particular runcopy (directory of results)
     """
     n_fit = 0
 
     if p0 is None:
-        p0 = [1000., 1.]
+        if fit_func == expifunc:
+            p0 = [1000., 1.]
+        elif fit_func == simple_exp:
+            p0 = [1000.]
+        else:
+            raise Exception("Please specify p0")
 
     # Sorry, it's no longer a dictionary
     out_dict = list()
@@ -100,6 +112,9 @@ def fit_results(results, fig_out_dir, fit_func=expifunc, p0=None):
         pp.clf()
         pp.plot(r.errors[:, 0], r.errors[:, 1], 'o')
         try:
+            if r.errors.shape[0] <= len(p0) * 2:
+                raise Exception
+
             # Try to fit
             popt, pcov = scipy.optimize.curve_fit(
                 fit_func, r.errors[:, 0], r.errors[:, 1], p0=p0)
@@ -112,7 +127,11 @@ def fit_results(results, fig_out_dir, fit_func=expifunc, p0=None):
                 raise Exception
 
             # Make fit curve
-            x = np.linspace(np.min(r.errors[:, 0]), np.max(r.errors[:, 0]))
+            if fit_func in [expifunc]:
+                # For those that blow up at 0
+                x = np.linspace(np.min(r.errors[:, 0]), np.max(r.errors[:, 0]))
+            else:
+                x = np.linspace(0, np.max(r.errors[:,0]))
             yfit = fit_func(x, *popt)
             pp.plot(x, yfit, '-')
             pp.title((str(r.params)))
@@ -134,6 +153,7 @@ def fit_results(results, fig_out_dir, fit_func=expifunc, p0=None):
         pp.xlim(xmin=0)
         pp.ylim(ymin=0)
         pp.savefig(os.path.join(fig_out_dir, 'fit-%d.png' % i))
+        if show: pp.show()
         log.debug("Fit result %d", i)
 
     log.info("Found fits for %d out of %i", n_fit, len(results))
