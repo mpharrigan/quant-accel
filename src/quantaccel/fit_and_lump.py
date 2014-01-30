@@ -64,6 +64,9 @@ def expifunc(x, a, n):
     """Inverse with tunable exponent."""
     return a / (x ** n)
 
+def double_exp(x, c, d, tau1, tau2):
+    return c * np.exp(-x/tau1) + d * np.exp(-x/tau2)
+
 
 def add_result_to_dict(out_dict, speedup, quality, params):
     """After fitting, add it to some data structure.
@@ -74,17 +77,23 @@ def add_result_to_dict(out_dict, speedup, quality, params):
     out_dict.append(to_append)
 
 
-def calc_speedup(fit_func, popt, err_bits=0.1):
+def calc_speedup(fit_func, popt, err_bits=0.1, scale=1e6):
     """Calculate speedup for a given fit function and parameters
 
     err_bits is reference 'error'.
     """
     if fit_func == expifunc:
         a, n = popt
-        return 1e6 * (err_bits / a) ** (1.0 / n)
+        return scale * (err_bits / a) ** (1.0 / n)
     elif fit_func == simple_exp:
         tau = popt
-        return -1e6 * (1/(tau * np.log(err_bits)))
+        return -scale * (1/(tau * np.log(err_bits)))
+    elif fit_func == bendy_exp:
+        tau, n = popt
+        time = tau * (-np.log(err_bits))**(1.0/n)
+        return scale / time
+    else:
+        raise Exception("No speedup calc for this fit func.")
 
 
 def fit_results(results, fig_out_dir, fit_func=simple_exp, p0=None, show=False):
@@ -113,18 +122,13 @@ def fit_results(results, fig_out_dir, fit_func=simple_exp, p0=None, show=False):
         pp.plot(r.errors[:, 0], r.errors[:, 1], 'o')
         try:
             if r.errors.shape[0] <= len(p0) * 2:
-                raise Exception
+                raise Exception("Not enough data points")
 
             # Try to fit
             popt, pcov = scipy.optimize.curve_fit(
                 fit_func, r.errors[:, 0], r.errors[:, 1], p0=p0)
 
-            # If the parameters do not change, it probably didn't fit
-            if np.all(np.abs(popt - p0) < 1e-6):
-                raise Exception
 
-            if np.any(popt<0):
-                raise Exception
 
             # Make fit curve
             if fit_func in [expifunc]:
@@ -137,16 +141,24 @@ def fit_results(results, fig_out_dir, fit_func=simple_exp, p0=None, show=False):
             pp.title((str(r.params)))
             pp.xlabel(str(popt))
 
+            # If the parameters do not change, it probably didn't fit
+            if np.all(np.abs(popt - p0) < 1e-6):
+                raise Exception("Same as p0")
+
+            # We don't want any negative params either
+            if np.any(popt<0):
+                raise Exception("Negative params")
+
+            speedup = calc_speedup(fit_func, popt)
+            pp.suptitle("Speedup: %d" % int(speedup))
             # Add it to the dictionary
             add_result_to_dict(
-                out_dict,
-                calc_speedup(fit_func,popt),
-                1.0,
-                r.params)
+                out_dict, speedup,
+                1.0, r.params)
             n_fit += 1
-        except:
+        except Exception as e:
             pp.title(str(r.params))
-            pp.xlabel("Didn't fit")
+            pp.suptitle("Didn't fit: %s" % e.args)
 
             add_result_to_dict(out_dict, 0, 0.0, r.params)
 
