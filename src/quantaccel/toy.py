@@ -67,7 +67,7 @@ def build_msm(trajs, generators, lag_time, metric):
 
     for i, traj in enumerate(shim_trajs):
         ptraj = metric.prepare_trajectory(traj)
-        
+
         for j in xrange(len(traj)):
             d = metric.one_to_all(ptraj, pgens, j)
             ind = np.argmin(d)
@@ -170,7 +170,7 @@ def ll_dir_to_x(fn):
 
 class Euclidean2d(Vectorized):
     def prepare_trajectory(self, trajectory):
-        xyz = trajectory["XYZList"]
+        xyz = trajectory.xyz
         if xyz.shape[2] == 3:
             xyz[:, :, 2] = 0.0
         nframes, natoms, ndims = xyz.shape
