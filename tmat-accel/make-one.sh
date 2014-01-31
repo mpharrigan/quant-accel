@@ -6,7 +6,7 @@ if [ -z "$1" ]; then
 	exit
 fi
 
-RUNCOPY=$[$1-1]
+RUNCOPY=$1
 DIRNAME=e-run-$1
 
 echo dirname: $DIRNAME runcopy: $RUNCOPY
