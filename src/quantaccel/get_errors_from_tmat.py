@@ -12,48 +12,21 @@ import numpy as np
 
 from quantaccel.tmat_simulation import RunResult
 import pickle
-from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
 
-import logging as log
-
-GVECS_FN = "../../gold/gold/gold_vecs2.pickl"
+GVECS_FN = "../../gold/gold/gold_vecs3.pickl"
 GVECS_TMAT_FN = "../../gold-vecs2.pickl"
 
-def error_kl(tmat, gold_vecs):
+def errors_kl(vecs, gold_vecs):
     """KL-divergence between 0-th eigenvector (equilibrium distribution).
     """
-    p = gold_vecs[:,0]
-    try:
-        vals, vecs = scipy.sparse.linalg.eigs(tmat)
-        vecs = np.real_if_close(vecs)
-        q = vecs[:,0]
-    except ArpackNoConvergence:
-        log.warn("No eigenv convergence")
-        q = np.ones(p.shape)
+
+    q = vecs[:, 0]
+    p = gold_vecs[:, 0]
 
     q /= np.sum(q)
     p /= np.sum(p)
 
-    return np.sum(np.nan_to_num(np.where(np.abs(p) > 1.e-6, p * np.log(p / q), 0)))
-
-def errors_tvd(tmat, gold_vecs):
-    """Total variation distance."""
-    p = gold_vecs[:,0]
-    try:
-        vals, vecs = scipy.sparse.linalg.eigs(tmat)
-        vecs = np.real_if_close(vecs)
-        q = vecs[:,0]
-    except ArpackNoConvergence:
-        log.warn("No eigenv convergence")
-        q = np.ones(p.shape)
-
-    q /= np.sum(q)
-    p /= np.sum(p)
-
-    return 0.5 * np.sum(np.abs(p-q))
-
-def errors(tmat, gold_vecs, func=errors_tvd):
-    return func(tmat, gold_vecs)
+    return np.abs(np.sum(np.where(np.abs(p) > 1.e-8, p * np.log(p / q), 0)))
 
 
 NEIGS = 4
@@ -70,12 +43,10 @@ def do(which, how, whence):
         lag_time = 20
         with open(GVECS_FN) as f:
             gold_vecs = pickle.load(f)
-            gold_vecs = np.real_if_close(gold_vecs)
     elif which == 'tmat':
         lag_time = 1
         with open(GVECS_TMAT_FN) as f:
             gold_vecs = pickle.load(f)
-            gold_vecs = np.real_if_close(gold_vecs)
 
     files = os.listdir('.')
     matchy = '%s-%s-[0-9]+.mtx' % (whence, how)
@@ -92,10 +63,12 @@ def do(which, how, whence):
                     wallsteps = int(f.readline().strip().split()[-1])
                 except ValueError:
                     wallsteps = -1
-                log.debug("Number of wallsteps: %d", wallsteps)
+                print "Number of wallsteps: %d" % wallsteps
 
+            tmat = tmat.transpose()
+            vals, vecs = scipy.sparse.linalg.eigs(tmat)
             its[i, 0] = wallsteps
-            its[i, 1] = errors(tmat, gold_vecs)
+            its[i, 1] = errors_kl(vecs, gold_vecs)
             i += 1
 
     # Fix format of errors array
