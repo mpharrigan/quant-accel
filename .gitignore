@@ -53,4 +53,9 @@ Gens.h5
 *.job
 *.log
 
+*.mtx
+*.npy
+
+submit*.sh
+
 *result-*-*.pickl
