@@ -14,8 +14,8 @@ import scipy.io
 import numpy as np
 from quantaccel import toy
 
+import logging as log
 
-NMED_ITERS = 10
 
 NPOINTS = 20
 PERCENTS = np.linspace(0.05, 1.0, NPOINTS)
@@ -31,32 +31,33 @@ def do(round_i, which, how):
     if which == 'muller':
         metric = toy.Euclidean2d()
         lag_time = 20
-        distance_cutoff = 0.3
+        distance_cutoff = 0.2
     elif which == 'tmat':
         metric = rmsd.RMSD()
+        raise Exception("No longer supported.")
         lag_time = 1
         distance_cutoff = 0.2
 
-    shim_trajs = [toy.ShimTrajectory(traj.xyz) for traj in trajs]
-    print "Starting cluster"
-    hkm = clustering.HybridKMedoids(metric, shim_trajs, k=None,
-                                    distance_cutoff=distance_cutoff,
-                                    local_num_iters=NMED_ITERS)
-    assignments = hkm.get_assignments()
 
-    if round_i == NPOINTS - 1:
-        print "Saving generators"
-        gens = hkm.get_generators_as_traj()
-        gens = metric.prepare_trajectory(gens)
-        np.savetxt('gens.npy', gens)
-
-    counts = msml.get_count_matrix_from_assignments(assignments,
-                                                    lag_time=lag_time)
-    _, t_matrix, _, _ = msml.build_msm(counts, ergodic_trimming=True,
-                                       symmetrize='transpose')
+    log.info("Starting cluster")
+    hkm = clustering.KMeans(metric, trajs, distance_cutoff=distance_cutoff)
+    centroids = hkm._centroids
+    assignments = clustering.split(hkm._assignments, hkm._traj_lengths)
+    assignments = np.array(assignments)
 
 
-    with open('tmatfromclus-%s-%d.mtx' % (how, round_i), 'w') as f:
+
+    counts = msml.get_count_matrix_from_assignments(assignments, lag_time=lag_time)
+    _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
+                                             symmetrize='transpose')
+
+
+    log.info("Saving trimmed centroids.")
+    trimmed_centroids = hkm._centroids[np.where(mapping != -1)[0]]
+    np.savetxt('centroids-%s-mkiii-%d.npy' % (how, round_i), trimmed_centroids)
+
+
+    with open('tmatfromclus-%s-mkiii-%d.mtx' % (how, round_i), 'w') as f:
         scipy.io.mmwrite(f, t_matrix, comment='Wallsteps: %d' % wall_steps)
 
 
