@@ -11,6 +11,7 @@ matplotlib.use('Agg')
 import os
 import numpy as np
 from matplotlib import pyplot as pp
+from matplotlib.colors import Normalize, LogNorm
 import sys
 import re
 import scipy.io
@@ -85,12 +86,13 @@ def load(walkydir, centroid_regex, tmat_regex):
                     # Load transition matrix with scipy
                     tmat = scipy.io.mmread(complete_fn)
 
-                    if result.centroids is not None:
-                        centroidlen = centroids.shape[0]
-                        tmatlen = tmat.shape[0]
-                        if centroidlen != tmatlen:
-                            log.warn("Problem with %s matching lenghts %d and %d",
-                                     complete_fn, tmatlen, centroidlen)
+#                    if result.centroids is not None:
+
+#                        centroidlen = centroids.shape[0]
+#                        tmatlen = tmat.shape[0]
+#                        if centroidlen != tmatlen:
+#                            log.warn("Problem with %s matching lenghts %d and %d",
+#                                     complete_fn, tmatlen, centroidlen)
 
                     try:
                         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR", maxiter=100000, tol=1e-30)
@@ -100,7 +102,7 @@ def load(walkydir, centroid_regex, tmat_regex):
                         log.warn("No eigenv convergence")
                         eq_distr = np.ones(tmat.shape[0])
 
-                    # eq_distr /= np.sum(eq_distr)
+                    eq_distr /= np.sum(eq_distr)
                     result.eq_distr = eq_distr
 
 
@@ -136,7 +138,7 @@ def make_movie(param_str, results, movie_dirname):
 
             # Plot
             if len(frame[0]) == len(frame[1]) and len(frame[0]) == len(frame[2]):
-                pp.scatter(frame[0], frame[1], s=500*frame[2], c=frame[2])
+                pp.scatter(frame[0], frame[1], c=-np.log(frame[2]), norm=Normalize(vmin=0, vmax=np.log(1e10), clip=True))
                 pp.title(param_str)
                 pp.colorbar()
             else:
@@ -177,8 +179,8 @@ def main(argv):
     log.basicConfig(level=log.INFO)
 
     results = load(walkydir=argv[1],
-                   centroid_regex='centroids-round-mkii-([0-9]+).npy',
-                   tmat_regex='tmatfromclus-round-mkii-([0-9]+).mtx')
+                   centroid_regex='centroids-round-mkiii-([0-9]+).npy',
+                   tmat_regex='tmatfromclus-round-mkiii-([0-9]+).mtx')
 
     make_movies(results, movie_dirname='centroid-movie-mki/')
 
