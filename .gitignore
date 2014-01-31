@@ -41,21 +41,31 @@ nosetests.xml
 *.pbs.o*
 *.job.po*
 
+# Simulation results
 trajs
 starting_states
 models
 logs
 
+# Specific stuff
 tProb.mtx
 ntl9.mtx
 Gens.h5
 
+# Don't want any jobs or logs
 *.job
 *.log
 
+# Don't include matrices or numpy (gens)
 *.mtx
 *.npy
 
+# Don't need submit scripts
 submit*.sh
 
+# Don't include pickl results from tmat-accel
 *result-*-*.pickl
+
+# Don't include movie frames
+*centroid-movie*
+
