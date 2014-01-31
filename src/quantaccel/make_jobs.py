@@ -8,7 +8,7 @@ import os
 import sys
 
 PBS_HEADER = """
-#PBS -l nodes=1:ppn=4
+#PBS -l nodes=1:ppn=1
 #PBS -l walltime=72:00:00
 #PBS -l mem=8gb
 #PBS -j oe
@@ -17,7 +17,7 @@ PBS_HEADER = """
 #PBS -m bea
 
 cd $PBS_O_WORKDIR/{d}
-export OMP_NUM_THREADS=2
+export OMP_NUM_THREADS=1
 
 """
 
@@ -36,8 +36,8 @@ PREVWD=$CWD
 
 
 
-JOBFN = "{whence}-{how}-{round_i:d}.job"
-OUTFN = "{whence}-{how}-{round_i:d}.mtx"
+JOBFN = "{whence}-{how}-mkiii-{round_i:d}.job"
+OUTFN = "{whence}-{how}-mkiii-{round_i:d}.mtx"
 SUBMITFN = 'submit.sh'
 
 SUBMITTER_ENTRY = """
