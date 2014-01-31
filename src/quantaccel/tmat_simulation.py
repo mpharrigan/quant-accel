@@ -35,7 +35,8 @@ class TMatSimulator(object):
         t_matrix = t_matrix.tocsr()
         self.t_matrix = t_matrix
 
-        self.vals, self.vecs = scipy.sparse.linalg.eigs(t_matrix)
+        ttr = t_matrix.transpose()
+        self.vals, self.vecs = scipy.sparse.linalg.eigs(ttr)
         self.vecs = np.real_if_close(self.vecs)
 
         log.info('Loaded transition matrix of shape %s',
@@ -188,7 +189,8 @@ class MSM(object):
         """
         p = sim.vecs[:,0]
         try:
-            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
+            ttr = self.tmat.transpose()
+            vals, vecs = scipy.sparse.linalg.eigs(ttr)
             vecs = np.real_if_close(vecs)
             q = vecs[:,0]
         except ArpackNoConvergence:
@@ -309,7 +311,14 @@ def main(run_i=-1, runcopy=0):
         {'n_spt': 100, 'n_rounds': 100},
         {'n_spt': 1000, 'n_rounds': 20},
     ]
-    tpr = [1, 10, 100, 1000]
+    tpr = [
+        {'n_tpr': 1, 'n_rounds': 200},
+        {'n_tpr': 10, 'n_rounds': 200},
+        {'n_tpr': 100, 'n_rounds': 100},
+        {'n_tpr': 500, 'n_rounds': 100},
+        {'n_tpr': 1000, 'n_rounds': 20}
+    ]
+
 
     log.info("Number of permutations = %d", len(beta) * len(spt) * len(tpr))
 
@@ -320,14 +329,16 @@ def main(run_i=-1, runcopy=0):
 
         if run_i < 0 or run_i == i:
             log.info(
-                "Setting beta = %f\tspt = %s\ttpr = %d",
-                setbeta, str(set_spt), set_tpr)
+                "Setting beta = %f\tspt = %s\ttpr = %s\ttake min round_i",
+                setbeta, str(set_spt), str(set_tpr)
 
             # Make param dict from defaults and set our set values
             param = dict(defaults)
             param.update(set_spt)
+            param.update(set_tpr)
+            param.update(n_rounds=min(set_spt['n_rounds'], set_tpr['n_rounds']))
             param.update(beta=setbeta)
-            param.update(n_tpr=set_tpr)
+
 
             # Make MSM container object
             msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
@@ -345,7 +356,7 @@ def main(run_i=-1, runcopy=0):
 
             rr = RunResult(param, accelerator.errors)
             multierrors.append(rr)
-            with open('result-d-runcopy-%d-%d.pickl' % (runcopy,i), 'w') as f:
+            with open('result-e-runcopy-%d-%d.pickl' % (runcopy,i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
 
         i += 1

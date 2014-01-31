@@ -70,7 +70,10 @@ def load(walkydir, centroid_regex, tmat_regex):
                 cwd = os.path.abspath(dirpath)
                 param_str = cwd[cwd.rfind('/')+1:]
                 fn_splits = param_str.split('-')
-                params = {fn_splits[0]: fn_splits[1]}
+                try:
+                    params = {fn_splits[0]: fn_splits[1]}
+                except:
+                    params = {param_str: param_str}
 
                 # Debug statement
                 log.debug("Found %s %d\tFilename: %s\tParams: %s",
@@ -85,14 +88,7 @@ def load(walkydir, centroid_regex, tmat_regex):
                 elif tmat_match:
                     # Load transition matrix with scipy
                     tmat = scipy.io.mmread(complete_fn)
-
-#                    if result.centroids is not None:
-
-#                        centroidlen = centroids.shape[0]
-#                        tmatlen = tmat.shape[0]
-#                        if centroidlen != tmatlen:
-#                            log.warn("Problem with %s matching lenghts %d and %d",
-#                                     complete_fn, tmatlen, centroidlen)
+                    tmat = tmat.transpose()
 
                     try:
                         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR", maxiter=100000, tol=1e-30)
@@ -138,7 +134,8 @@ def make_movie(param_str, results, movie_dirname):
 
             # Plot
             if len(frame[0]) == len(frame[1]) and len(frame[0]) == len(frame[2]):
-                pp.scatter(frame[0], frame[1], c=-np.log(frame[2]), norm=Normalize(vmin=0, vmax=np.log(1e10), clip=True))
+                pp.scatter(frame[0], frame[1], c=frame[2], s=2000*frame[2])
+                #pp.scatter(frame[0], frame[1], c=frame[2], norm=Normalize(vmin=0, vmax=1, clip=True))
                 pp.title(param_str)
                 pp.colorbar()
             else:
