@@ -253,8 +253,7 @@ class Accelerator(object):
         for round_i in range(n_rounds):
             for traj_i in range(n_tpr):
                 traj = self.sim.simulate(number_of_steps=n_spt,
-                                         state_i=starting_states[traj_i],
-                                         report_interval=1)
+                                         state_i=starting_states[traj_i])
                 self.msm.add(traj)
 
             walltime = n_spt * (round_i + 1)
@@ -366,7 +365,7 @@ def one_long_traj():
     tmat_sim = TMatSimulator('../ntl9.mtx')
     defaults = {'lag_time': 1, 'runcopy': 0}
     beta = 0
-    spt = {'n_spt': 100000, 'n_rounds': 1}
+    spt = {'n_spt': int(1e8), 'n_rounds': 1}
     tpr = {'n_tpr': 1, 'n_rounds': 1}
     log.info("Running one long trajectory.")
 
