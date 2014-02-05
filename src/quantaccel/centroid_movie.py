@@ -27,7 +27,9 @@ from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
 
 import logging as log
 
-TEMP = 7.5
+TEMP = 750
+# Boltzmann constant in md units
+KB = 0.0083145
 
 class CentroidResult(object):
     def __init__(self):
@@ -147,7 +149,7 @@ def make_movie(param_str, results, movie_dirname):
                 # Make actual distribution
                 pp.subplot(122)
                 calc_eq = mf.MullerForce.potential(frame[0], frame[1])
-                calc_eq = np.exp(-calc_eq / TEMP)
+                calc_eq = np.exp(-calc_eq / (TEMP * KB))
                 calc_eq /= np.sum(calc_eq)
                 pp.scatter(frame[0], frame[1], c=calc_eq, s=2000*calc_eq, norm=Normalize(vmin=0))
                 pp.title("Theoretical")
