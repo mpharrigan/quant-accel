@@ -85,7 +85,6 @@ def walk(walkydir, centroid_regex, tmat_regex):
                 result = results[param_str][round_i]
                 if centroid_match:
                     # Load centroids with numpy
-
                     result.centroids_fn = complete_fn
                 elif tmat_match:
                     # Load transition matrix with scipy
@@ -105,7 +104,7 @@ def load(result):
     """Load the actual data given an object that has their filenames.
     """
     # Load centroids
-    centroids = np.loadtxt(result.centroid_fn)
+    centroids = np.loadtxt(result.centroids_fn)
 
     # Load transition matrix
     tmat = scipy.io.mmread(result.tmat_fn)
@@ -115,7 +114,7 @@ def load(result):
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
         vecs = np.real_if_close(vecs)
-        eq_distr = vecs[:,0]
+        eq_distr = vecs[:, 0]
     except ArpackNoConvergence:
         log.warn("No eigenv convergence")
         eq_distr = np.ones(tmat.shape[0])
@@ -126,25 +125,56 @@ def load(result):
     return centroids, tmat, eq_distr
 
 
-def make_movie(param_str, results, movie_dirname):
-    abs_movie_dirname = os.path.join(results.items()[0][1].abspath, movie_dirname)
-    log.info("Making movie for %s in directory %s", param_str, abs_movie_dirname)
+def project(frame, param_str):
+    pass
 
+def scatter(frame, param_str):
+    """Scatter plot centroids where size and color are based on population.
+    """
+    # Make a scatter
+    pp.subplot(121)
+    pp.scatter(frame[0], frame[1], c=frame[2], s=2000*frame[2], norm=Normalize(vmin=0))
+    pp.title(param_str)
+    pp.colorbar()
+
+    # Make theoretical distribution
+    pp.subplot(122)
+    calc_eq = mf.MullerForce.potential(frame[0], frame[1])
+    calc_eq = np.exp(-calc_eq / (TEMP * KB))
+    calc_eq /= np.sum(calc_eq)
+    pp.scatter(frame[0], frame[1], c=calc_eq, s=2000*calc_eq, norm=Normalize(vmin=0))
+    pp.title("Theoretical")
+    pp.colorbar()
+
+
+def make_movie(param_str, results, movie_dirname, movie='centroid'):
+    """Make a movie for a given accelerator run.
+
+        results: a dict of frames that has tmat_fn and centroids_fn for us
+                 to load
+        param_str: TODO
+        movie_dirname: output folder name
+        movie: ['centroid', 'projection']: Whether to make a movie from
+               the centroids or project on to a grid
+    """
+
+    abs_movie_dirname = os.path.join(results.items()[0][1].abspath, movie_dirname % movie)
+    log.info("Making %s movie for %s in directory %s", movie, param_str, abs_movie_dirname)
+
+    # Make the directory
     try:
         os.mkdir(abs_movie_dirname)
     except OSError as e:
         log.warn(e)
 
+
     for round_i, frame_object in results.items():
         # Load up from file
         centroids, _, eq_distr = load(frame_object)
-
-        # For each frame make a plot
         if centroids is not None and eq_distr is not None:
 
-
-            # Get relevant info
-            frame = [centroids[:,0], centroids[:,1], eq_distr]
+            # Get relevant info into a list
+            frame = [centroids[:, 0], centroids[:, 1], eq_distr]
 
             # Give a little debug info
             log.debug("Frame %d, centroid x's: %d, centroid y's: %d, eq_distr: %d",
@@ -152,21 +182,12 @@ def make_movie(param_str, results, movie_dirname):
 
             # Plot
             if len(frame[0]) == len(frame[1]) and len(frame[0]) == len(frame[2]):
-                # Make a scatter
-                pp.subplot(121)
-                pp.scatter(frame[0], frame[1], c=frame[2], s=2000*frame[2], norm=Normalize(vmin=0))
-                pp.title(param_str)
-                pp.colorbar()
-
-                # Make actual distribution
-                pp.subplot(122)
-                calc_eq = mf.MullerForce.potential(frame[0], frame[1])
-                calc_eq = np.exp(-calc_eq / (TEMP * KB))
-                calc_eq /= np.sum(calc_eq)
-                pp.scatter(frame[0], frame[1], c=calc_eq, s=2000*calc_eq, norm=Normalize(vmin=0))
-                pp.title("Theoretical")
-                pp.colorbar()
-
+                if movie == 'centroid':
+                    scatter(frame, param_str)
+                elif movie == 'projection':
+                    pass
+                else:
+                    log.error("Unknown movie type %s", movie)
             else:
                 log.warn("Incompatible dimensions x: %d, y: %d, eq: %d",
                          len(frame[0]), len(frame[1]), len(frame[2]))
@@ -213,7 +234,7 @@ def main(argv):
                    centroid_regex='centroids-{how}-mkiii-([0-9]+).npy'.format(how=how),
                    tmat_regex='tmatfromclus-{how}-mkiii-([0-9]+).mtx'.format(how=how))
 
-    make_movies(results, movie_dirname='centroid-movie-mki/')
+    make_movies(results, '%s-movie')
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
