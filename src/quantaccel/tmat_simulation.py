@@ -374,22 +374,41 @@ def main(run_i=-1, runcopy=0):
         i += 1
 
 
+def test():
+    """Run one long trajectory."""
+
+    tmat_sim = TMatSimulator('../ntl9.mtx')
+    defaults = {'lag_time': 1, 'runcopy': 0}
+    beta = 0
+    spt = {'n_spt': 100000, 'n_rounds': 1}
+    tpr = {'n_tpr': 1, 'n_rounds': 1}
+    log.info("Running one long trajectory.")
+
+    rr = simulate(tmat_sim, defaults, beta, spt, tpr)
+    with open('result-e-runcopy-0-0.pickl', 'w') as f:
+        pickle.dump(rr, f, protocol=2)
+
 NPROCS = 16
+
+
+def parse(argv):
+    if len(argv) == 1:
+        main()
+    elif len(argv) == 2:
+        main(int(argv[1]))
+    elif len(argv) == 3:
+        tens = int(argv[1])
+        ones = int(argv[2])
+        main(NPROCS * tens + ones)
+    elif len(argv) == 4:
+        tens = int(argv[1])
+        ones = int(argv[2])
+        runcopy = int(argv[3])
+        main(NPROCS * tens + ones, runcopy=runcopy)
+    else:
+        print "Usage: python tmat_sumlation.py [index]"
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
-    if len(sys.argv) == 1:
-        main()
-    elif len(sys.argv) == 2:
-        main(int(sys.argv[1]))
-    elif len(sys.argv) == 3:
-        TENS = int(sys.argv[1])
-        ONES = int(sys.argv[2])
-        main(NPROCS * TENS + ONES)
-    elif len(sys.argv) == 4:
-        TENS = int(sys.argv[1])
-        ONES = int(sys.argv[2])
-        RUNCOPY = int(sys.argv[3])
-        main(NPROCS * TENS + ONES, runcopy=RUNCOPY)
-    else:
-        print "Usage: python tmat_sumlation.py [index]"
+    parse(sys.argv)
+
