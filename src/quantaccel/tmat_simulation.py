@@ -374,7 +374,7 @@ def main(run_i=-1, runcopy=0):
         i += 1
 
 
-def test():
+def one_long_traj():
     """Run one long trajectory."""
 
     tmat_sim = TMatSimulator('../ntl9.mtx')
@@ -410,5 +410,6 @@ def parse(argv):
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
-    parse(sys.argv)
+    #parse(sys.argv)
+    one_long_traj()
 
