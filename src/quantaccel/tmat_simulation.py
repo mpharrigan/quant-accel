@@ -304,7 +304,7 @@ def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr):
      by set_spt or set_tpr
      """
     log.info(
-        "Setting beta = %f\tspt = %s\ttpr = %s\ttake min round_i",
+        "Setting beta = %f spt = %s tpr = %s take min round_i",
         set_beta, str(set_spt), str(set_tpr))
 
     # Make param dict from defaults and set our set values
