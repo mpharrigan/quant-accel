@@ -45,8 +45,7 @@ class TMatSimulator(object):
         # Load generators
         #self.gens = mdtraj.load(self.gens_fn)
 
-    def simulate(self, state_i, number_of_steps=10000, report_interval=1000,
-                 out_fn=None):
+    def simulate(self, state_i, number_of_steps, out_fn=None):
         """We run some KMC dynamics, and then send back the results.
 
             state_i - initial state
@@ -56,12 +55,9 @@ class TMatSimulator(object):
 
         t_matrix = self.t_matrix
 
-        state_out = np.zeros(number_of_steps // report_interval, dtype=int)
+        state_out = np.zeros(number_of_steps, dtype=int)
 
-        report = report_interval
-        report_toti = 0
-
-        for _ in xrange(number_of_steps):
+        for i in xrange(number_of_steps):
             # Get stuff from our sparse matrix
 
             csr_slicer = slice(
@@ -78,19 +74,9 @@ class TMatSimulator(object):
             prob_i = np.sum(np.cumsum(probs) < np.random.rand())
             state_i = colinds[prob_i]
 
-            # Check to see if we report
-            if report == report_interval:
-                state_out[report_toti] = state_i
-
-                # Reset
-                report = 0
-                report_toti += 1
-
-            report += 1
+            state_out[i] = state_i
 
         # Write
-        assert report_toti == state_out.shape[0], "I did my math wrong."
-
         if out_fn is not None:
             np.savetxt(out_fn, state_out)
         log.debug('Finished TMat simulation.')
