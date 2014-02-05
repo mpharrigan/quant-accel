@@ -15,16 +15,12 @@ from matplotlib.colors import Normalize, LogNorm
 import sys
 import re
 import scipy.io
-import shutil
 
 from toy_accel import mullerforce as mf
 
 from collections import defaultdict
-from operator import attrgetter
-
 import scipy.sparse.linalg
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
-
 import logging as log
 
 TEMP = 750
@@ -33,8 +29,8 @@ KB = 0.0083145
 
 class CentroidResult(object):
     def __init__(self):
-        self.eq_distr = None
-        self.centroids = None
+        self.centroids_fn = None
+        self.tmat_fn = None
         self.params = None
         self.round_i = None
         self.abspath = None
@@ -42,7 +38,7 @@ class CentroidResult(object):
 def _defaultdict_CentroidResult():
     return defaultdict(CentroidResult)
 
-def load(walkydir, centroid_regex, tmat_regex):
+def walk(walkydir, centroid_regex, tmat_regex):
     # Two level defaltdict
     results = defaultdict(_defaultdict_CentroidResult)
 
@@ -78,7 +74,7 @@ def load(walkydir, centroid_regex, tmat_regex):
                 fn_splits = param_str.split('-')
                 try:
                     params = {fn_splits[0]: fn_splits[1]}
-                except:
+                except IndexError:
                     params = {param_str: param_str}
 
                 # Debug statement
@@ -89,23 +85,13 @@ def load(walkydir, centroid_regex, tmat_regex):
                 result = results[param_str][round_i]
                 if centroid_match:
                     # Load centroids with numpy
-                    centroids = np.loadtxt(complete_fn)
-                    result.centroids = centroids
+
+                    result.centroids_fn = complete_fn
                 elif tmat_match:
                     # Load transition matrix with scipy
-                    tmat = scipy.io.mmread(complete_fn)
-                    tmat = tmat.transpose()
+                    result.tmat_fn = complete_fn
 
-                    try:
-                        vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR", maxiter=100000, tol=1e-30)
-                        vecs = np.real_if_close(vecs)
-                        eq_distr = vecs[:,0]
-                    except ArpackNoConvergence:
-                        log.warn("No eigenv convergence")
-                        eq_distr = np.ones(tmat.shape[0])
 
-                    eq_distr /= np.sum(eq_distr)
-                    result.eq_distr = eq_distr
 
 
                 # In any event, save the params and round information
@@ -115,24 +101,50 @@ def load(walkydir, centroid_regex, tmat_regex):
 
     return results
 
+def load(result):
+    """Load the actual data given an object that has their filenames.
+    """
+    # Load centroids
+    centroids = np.loadtxt(result.centroid_fn)
+
+    # Load transition matrix
+    tmat = scipy.io.mmread(result.tmat_fn)
+    tmat = tmat.transpose()
+
+    try:
+        vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
+                                              maxiter=100000, tol=1e-30)
+        vecs = np.real_if_close(vecs)
+        eq_distr = vecs[:,0]
+    except ArpackNoConvergence:
+        log.warn("No eigenv convergence")
+        eq_distr = np.ones(tmat.shape[0])
+
+    # Compute a normalized equilibrium distribution
+    eq_distr /= np.sum(eq_distr)
+
+    return centroids, tmat, eq_distr
+
+
 def make_movie(param_str, results, movie_dirname):
     abs_movie_dirname = os.path.join(results.items()[0][1].abspath, movie_dirname)
     log.info("Making movie for %s in directory %s", param_str, abs_movie_dirname)
 
     try:
         os.mkdir(abs_movie_dirname)
-    except Exception as e:
+    except OSError as e:
         log.warn(e)
 
-    plottable = list()
     for round_i, frame_object in results.items():
+        # Load up from file
+        centroids, _, eq_distr = load(frame_object)
+
         # For each frame make a plot
-        if frame_object.centroids is not None and frame_object.eq_distr is not None:
+        if centroids is not None and eq_distr is not None:
+
 
             # Get relevant info
-            frame = [frame_object.centroids[:,0],
-                     frame_object.centroids[:,1],
-                     frame_object.eq_distr]
+            frame = [centroids[:,0], centroids[:,1], eq_distr]
 
             # Give a little debug info
             log.debug("Frame %d, centroid x's: %d, centroid y's: %d, eq_distr: %d",
@@ -161,9 +173,9 @@ def make_movie(param_str, results, movie_dirname):
                 pp.title("Incompatible.")
         else:
             # Something went wrong during loading
-            if frame_object.centroids is None:
+            if centroids is None:
                 warning = "Centroids"
-            elif frame_object.eq_distr is None:
+            elif eq_distr is None:
                 warning = "Distribution"
             else:
                 warning = "Something else"
@@ -181,10 +193,6 @@ def make_movie(param_str, results, movie_dirname):
         pp.clf()
 
 
-
-
-
-
 def make_movies(all_results, movie_dirname):
     log.info("Making %d movies", len(all_results.keys()))
     log.debug("Different param configurations: %s", str(all_results.keys()))
@@ -194,7 +202,6 @@ def make_movies(all_results, movie_dirname):
 
 
 def main(argv):
-    log.basicConfig(level=log.INFO)
 
     if len(argv) > 2 and argv[2] == 'percent':
         log.info("Using percent in regexp.")
@@ -202,11 +209,12 @@ def main(argv):
     else:
         how = 'round'
 
-    results = load(walkydir=argv[1],
+    results = walk(walkydir=argv[1],
                    centroid_regex='centroids-{how}-mkiii-([0-9]+).npy'.format(how=how),
                    tmat_regex='tmatfromclus-{how}-mkiii-([0-9]+).mtx'.format(how=how))
 
     make_movies(results, movie_dirname='centroid-movie-mki/')
 
 if __name__ == "__main__":
+    log.basicConfig(level=log.INFO)
     main(sys.argv)
