@@ -330,7 +330,7 @@ def main(run_i=-1, runcopy=0):
         if run_i < 0 or run_i == i:
             log.info(
                 "Setting beta = %f\tspt = %s\ttpr = %s\ttake min round_i",
-                setbeta, str(set_spt), str(set_tpr)
+                setbeta, str(set_spt), str(set_tpr))
 
             # Make param dict from defaults and set our set values
             param = dict(defaults)
