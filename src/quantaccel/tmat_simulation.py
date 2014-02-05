@@ -99,7 +99,6 @@ class TMatSimulator(object):
 
 
 class MSM(object):
-
     """Hold all the trajectories and build and sample from msm."""
 
     def __init__(self, lag_time=1, beta=0):
@@ -200,7 +199,9 @@ class MSM(object):
         q /= np.sum(q)
         p /= np.sum(p)
 
-        return np.sum(np.nan_to_num(np.where(np.abs(p) > 1.e-6, p * np.log(p / q), 0)))
+        return np.sum(
+            np.nan_to_num(
+                np.where(np.abs(p) > 1.e-6, p * np.log(p / q), 0)))
 
     def error_tvd(self, sim):
         """Total variation distance."""
@@ -243,7 +244,6 @@ class MSM(object):
 
 
 class Accelerator(object):
-
     """Runs rounds of adaptive sampling and keeps the convergence."""
 
     def __init__(self, simulator, msm, n_rounds=20):
@@ -281,7 +281,6 @@ class Accelerator(object):
 
 
 class RunResult(object):
-
     """Hold the results of an adaptive run for pickling."""
 
     def __init__(self, params, errors):
@@ -294,15 +293,58 @@ class RunResult(object):
                 'o-', label=self.params['n_spt'])
 
 
+def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr):
+    """Run one simulation given the params
+
+     - set_beta: a float to set beta to
+     - set_spt: a dict with keys 'n_spt' and 'n_rounds'
+     - set_tpr: a dict with keys 'n_tpr' and 'n_rounds'
+
+     This function will use the minimum number of rounds specified
+     by set_spt or set_tpr
+     """
+    log.info(
+        "Setting beta = %f\tspt = %s\ttpr = %s\ttake min round_i",
+        set_beta, str(set_spt), str(set_tpr))
+
+    # Make param dict from defaults and set our set values
+    param = dict(defaults)
+    param.update(set_spt)
+    param.update(set_tpr)
+    param.update(n_rounds=min(set_spt['n_rounds'], set_tpr['n_rounds']))
+    param.update(beta=set_beta)
+
+    # Make MSM container object
+    msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
+
+    # Make accelerator object
+    accelerator = Accelerator(
+        tmat_sim,
+        msm,
+        n_rounds=param['n_rounds'])
+
+    # Run it
+    accelerator.accelerator_loop(
+        n_tpr=param['n_tpr'],
+        n_spt=param['n_spt'])
+
+    # Get the results
+    rr = RunResult(param, accelerator.errors)
+    return rr
+
+
 def main(run_i=-1, runcopy=0):
     """Define our parameter sets and run the simulations.
 
     run_i is for pbsdsh. If it is less than 0, all will be run
     """
+    # Load up the transition matrix
     tmat_sim = TMatSimulator('../ntl9.mtx')
 
+    # Default parameters, i.e. those that do not vary over the different sims
     defaults = {'lag_time': 1, 'runcopy': runcopy}
 
+    # Changy params
     beta = [0, 1, 2]
     spt = [
         {'n_spt': 4, 'n_rounds': 200},
@@ -319,47 +361,18 @@ def main(run_i=-1, runcopy=0):
         {'n_tpr': 1000, 'n_rounds': 20}
     ]
 
-
     log.info("Number of permutations = %d", len(beta) * len(spt) * len(tpr))
 
     multierrors = list()
     i = 0
-
-    for (setbeta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
-
+    for (set_beta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
         if run_i < 0 or run_i == i:
-            log.info(
-                "Setting beta = %f\tspt = %s\ttpr = %s\ttake min round_i",
-                setbeta, str(set_spt), str(set_tpr))
-
-            # Make param dict from defaults and set our set values
-            param = dict(defaults)
-            param.update(set_spt)
-            param.update(set_tpr)
-            param.update(n_rounds=min(set_spt['n_rounds'], set_tpr['n_rounds']))
-            param.update(beta=setbeta)
-
-
-            # Make MSM container object
-            msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
-
-            # Make accelerator object
-            accelerator = Accelerator(
-                tmat_sim,
-                msm,
-                n_rounds=param['n_rounds'])
-
-            # Run it
-            accelerator.accelerator_loop(
-                n_tpr=param['n_tpr'],
-                n_spt=param['n_spt'])
-
-            rr = RunResult(param, accelerator.errors)
+            rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr)
             multierrors.append(rr)
-            with open('result-e-runcopy-%d-%d.pickl' % (runcopy,i), 'w') as f:
+            with open('result-e-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
-
         i += 1
+
 
 NPROCS = 16
 
