@@ -17,6 +17,8 @@ import re
 import scipy.io
 import shutil
 
+from toy_accel import mullerforce as mf
+
 from collections import defaultdict
 from operator import attrgetter
 
@@ -24,6 +26,8 @@ import scipy.sparse.linalg
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
 
 import logging as log
+
+TEMP = 7.5
 
 class CentroidResult(object):
     def __init__(self):
@@ -134,10 +138,21 @@ def make_movie(param_str, results, movie_dirname):
 
             # Plot
             if len(frame[0]) == len(frame[1]) and len(frame[0]) == len(frame[2]):
-                pp.scatter(frame[0], frame[1], c=frame[2], s=2000*frame[2])
-                #pp.scatter(frame[0], frame[1], c=frame[2], norm=Normalize(vmin=0, vmax=1, clip=True))
+                # Make a scatter
+                pp.subplot(121)
+                pp.scatter(frame[0], frame[1], c=frame[2], s=2000*frame[2], norm=Normalize(vmin=0))
                 pp.title(param_str)
                 pp.colorbar()
+
+                # Make actual distribution
+                pp.subplot(122)
+                calc_eq = mf.MullerForce.potential(frame[0], frame[1])
+                calc_eq = np.exp(-calc_eq / TEMP)
+                calc_eq /= np.sum(calc_eq)
+                pp.scatter(frame[0], frame[1], c=calc_eq, s=2000*calc_eq, norm=Normalize(vmin=0))
+                pp.title("Theoretical")
+                pp.colorbar()
+
             else:
                 log.warn("Incompatible dimensions x: %d, y: %d, eq: %d",
                          len(frame[0]), len(frame[1]), len(frame[2]))
@@ -157,8 +172,12 @@ def make_movie(param_str, results, movie_dirname):
             log.warn(warning)
 
         # Save and clear
-        pp.savefig(os.path.join(abs_movie_dirname, 'frame-%03d.png' % round_i))
+        fn_formatstr = os.path.join(abs_movie_dirname, '%s-%03d.png')
+
+        pp.gcf().set_size_inches(14, 5)
+        pp.savefig(fn_formatstr % ('frame', round_i))
         pp.clf()
+
 
 
 
@@ -175,9 +194,15 @@ def make_movies(all_results, movie_dirname):
 def main(argv):
     log.basicConfig(level=log.INFO)
 
+    if len(argv) > 2 and argv[2] == 'percent':
+        log.info("Using percent in regexp.")
+        how = 'percent'
+    else:
+        how = 'round'
+
     results = load(walkydir=argv[1],
-                   centroid_regex='centroids-round-mkiii-([0-9]+).npy',
-                   tmat_regex='tmatfromclus-round-mkiii-([0-9]+).mtx')
+                   centroid_regex='centroids-{how}-mkiii-([0-9]+).npy'.format(how=how),
+                   tmat_regex='tmatfromclus-{how}-mkiii-([0-9]+).mtx'.format(how=how))
 
     make_movies(results, movie_dirname='centroid-movie-mki/')
 
