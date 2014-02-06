@@ -14,6 +14,8 @@ import itertools
 import sys
 import scipy.optimize
 
+import scipy.sparse.csgraph
+
 from msmbuilder import MSMLib as msmlib
 from matplotlib import pyplot as pp
 
@@ -54,8 +56,9 @@ class TMatSimulator(object):
         t_matrix = self.t_matrix
 
         state_out = np.zeros(number_of_steps, dtype=int)
+        state_out[0] = state_i
 
-        for i in xrange(number_of_steps):
+        for i in xrange(1, number_of_steps):
             # Get stuff from our sparse matrix
 
             csr_slicer = slice(
@@ -81,23 +84,55 @@ class TMatSimulator(object):
 
         return state_out
 
+
+def _super_debug_get_eq_distr(vals, vecs):
+    for i, val in enumerate(vals):
+        if i > 0:
+            log.warn("The first eigenvec is no good. Trying others.")
+
+        if np.abs(val - 1.0) < 1e-8:
+            q = vecs[:,i]
+            num_pos = len(np.where(q>1e-8)[0])
+            num_neg = len(np.where(q<-1e-8)[0])
+
+            log.debug('Checking vector %d, val %f. Num +/- %d, %d',
+                      i, val, num_pos, num_neg)
+
+            if not (num_pos != 0 and num_neg != 0):
+                # This is a good one
+                break
+        else:
+            raise ValueError("""We've gotten to an eigenvec with
+                                eigenvalue != 1.""")
+    else:
+        # This is if we make it through the for loop
+        # (python has nifty constructs like this)
+        raise ValueError("""We've exhausted all eigenvecs.""")
+
+    return q
+
 def _get_eigenvec(tmat):
     try:
         ttr = tmat.transpose()
         vals, vecs = scipy.sparse.linalg.eigs(ttr, which="LR",
-                                              maxiter=100000, tol=1e-30)
+                                              maxiter=10000, tol=1e-30)
 
         order = np.argsort(-np.real(vals))
-        vecs = vecs[:, order]
-        vals = vals[order]
-        vecs = np.real_if_close(vecs)
+        vals = np.real_if_close(vals[order])
+        vecs = np.real_if_close(vecs[:, order])
 
-        if np.abs(np.real(vals[0])-1) > 1e-8:
-            raise ValueError('Top eigenvalue is not 1')
+        log.debug('Eigenvalues: %s', str(vals))
+
+        num_unity_eigenvals = np.sum(np.abs(vals-1.0) < 1e-8)
+        log.debug("Number of unity eigenvals: %d", num_unity_eigenvals)
+        if num_unity_eigenvals != 1:
+            raise ValueError("We found %d eigenvalues that are 1",
+                             num_unity_eigenvals)
 
         q = vecs[:,0]
     except (ArpackNoConvergence, ArpackError, ValueError) as e:
         log.warn("No eigenv convergence: %s", str(e))
+        log.warn("Returning uniform distribution.")
         q = np.ones(ttr.shape[0])
 
     return q
@@ -125,6 +160,7 @@ class MSM(object):
         and uses `sim` to get the number of states for easier convergence
         calculation.
         """
+
         counts = msmlib.get_count_matrix_from_assignments(
             np.array(self.traj_list),
             n_states=sim.n_states,
@@ -138,6 +174,33 @@ class MSM(object):
         self.tmat = tmat
 
     def adapt(self, n_new):
+        return self.adapt_old(n_new)
+
+    def adapt_new(self, n_new):
+        """Use ergodic trimming and backtrack to sample new."""
+        erg_counts, mapping = msmlib.ergodic_trim(self.counts)
+
+        log.debug("shapes of trimmed vs original: %s %s",
+                  str(erg_counts.shape), str(self.counts.shape))
+
+        counts_per_state = np.array(erg_counts.sum(axis=1).flatten() + 1e-8)
+        weights = np.power(counts_per_state, self.beta - 1.0)
+        weights /= np.sum(weights)
+
+        cum_weights = np.cumsum(weights)
+        new_states = -1 * np.ones(n_new, dtype=int)
+
+        for i in range(n_new):
+            new_state_erg = np.sum(cum_weights < np.random.rand())
+            backtrack = np.where(mapping == new_state_erg)[0]
+            assert len(backtrack) == 1, 'Messed up mapping.'
+            new_states[i] = backtrack[0]
+
+        log.debug("Starting from states: %s", new_states)
+
+        return new_states
+
+    def adapt_old(self, n_new):
         """Return new starting states
 
             n_new - number of new states
@@ -163,7 +226,7 @@ class MSM(object):
             len(only_no_to))
 
         counts_per_state = np.array(
-            self.counts.sum(axis=1)).flatten() + 10. ** -8
+            self.counts.sum(axis=1)).flatten() + 1e-8
 
         weights = np.power(counts_per_state, self.beta - 1.0)
 
@@ -177,8 +240,15 @@ class MSM(object):
 
         for i in range(n_new):
             new_states[i] = np.sum(cum_weights < np.random.rand())
+            if np.in1d(new_states[i], abs_no):
+                log.error("Picking an unfound state")
+            if np.in1d(new_states[i], no_fro):
+                log.error("no fro")
+            if np.in1d(new_states[i], no_to):
+                log.error("no to")
 
         log.debug("Starting from states: %s", new_states)
+        log.debug("cps %s", str(counts_per_state[new_states]))
 
         return new_states
 
@@ -210,6 +280,9 @@ class MSM(object):
         p = norm_to * (p / np.sum(p))
 
         res = 0.5 * (1/norm_to) * np.sum(np.abs(p-q))
+
+        if res > 1.0:
+            import pdb; pdb.set_trace()
 
         return res
 
@@ -251,6 +324,8 @@ class Accelerator(object):
         n_rounds = self.n_rounds
         starting_states = np.random.randint(low=0, high=self.sim.n_states,
                                             size=n_tpr)
+
+        log.debug("Starting states: %s", str(starting_states))
 
         for round_i in range(n_rounds):
             for traj_i in range(n_tpr):
