@@ -49,15 +49,15 @@ def do(round_i, which, how):
 
     counts = msml.get_count_matrix_from_assignments(assignments, lag_time=lag_time)
     _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
-                                             symmetrize='transpose')
+                                             symmetrize='mle')
 
 
     log.info("Saving trimmed centroids.")
     trimmed_centroids = hkm._centroids[np.where(mapping != -1)[0]]
-    np.savetxt('centroids-%s-mkiii-%d.npy' % (how, round_i), trimmed_centroids)
+    np.savetxt('centroids-%s-mk4-%d.npy' % (how, round_i), trimmed_centroids)
 
 
-    with open('tmatfromclus-%s-mkiii-%d.mtx' % (how, round_i), 'w') as f:
+    with open('tmatfromclus-%s-mk4-%d.mtx' % (how, round_i), 'w') as f:
         scipy.io.mmwrite(f, t_matrix, comment='Wallsteps: %d' % wall_steps)
 
 
