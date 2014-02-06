@@ -12,9 +12,9 @@ import os
 import numpy as np
 from matplotlib import pyplot as pp
 from matplotlib.colors import Normalize, LogNorm
-import sys
 import re
 import scipy.io
+import argparse
 
 from toy_accel import mullerforce as mf
 
@@ -114,9 +114,13 @@ def load(result):
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
         vecs = np.real_if_close(vecs)
+
+        if np.abs(np.real(vals)-1) > 1e-8:
+            raise ValueError('Eigenvalue is not 1')
+
         eq_distr = vecs[:, 0]
-    except ArpackNoConvergence:
-        log.warn("No eigenv convergence")
+    except (ArpackNoConvergence, ValueError) as e:
+        log.warn("No eigenv convergence %s", str(e))
         eq_distr = np.ones(tmat.shape[0])
 
     # Compute a normalized equilibrium distribution
@@ -152,7 +156,7 @@ def make_movie(param_str, results, movie_dirname, movie='centroid'):
 
         results: a dict of frames that has tmat_fn and centroids_fn for us
                  to load
-        param_str: TODO
+        param_str: This goes in the title
         movie_dirname: output folder name
         movie: ['centroid', 'projection']: Whether to make a movie from
                the centroids or project on to a grid
@@ -222,20 +226,32 @@ def make_movies(all_results, movie_dirname):
         make_movie(param_str, subresults, movie_dirname)
 
 
-def main(argv):
+def parse():
+    parser = argparse.ArgumentParser(description="Make movies etc")
+    parser.add_argument('walkydir',
+                        help='''initial dir to start walk from''')
+    parser.add_argument('version',
+                        help='''version. Will look for files with mk{version}''',
+                        type=int)
+    parser.add_argument('-how', dest='how',
+                        help='''either percent or round''',
+                        default='round')
 
-    if len(argv) > 2 and argv[2] == 'percent':
-        log.info("Using percent in regexp.")
-        how = 'percent'
-    else:
-        how = 'round'
+    args = parser.parse_args()
+    main(args.walkydir, args.how, args.version)
 
-    results = walk(walkydir=argv[1],
-                   centroid_regex='centroids-{how}-mk4-([0-9]+).npy'.format(how=how),
-                   tmat_regex='tmatfromclus-{how}-mk4-([0-9]+).mtx'.format(how=how))
+def main(walkydir, how, version):
 
-    make_movies(results, '%s-movie-mk4')
+    fmt = {'how': how, 'version': version}
+    centroid_regex='centroids-{how}-mk{version}-([0-9]+).npy'.format(**fmt)
+    tmat_regex='tmatfromclus-{how}-mk{version}-([0-9]+).mtx'.format(**fmt)
+
+    results = walk(walkydir=walkydir,
+                   centroid_regex=centroid_regex,
+                   tmat_regex=tmat_regex)
+
+    make_movies(results, '%s-movie-mk{version}'.format(**fmt))
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
-    main(sys.argv)
+    parse()
