@@ -17,7 +17,7 @@ import scipy.optimize
 from msmbuilder import MSMLib as msmlib
 from matplotlib import pyplot as pp
 
-from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
+from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence, ArpackError
 
 
 class TMatSimulator(object):
@@ -35,9 +35,7 @@ class TMatSimulator(object):
         t_matrix = t_matrix.tocsr()
         self.t_matrix = t_matrix
 
-        ttr = t_matrix.transpose()
-        self.vals, self.vecs = scipy.sparse.linalg.eigs(ttr)
-        self.vecs = np.real_if_close(self.vecs)
+        self.p = _get_eigenvec(t_matrix)
 
         log.info('Loaded transition matrix of shape %s',
                  self.t_matrix.shape)
@@ -83,6 +81,26 @@ class TMatSimulator(object):
 
         return state_out
 
+def _get_eigenvec(tmat):
+    try:
+        ttr = tmat.transpose()
+        vals, vecs = scipy.sparse.linalg.eigs(ttr, which="LR",
+                                              maxiter=100000, tol=1e-30)
+
+        order = np.argsort(-np.real(vals))
+        vecs = vecs[:, order]
+        vals = vals[order]
+        vecs = np.real_if_close(vecs)
+
+        if np.abs(np.real(vals[0])-1) > 1e-8:
+            raise ValueError('Top eigenvalue is not 1')
+
+        q = vecs[:,0]
+    except (ArpackNoConvergence, ArpackError, ValueError) as e:
+        log.warn("No eigenv convergence: %s", str(e))
+        q = np.ones(ttr.shape[0])
+
+    return q
 
 class MSM(object):
     """Hold all the trajectories and build and sample from msm."""
@@ -172,15 +190,8 @@ class MSM(object):
     def error_kl(self, sim):
         """KL-divergence between 0-th eigenvector (equilibrium distribution).
         """
-        p = sim.vecs[:,0]
-        try:
-            ttr = self.tmat.transpose()
-            vals, vecs = scipy.sparse.linalg.eigs(ttr)
-            vecs = np.real_if_close(vecs)
-            q = vecs[:,0]
-        except ArpackNoConvergence:
-            log.warn("No eigenv convergence")
-            q = np.ones(p.shape)
+        p = sim.p
+        q = _get_eigenvec(self.tmat)
 
         q /= np.sum(q)
         p /= np.sum(p)
@@ -191,30 +202,21 @@ class MSM(object):
 
     def error_tvd(self, sim):
         """Total variation distance."""
-        p = sim.vecs[:,0]
-        try:
-            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
-            vecs = np.real_if_close(vecs)
-            q = vecs[:,0]
-        except ArpackNoConvergence:
-            log.warn("No eigenv convergence")
-            q = np.ones(p.shape)
+        p = sim.p
+        q = _get_eigenvec(self.tmat)
 
-        q /= np.sum(q)
-        p /= np.sum(p)
+        norm_to = 1000.0
+        q = norm_to * (q / np.sum(q))
+        p = norm_to * (p / np.sum(p))
 
-        return 0.5 * np.sum(np.abs(p-q))
+        res = 0.5 * (1/norm_to) * np.sum(np.abs(p-q))
+
+        return res
 
     def error_euc(self, sim):
         """Euclidean distance."""
-        p = sim.vecs[:,0]
-        try:
-            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
-            vecs = np.real_if_close(vecs)
-            q = vecs[:,0]
-        except ArpackNoConvergence:
-            log.warn("No eigenv convergence")
-            q = np.ones(p.shape)
+        p = sim.p
+        q = _get_eigenvec(self.tmat)
 
         q /= np.sum(q)
         p /= np.sum(p)
@@ -364,19 +366,21 @@ def one_long_traj():
 
     tmat_sim = TMatSimulator('../ntl9.mtx')
     defaults = {'lag_time': 1, 'runcopy': 0}
-    beta = 0
-    spt = {'n_spt': int(1e8), 'n_rounds': 1}
-    tpr = {'n_tpr': 1, 'n_rounds': 1}
+    beta = 1
+    n_rounds = 4
+    spt = {'n_spt': int(1e5), 'n_rounds': n_rounds}
+    tpr = {'n_tpr': 1, 'n_rounds': n_rounds}
     log.info("Running one long trajectory.")
 
     rr = simulate(tmat_sim, defaults, beta, spt, tpr)
-    with open('result-e-runcopy-0-0.pickl', 'w') as f:
+    with open('result-g-runcopy-0-0.pickl', 'w') as f:
         pickle.dump(rr, f, protocol=2)
 
 NPROCS = 16
 
 
 def parse(argv):
+    """Parse command line args."""
     if len(argv) == 1:
         main()
     elif len(argv) == 2:
@@ -395,6 +399,6 @@ def parse(argv):
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
-    #parse(sys.argv)
-    one_long_traj()
+    np.seterr(under='warn')
+    parse(sys.argv)
 
