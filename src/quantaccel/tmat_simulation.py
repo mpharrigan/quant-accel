@@ -91,9 +91,9 @@ def _super_debug_get_eq_distr(vals, vecs):
             log.warn("The first eigenvec is no good. Trying others.")
 
         if np.abs(val - 1.0) < 1e-8:
-            q = vecs[:,i]
-            num_pos = len(np.where(q>1e-8)[0])
-            num_neg = len(np.where(q<-1e-8)[0])
+            q = vecs[:, i]
+            num_pos = len(np.where(q > 1e-8)[0])
+            num_neg = len(np.where(q < -1e-8)[0])
 
             log.debug('Checking vector %d, val %f. Num +/- %d, %d',
                       i, val, num_pos, num_neg)
@@ -111,6 +111,7 @@ def _super_debug_get_eq_distr(vals, vecs):
 
     return q
 
+
 def _get_eigenvec(tmat):
     try:
         ttr = tmat.transpose()
@@ -123,13 +124,13 @@ def _get_eigenvec(tmat):
 
         log.debug('Eigenvalues: %s', str(vals))
 
-        num_unity_eigenvals = np.sum(np.abs(vals-1.0) < 1e-8)
+        num_unity_eigenvals = np.sum(np.abs(vals - 1.0) < 1e-8)
         log.debug("Number of unity eigenvals: %d", num_unity_eigenvals)
         if num_unity_eigenvals != 1:
             raise ValueError("We found %d eigenvalues that are 1",
                              num_unity_eigenvals)
 
-        q = vecs[:,0]
+        q = vecs[:, 0]
     except (ArpackNoConvergence, ArpackError, ValueError) as e:
         log.warn("No eigenv convergence: %s", str(e))
         log.warn("Returning uniform distribution.")
@@ -137,7 +138,9 @@ def _get_eigenvec(tmat):
 
     return q
 
+
 class MSM(object):
+
     """Hold all the trajectories and build and sample from msm."""
 
     def __init__(self, lag_time=1, beta=0):
@@ -279,10 +282,11 @@ class MSM(object):
         q = norm_to * (q / np.sum(q))
         p = norm_to * (p / np.sum(p))
 
-        res = 0.5 * (1/norm_to) * np.sum(np.abs(p-q))
+        res = 0.5 * (1 / norm_to) * np.sum(np.abs(p - q))
 
         if res > 1.0:
-            import pdb; pdb.set_trace()
+            import pdb
+            pdb.set_trace()
 
         return res
 
@@ -294,7 +298,7 @@ class MSM(object):
         q /= np.sum(q)
         p /= np.sum(p)
 
-        diff = p-q
+        diff = p - q
 
         return np.sqrt(np.dot(diff, diff))
 
@@ -305,6 +309,7 @@ class MSM(object):
 
 
 class Accelerator(object):
+
     """Runs rounds of adaptive sampling and keeps the convergence."""
 
     def __init__(self, simulator, msm, n_rounds=20):
@@ -343,6 +348,7 @@ class Accelerator(object):
 
 
 class RunResult(object):
+
     """Hold the results of an adaptive run for pickling."""
 
     def __init__(self, params, errors):
@@ -476,4 +482,3 @@ if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
     np.seterr(under='warn')
     parse(sys.argv)
-
