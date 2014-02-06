@@ -231,10 +231,10 @@ def main(argv):
         how = 'round'
 
     results = walk(walkydir=argv[1],
-                   centroid_regex='centroids-{how}-mkiii-([0-9]+).npy'.format(how=how),
-                   tmat_regex='tmatfromclus-{how}-mkiii-([0-9]+).mtx'.format(how=how))
+                   centroid_regex='centroids-{how}-mk4-([0-9]+).npy'.format(how=how),
+                   tmat_regex='tmatfromclus-{how}-mk4-([0-9]+).mtx'.format(how=how))
 
-    make_movies(results, '%s-movie')
+    make_movies(results, '%s-movie-mk4')
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
