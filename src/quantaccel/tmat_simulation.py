@@ -245,10 +245,6 @@ class MSM(object):
             new_states[i] = np.sum(cum_weights < np.random.rand())
             if np.in1d(new_states[i], abs_no):
                 log.error("Picking an unfound state")
-            if np.in1d(new_states[i], no_fro):
-                log.error("no fro")
-            if np.in1d(new_states[i], no_to):
-                log.error("no to")
 
         log.debug("Starting from states: %s", new_states)
         log.debug("cps %s", str(counts_per_state[new_states]))
