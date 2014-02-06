@@ -441,10 +441,12 @@ def main(run_i=-1, runcopy=0):
 def one_long_traj():
     """Run one long trajectory."""
 
+    log.warn("Doing one long trajectory.")
+
     tmat_sim = TMatSimulator('../ntl9.mtx')
     defaults = {'lag_time': 1, 'runcopy': 0}
     beta = 1
-    n_rounds = 4
+    n_rounds = 1
     spt = {'n_spt': int(1e5), 'n_rounds': n_rounds}
     tpr = {'n_tpr': 1, 'n_rounds': n_rounds}
     log.info("Running one long trajectory.")
@@ -478,3 +480,4 @@ if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
     np.seterr(under='warn')
     parse(sys.argv)
+    #one_long_traj()
