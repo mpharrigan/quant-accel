@@ -4,6 +4,7 @@ Created on Thu Jan 30 14:19:53 2014
 
 @author: harrigan
 """
+from __future__ import division
 
 import matplotlib
 matplotlib.use('Agg')
@@ -15,12 +16,15 @@ from matplotlib.colors import Normalize, LogNorm
 import re
 import scipy.io
 import argparse
+import pickle
 
 from toy_accel import mullerforce as mf
+from quantaccel.tmat_simulation import RunResult
 
 from collections import defaultdict
 import scipy.sparse.linalg
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
+import scipy.interpolate
 import logging as log
 
 TEMP = 750
@@ -107,9 +111,21 @@ def load(result):
     centroids = np.loadtxt(result.centroids_fn)
 
     # Load transition matrix
-    tmat = scipy.io.mmread(result.tmat_fn)
-    tmat = tmat.transpose()
+    with open(result.tmat_fn) as tmat_f:
+        tmat = scipy.io.mmread(tmat_f)
+        tmat = tmat.transpose()
 
+        # Parse number of wallsteps
+        tmat_f.seek(0)   # go to comment line
+        tmat_f.readline()  # read it
+        try:
+            # Parse the comment line
+            wallsteps = int(tmat_f.readline().strip().split()[-1])
+        except ValueError:
+            wallsteps = -1
+    log.debug("Number of wallsteps: %d", wallsteps)
+
+    # Get the eigenvectors
     try:
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
@@ -126,11 +142,78 @@ def load(result):
     # Compute a normalized equilibrium distribution
     eq_distr /= np.sum(eq_distr)
 
-    return centroids, tmat, eq_distr
+    return centroids, tmat, eq_distr, wallsteps
 
 
-def project(frame, param_str):
-    pass
+def get_grid(volume, resolution):
+    """Grid up a space
+
+    resolution - how fine the grid should be
+    """
+    (xmin, xmax, ymin, ymax) = volume.bounds
+    log.debug('Making grid with bounds %.2f %.2f %.2f %.2f', *volume.bounds)
+    grid_width = max(xmax - xmin, ymax - ymin) / resolution
+    log.debug("Gridwithd %f", grid_width)
+    grid = np.mgrid[xmin : xmax : grid_width, ymin : ymax : grid_width]
+    return grid
+
+
+def distribution_norm_tvd(p, q):
+    """Total variation distance.
+    """
+
+    q /= np.sum(q)
+    p /= np.sum(p)
+
+    res = 0.5 * np.sum(np.abs(p - q))
+
+    return res
+
+def distribution_norm(p, q):
+    """Take the norm of a distribution.
+
+        p: actual
+        q: estimated
+    """
+    return distribution_norm_tvd(p, q)
+
+def project(frame, param_str, grid):
+    xx, yy = grid
+    bounds = (xx.min(), xx.max(), yy.min(), yy.max())
+
+    # Make the projection
+    pp.subplot(121)
+    pp.title(param_str)
+    known_points = np.vstack((frame[0], frame[1])).T
+    project_on = np.vstack([xx.ravel(), yy.ravel()]).T # todo: remove
+    est = scipy.interpolate.griddata(known_points, frame[2],
+                                     (xx, yy), method='cubic',
+                                     fill_value = 0.0)
+    est = est.clip(min=0.0)
+    est /= np.sum(est)
+
+    #est_show = (-np.log(est)).clip(max=70)
+    est_show = est
+    pp.imshow(est_show.T, interpolation='nearest',
+              extent=bounds,
+              aspect='auto',
+              origin='lower')
+    pp.colorbar()
+
+    pp.subplot(122)
+    pp.title("Theoretical")
+    calc_eq = mf.MullerForce.potential(xx, yy)
+    calc_eq = np.exp(-calc_eq / (TEMP * KB))
+    calc_eq /= np.sum(calc_eq)
+    #calc_eq_show = (-np.log(calc_eq)).clip(max=70)
+    calc_eq_show = calc_eq
+    pp.imshow(calc_eq_show.T, interpolation='nearest',
+              extent=bounds,
+              aspect='auto',
+              origin='lower')
+    pp.colorbar()
+
+    return distribution_norm(calc_eq, est)
 
 def scatter(frame, param_str):
     """Scatter plot centroids where size and color are based on population.
@@ -150,8 +233,41 @@ def scatter(frame, param_str):
     pp.title("Theoretical")
     pp.colorbar()
 
+class Volume(object):
+    def __init__(self, centroidx=None, centroidy=None):
+        if centroidx is not None and centroidy is not None:
+            self.xmin = np.min(centroidx)
+            self.xmax = np.max(centroidx)
+            self.ymin = np.min(centroidy)
+            self.ymax = np.max(centroidy)
+        else:
+            self.xmin = 0.0
+            self.xmax = 0.0
+            self.ymin = 0.3
+            self.ymax = 0.3
 
-def make_movie(param_str, results, movie_dirname, movie='centroid'):
+    @property
+    def volume(self):
+        return (self.xmax - self.xmin) * (self.ymax - self.ymin)
+
+    @property
+    def bounds(self):
+        return (self.xmin, self.xmax, self.ymin, self.ymax)
+
+    def union(self, other_v):
+        """Compare to other volume and turn me into something that contains
+        both.
+        """
+        self.xmin = min(self.xmin, other_v.xmin)
+        self.ymin = min(self.ymin, other_v.ymin)
+        self.xmax = max(self.xmax, other_v.xmax)
+        self.ymax = max(self.ymax, other_v.ymax)
+
+VOLUMES = dict()
+BIGV = Volume()
+SETVOL = Volume([-3.0, 1.0], [-1.0, 3.0])
+
+def make_movie(param_str, results, movie_dirname, movie):
     """Make a movie for a given accelerator run.
 
         results: a dict of frames that has tmat_fn and centroids_fn for us
@@ -161,6 +277,7 @@ def make_movie(param_str, results, movie_dirname, movie='centroid'):
         movie: ['centroid', 'projection']: Whether to make a movie from
                the centroids or project on to a grid
     """
+    assert movie in ['centroid', 'projection'], 'Invalid movie type'
 
     abs_movie_dirname = os.path.join(results.items()[0][1].abspath, movie_dirname % movie)
     log.info("Making %s movie for %s in directory %s", movie, param_str, abs_movie_dirname)
@@ -171,14 +288,21 @@ def make_movie(param_str, results, movie_dirname, movie='centroid'):
     except OSError as e:
         log.warn(e)
 
+    biggest_v = Volume()
+
+    errors = -1 * np.ones((len(results.keys()), 2))
+
+    if movie == 'projection':
+        grid = get_grid(SETVOL, resolution=200)
 
     for round_i, frame_object in results.items():
         # Load up from file
-        centroids, _, eq_distr = load(frame_object)
+        centroids, _, eq_distr, walltime = load(frame_object)
         if centroids is not None and eq_distr is not None:
 
             # Get relevant info into a list
             frame = [centroids[:, 0], centroids[:, 1], eq_distr]
+            biggest_v.union(Volume(frame[0], frame[1]))
 
             # Give a little debug info
             log.debug("Frame %d, centroid x's: %d, centroid y's: %d, eq_distr: %d",
@@ -189,7 +313,8 @@ def make_movie(param_str, results, movie_dirname, movie='centroid'):
                 if movie == 'centroid':
                     scatter(frame, param_str)
                 elif movie == 'projection':
-                    pass
+                    dist = project(frame, param_str, grid)
+                    errors[round_i - 1] = [walltime, dist]
                 else:
                     log.error("Unknown movie type %s", movie)
             else:
@@ -217,13 +342,29 @@ def make_movie(param_str, results, movie_dirname, movie='centroid'):
         pp.savefig(fn_formatstr % ('frame', round_i))
         pp.clf()
 
+    VOLUMES[param_str] = biggest_v
+    BIGV.union(biggest_v)
 
-def make_movies(all_results, movie_dirname):
+    # Delete anything with -1 (no round)
+    errors = np.delete(errors, np.where(errors[:,0] < 0)[0], axis=0)
+
+    with open('quant-%s-%s.pickl' % (movie, param_str), 'w') as f:
+        (_, someresult) = results.items()[0]
+        pickle.dump(RunResult(someresult.params, errors), f, protocol=2)
+
+    log.info("The largest volume for that movie is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
+             *(biggest_v.bounds + (biggest_v.volume,)))
+
+
+def make_movies(all_results, movie_dirname, movie_type):
     log.info("Making %d movies", len(all_results.keys()))
     log.debug("Different param configurations: %s", str(all_results.keys()))
 
     for param_str, subresults in all_results.items():
-        make_movie(param_str, subresults, movie_dirname)
+        make_movie(param_str, subresults, movie_dirname, movie_type)
+
+    log.info("The largest volume overall is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
+             *(BIGV.bounds + (BIGV.volume,)))
 
 
 def parse():
@@ -236,11 +377,20 @@ def parse():
     parser.add_argument('-how', dest='how',
                         help='''either percent or round''',
                         default='round')
+    parser.add_argument('-mt', dest='movietype',
+                        help='''Type of movie: [centroid, projections]''',
+                        default='centroid')
+    parser.add_argument('--debug', dest='debug',
+                        help='''Print extremely verbose output''',
+                        action='store_true')
+    parser.set_defaults(debug=False)
 
     args = parser.parse_args()
-    main(args.walkydir, args.how, args.version)
+    if args.debug: log.basicConfig(level=log.DEBUG)
+    else: log.basicConfig(level=log.INFO)
+    main(args.walkydir, args.how, args.version, args.movietype)
 
-def main(walkydir, how, version):
+def main(walkydir, how, version, movietype):
 
     fmt = {'how': how, 'version': version}
     centroid_regex='centroids-{how}-mk{version}-([0-9]+).npy'.format(**fmt)
@@ -250,8 +400,7 @@ def main(walkydir, how, version):
                    centroid_regex=centroid_regex,
                    tmat_regex=tmat_regex)
 
-    make_movies(results, '%s-movie-mk{version}'.format(**fmt))
+    make_movies(results, '%s-movie-mk{version}'.format(**fmt), movietype)
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.INFO)
     parse()
