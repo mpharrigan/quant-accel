@@ -280,10 +280,6 @@ class MSM(object):
 
         res = 0.5 * (1 / norm_to) * np.sum(np.abs(p - q))
 
-        if res > 1.0:
-            import pdb
-            pdb.set_trace()
-
         return res
 
     def error_euc(self, sim):
