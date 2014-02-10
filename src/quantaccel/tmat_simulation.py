@@ -15,11 +15,14 @@ import sys
 import scipy.optimize
 
 import scipy.sparse.csgraph
+import scipy.sparse
 
 from msmbuilder import MSMLib as msmlib
 from matplotlib import pyplot as pp
 
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence, ArpackError
+
+STARTING_STATE_FN = 'starting_state.int'
 
 
 class TMatSimulator(object):
@@ -138,6 +141,12 @@ def _get_eigenvec(tmat):
 
     return q
 
+def _invert_mapping(mapping):
+    backmap = -2 * np.ones(np.max(mapping)+1)
+    for bmap, fmap in enumerate(mapping):
+        if fmap > -1:
+            backmap[fmap] = bmap
+    return backmap
 
 class MSM(object):
 
@@ -170,11 +179,22 @@ class MSM(object):
             lag_time=self.lag_time,
             sliding_window=True)
 
-        _, tmat, _, _ = msmlib.build_msm(counts,
-                                         symmetrize='Transpose',
-                                         ergodic_trimming=False)
+        _, tmat, _, mapping = msmlib.build_msm(counts,
+                                         symmetrize='MLE',
+                                         ergodic_trimming=True)
         self.counts = counts
-        self.tmat = tmat
+
+        # Back out full transition matrix
+        backmap = _invert_mapping(mapping)
+        coo_tmat = tmat.tocoo()
+        back_row = backmap[coo_tmat.row]
+        back_col = backmap[coo_tmat.col]
+        expanded_tmat = scipy.sparse.coo_matrix(
+                (coo_tmat.data, (back_row, back_col)),
+                shape=(sim.n_states, sim.n_states))
+
+
+        self.tmat = expanded_tmat
 
     def adapt(self, n_new):
         return self.adapt_old(n_new)
@@ -319,8 +339,15 @@ class Accelerator(object):
         """
 
         n_rounds = self.n_rounds
-        starting_states = np.random.randint(low=0, high=self.sim.n_states,
-                                            size=n_tpr)
+        with open(STARTING_STATE_FN) as f:
+            starting_state = int(f.read())
+
+        # Start each traj from a random starting state
+        #starting_states = np.random.randint(low=0, high=self.sim.n_states,
+         #                                   size=n_tpr)
+
+        # Start everything from one starting state
+        starting_states = np.ones(n_tpr) * starting_state
 
         log.debug("Starting states: %s", str(starting_states))
 
@@ -429,7 +456,7 @@ def main(run_i=-1, runcopy=0):
         if run_i < 0 or run_i == i:
             rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr)
             multierrors.append(rr)
-            with open('result-e-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
+            with open('result-h-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
         i += 1
 
@@ -443,12 +470,12 @@ def one_long_traj():
     defaults = {'lag_time': 1, 'runcopy': 0}
     beta = 1
     n_rounds = 1
-    spt = {'n_spt': int(1e5), 'n_rounds': n_rounds}
+    spt = {'n_spt': int(60000), 'n_rounds': n_rounds}
     tpr = {'n_tpr': 1, 'n_rounds': n_rounds}
     log.info("Running one long trajectory.")
 
     rr = simulate(tmat_sim, defaults, beta, spt, tpr)
-    with open('result-g-runcopy-0-0.pickl', 'w') as f:
+    with open('result-olt-0-0.pickl', 'w') as f:
         pickle.dump(rr, f, protocol=2)
 
 NPROCS = 16

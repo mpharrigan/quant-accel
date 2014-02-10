@@ -7,7 +7,7 @@ if [ -z "$1" ]; then
 fi
 
 RUNCOPY=$1
-DIRNAME=g-run-$1
+DIRNAME=h-run-$1
 
 echo dirname: $DIRNAME runcopy: $RUNCOPY
 pwd
