@@ -14,7 +14,7 @@ PBS_HEADER = """
 #PBS -j oe
 #PBS -o {d}
 #PBS -M harrigan@stanford.edu
-#PBS -m bea
+#PBS -m ae
 
 cd $PBS_O_WORKDIR/{d}
 export OMP_NUM_THREADS=1
@@ -36,8 +36,8 @@ PREVWD=$CWD
 
 
 
-JOBFN = "{whence}-{how}-mkiii-{round_i:d}.job"
-OUTFN = "{whence}-{how}-mkiii-{round_i:d}.mtx"
+JOBFN = "{whence}-{how}-mk4-{round_i:d}.job"
+OUTFN = "{whence}-{how}-mk4-{round_i:d}.mtx"
 SUBMITFN = 'submit.sh'
 
 SUBMITTER_ENTRY = """

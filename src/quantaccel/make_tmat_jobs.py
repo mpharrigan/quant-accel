@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 
 JOB_SCRIPT = """
 
@@ -8,9 +9,9 @@ JOB_SCRIPT = """
 #PBS -j oe
 #PBS -o .
 #PBS -M harrigan@stanford.edu
-#PBS -m bea
+#PBS -m a
 
-# We need 60
+# We need 75
 
 cd $PBS_O_WORKDIR
 export OMP_NUM_THREADS=1
@@ -20,7 +21,12 @@ RUNCOPY={runcopy}
 python ../../src/quantaccel/tmat_simulation.py 0 {job_i} $RUNCOPY &> tmat-{job_i}.log
 """
 
-def main(runcopy, num_permutes=60):
+def main(runcopy, num_permutes=75):
+    # Pick a starting state for all of them
+    start_state = np.random.randint(0, 10000)
+    with open('starting_state.int', 'w') as f:
+        f.write("{}".format(start_state))
+
     for job_i in range(num_permutes):
         with open('tmat-{job_i}.job'.format(job_i=job_i), 'w') as f:
             f.write(JOB_SCRIPT.format(job_i=job_i, runcopy=runcopy))

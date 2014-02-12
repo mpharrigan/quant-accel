@@ -14,10 +14,15 @@ import itertools
 import sys
 import scipy.optimize
 
+import scipy.sparse.csgraph
+import scipy.sparse
+
 from msmbuilder import MSMLib as msmlib
 from matplotlib import pyplot as pp
 
-from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
+from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence, ArpackError
+
+STARTING_STATE_FN = 'starting_state.int'
 
 
 class TMatSimulator(object):
@@ -35,8 +40,7 @@ class TMatSimulator(object):
         t_matrix = t_matrix.tocsr()
         self.t_matrix = t_matrix
 
-        self.vals, self.vecs = scipy.sparse.linalg.eigs(t_matrix)
-        self.vecs = np.real_if_close(self.vecs)
+        self.p = _get_eigenvec(t_matrix)
 
         log.info('Loaded transition matrix of shape %s',
                  self.t_matrix.shape)
@@ -44,8 +48,7 @@ class TMatSimulator(object):
         # Load generators
         #self.gens = mdtraj.load(self.gens_fn)
 
-    def simulate(self, state_i, number_of_steps=10000, report_interval=1000,
-                 out_fn=None):
+    def simulate(self, state_i, number_of_steps, out_fn=None):
         """We run some KMC dynamics, and then send back the results.
 
             state_i - initial state
@@ -55,12 +58,10 @@ class TMatSimulator(object):
 
         t_matrix = self.t_matrix
 
-        state_out = np.zeros(number_of_steps // report_interval, dtype=int)
+        state_out = np.zeros(number_of_steps, dtype=int)
+        state_out[0] = state_i
 
-        report = report_interval
-        report_toti = 0
-
-        for _ in xrange(number_of_steps):
+        for i in xrange(1, number_of_steps):
             # Get stuff from our sparse matrix
 
             csr_slicer = slice(
@@ -77,25 +78,75 @@ class TMatSimulator(object):
             prob_i = np.sum(np.cumsum(probs) < np.random.rand())
             state_i = colinds[prob_i]
 
-            # Check to see if we report
-            if report == report_interval:
-                state_out[report_toti] = state_i
-
-                # Reset
-                report = 0
-                report_toti += 1
-
-            report += 1
+            state_out[i] = state_i
 
         # Write
-        assert report_toti == state_out.shape[0], "I did my math wrong."
-
         if out_fn is not None:
             np.savetxt(out_fn, state_out)
         log.debug('Finished TMat simulation.')
 
         return state_out
 
+
+def _super_debug_get_eq_distr(vals, vecs):
+    for i, val in enumerate(vals):
+        if i > 0:
+            log.warn("The first eigenvec is no good. Trying others.")
+
+        if np.abs(val - 1.0) < 1e-8:
+            q = vecs[:, i]
+            num_pos = len(np.where(q > 1e-8)[0])
+            num_neg = len(np.where(q < -1e-8)[0])
+
+            log.debug('Checking vector %d, val %f. Num +/- %d, %d',
+                      i, val, num_pos, num_neg)
+
+            if not (num_pos != 0 and num_neg != 0):
+                # This is a good one
+                break
+        else:
+            raise ValueError("""We've gotten to an eigenvec with
+                                eigenvalue != 1.""")
+    else:
+        # This is if we make it through the for loop
+        # (python has nifty constructs like this)
+        raise ValueError("""We've exhausted all eigenvecs.""")
+
+    return q
+
+
+def _get_eigenvec(tmat):
+    try:
+        ttr = tmat.transpose()
+        vals, vecs = scipy.sparse.linalg.eigs(ttr, which="LR",
+                                              maxiter=10000, tol=1e-30)
+
+        order = np.argsort(-np.real(vals))
+        vals = np.real_if_close(vals[order])
+        vecs = np.real_if_close(vecs[:, order])
+
+        log.debug('Eigenvalues: %s', str(vals))
+
+        num_unity_eigenvals = np.sum(np.abs(vals - 1.0) < 1e-8)
+        log.debug("Number of unity eigenvals: %d", num_unity_eigenvals)
+        if num_unity_eigenvals != 1:
+            raise ValueError("We found %d eigenvalues that are 1",
+                             num_unity_eigenvals)
+
+        q = vecs[:, 0]
+    except (ArpackNoConvergence, ArpackError, ValueError) as e:
+        log.warn("No eigenv convergence: %s", str(e))
+        log.warn("Returning uniform distribution.")
+        q = np.ones(ttr.shape[0])
+
+    return q
+
+def _invert_mapping(mapping):
+    backmap = -2 * np.ones(np.max(mapping)+1)
+    for bmap, fmap in enumerate(mapping):
+        if fmap > -1:
+            backmap[fmap] = bmap
+    return backmap
 
 class MSM(object):
 
@@ -121,19 +172,58 @@ class MSM(object):
         and uses `sim` to get the number of states for easier convergence
         calculation.
         """
+
         counts = msmlib.get_count_matrix_from_assignments(
             np.array(self.traj_list),
             n_states=sim.n_states,
             lag_time=self.lag_time,
             sliding_window=True)
 
-        _, tmat, _, _ = msmlib.build_msm(counts,
-                                         symmetrize='Transpose',
-                                         ergodic_trimming=False)
+        _, tmat, _, mapping = msmlib.build_msm(counts,
+                                         symmetrize='MLE',
+                                         ergodic_trimming=True)
         self.counts = counts
-        self.tmat = tmat
+
+        # Back out full transition matrix
+        backmap = _invert_mapping(mapping)
+        coo_tmat = tmat.tocoo()
+        back_row = backmap[coo_tmat.row]
+        back_col = backmap[coo_tmat.col]
+        expanded_tmat = scipy.sparse.coo_matrix(
+                (coo_tmat.data, (back_row, back_col)),
+                shape=(sim.n_states, sim.n_states))
+
+
+        self.tmat = expanded_tmat
 
     def adapt(self, n_new):
+        return self.adapt_old(n_new)
+
+    def adapt_new(self, n_new):
+        """Use ergodic trimming and backtrack to sample new."""
+        erg_counts, mapping = msmlib.ergodic_trim(self.counts)
+
+        log.debug("shapes of trimmed vs original: %s %s",
+                  str(erg_counts.shape), str(self.counts.shape))
+
+        counts_per_state = np.array(erg_counts.sum(axis=1).flatten() + 1e-8)
+        weights = np.power(counts_per_state, self.beta - 1.0)
+        weights /= np.sum(weights)
+
+        cum_weights = np.cumsum(weights)
+        new_states = -1 * np.ones(n_new, dtype=int)
+
+        for i in range(n_new):
+            new_state_erg = np.sum(cum_weights < np.random.rand())
+            backtrack = np.where(mapping == new_state_erg)[0]
+            assert len(backtrack) == 1, 'Messed up mapping.'
+            new_states[i] = backtrack[0]
+
+        log.debug("Starting from states: %s", new_states)
+
+        return new_states
+
+    def adapt_old(self, n_new):
         """Return new starting states
 
             n_new - number of new states
@@ -159,7 +249,7 @@ class MSM(object):
             len(only_no_to))
 
         counts_per_state = np.array(
-            self.counts.sum(axis=1)).flatten() + 10. ** -8
+            self.counts.sum(axis=1)).flatten() + 1e-8
 
         weights = np.power(counts_per_state, self.beta - 1.0)
 
@@ -173,8 +263,11 @@ class MSM(object):
 
         for i in range(n_new):
             new_states[i] = np.sum(cum_weights < np.random.rand())
+            if np.in1d(new_states[i], abs_no):
+                log.error("Picking an unfound state")
 
         log.debug("Starting from states: %s", new_states)
+        log.debug("cps %s", str(counts_per_state[new_states]))
 
         return new_states
 
@@ -186,51 +279,38 @@ class MSM(object):
     def error_kl(self, sim):
         """KL-divergence between 0-th eigenvector (equilibrium distribution).
         """
-        p = sim.vecs[:,0]
-        try:
-            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
-            vecs = np.real_if_close(vecs)
-            q = vecs[:,0]
-        except ArpackNoConvergence:
-            log.warn("No eigenv convergence")
-            q = np.ones(p.shape)
+        p = sim.p
+        q = _get_eigenvec(self.tmat)
 
         q /= np.sum(q)
         p /= np.sum(p)
 
-        return np.sum(np.nan_to_num(np.where(np.abs(p) > 1.e-6, p * np.log(p / q), 0)))
+        return np.sum(
+            np.nan_to_num(
+                np.where(np.abs(p) > 1.e-6, p * np.log(p / q), 0)))
 
     def error_tvd(self, sim):
         """Total variation distance."""
-        p = sim.vecs[:,0]
-        try:
-            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
-            vecs = np.real_if_close(vecs)
-            q = vecs[:,0]
-        except ArpackNoConvergence:
-            log.warn("No eigenv convergence")
-            q = np.ones(p.shape)
+        p = sim.p
+        q = _get_eigenvec(self.tmat)
 
-        q /= np.sum(q)
-        p /= np.sum(p)
+        norm_to = 1000.0
+        q = norm_to * (q / np.sum(q))
+        p = norm_to * (p / np.sum(p))
 
-        return 0.5 * np.sum(np.abs(p-q))
+        res = 0.5 * (1 / norm_to) * np.sum(np.abs(p - q))
+
+        return res
 
     def error_euc(self, sim):
         """Euclidean distance."""
-        p = sim.vecs[:,0]
-        try:
-            vals, vecs = scipy.sparse.linalg.eigs(self.tmat)
-            vecs = np.real_if_close(vecs)
-            q = vecs[:,0]
-        except ArpackNoConvergence:
-            log.warn("No eigenv convergence")
-            q = np.ones(p.shape)
+        p = sim.p
+        q = _get_eigenvec(self.tmat)
 
         q /= np.sum(q)
         p /= np.sum(p)
 
-        diff = p-q
+        diff = p - q
 
         return np.sqrt(np.dot(diff, diff))
 
@@ -259,14 +339,22 @@ class Accelerator(object):
         """
 
         n_rounds = self.n_rounds
-        starting_states = np.random.randint(low=0, high=self.sim.n_states,
-                                            size=n_tpr)
+        with open(STARTING_STATE_FN) as f:
+            starting_state = int(f.read())
+
+        # Start each traj from a random starting state
+        #starting_states = np.random.randint(low=0, high=self.sim.n_states,
+         #                                   size=n_tpr)
+
+        # Start everything from one starting state
+        starting_states = np.ones(n_tpr) * starting_state
+
+        log.debug("Starting states: %s", str(starting_states))
 
         for round_i in range(n_rounds):
             for traj_i in range(n_tpr):
                 traj = self.sim.simulate(number_of_steps=n_spt,
-                                         state_i=starting_states[traj_i],
-                                         report_interval=1)
+                                         state_i=starting_states[traj_i])
                 self.msm.add(traj)
 
             walltime = n_spt * (round_i + 1)
@@ -292,15 +380,58 @@ class RunResult(object):
                 'o-', label=self.params['n_spt'])
 
 
+def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr):
+    """Run one simulation given the params
+
+     - set_beta: a float to set beta to
+     - set_spt: a dict with keys 'n_spt' and 'n_rounds'
+     - set_tpr: a dict with keys 'n_tpr' and 'n_rounds'
+
+     This function will use the minimum number of rounds specified
+     by set_spt or set_tpr
+     """
+    log.info(
+        "Setting beta = %f spt = %s tpr = %s take min round_i",
+        set_beta, str(set_spt), str(set_tpr))
+
+    # Make param dict from defaults and set our set values
+    param = dict(defaults)
+    param.update(set_spt)
+    param.update(set_tpr)
+    param.update(n_rounds=min(set_spt['n_rounds'], set_tpr['n_rounds']))
+    param.update(beta=set_beta)
+
+    # Make MSM container object
+    msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
+
+    # Make accelerator object
+    accelerator = Accelerator(
+        tmat_sim,
+        msm,
+        n_rounds=param['n_rounds'])
+
+    # Run it
+    accelerator.accelerator_loop(
+        n_tpr=param['n_tpr'],
+        n_spt=param['n_spt'])
+
+    # Get the results
+    rr = RunResult(param, accelerator.errors)
+    return rr
+
+
 def main(run_i=-1, runcopy=0):
     """Define our parameter sets and run the simulations.
 
     run_i is for pbsdsh. If it is less than 0, all will be run
     """
+    # Load up the transition matrix
     tmat_sim = TMatSimulator('../ntl9.mtx')
 
+    # Default parameters, i.e. those that do not vary over the different sims
     defaults = {'lag_time': 1, 'runcopy': runcopy}
 
+    # Changy params
     beta = [0, 1, 2]
     spt = [
         {'n_spt': 4, 'n_rounds': 200},
@@ -309,63 +440,67 @@ def main(run_i=-1, runcopy=0):
         {'n_spt': 100, 'n_rounds': 100},
         {'n_spt': 1000, 'n_rounds': 20},
     ]
-    tpr = [1, 10, 100, 1000]
+    tpr = [
+        {'n_tpr': 1, 'n_rounds': 200},
+        {'n_tpr': 10, 'n_rounds': 200},
+        {'n_tpr': 100, 'n_rounds': 100},
+        {'n_tpr': 500, 'n_rounds': 100},
+        {'n_tpr': 1000, 'n_rounds': 20}
+    ]
 
     log.info("Number of permutations = %d", len(beta) * len(spt) * len(tpr))
 
     multierrors = list()
     i = 0
-
-    for (setbeta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
-
+    for (set_beta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
         if run_i < 0 or run_i == i:
-            log.info(
-                "Setting beta = %f\tspt = %s\ttpr = %d",
-                setbeta, str(set_spt), set_tpr)
-
-            # Make param dict from defaults and set our set values
-            param = dict(defaults)
-            param.update(set_spt)
-            param.update(beta=setbeta)
-            param.update(n_tpr=set_tpr)
-
-            # Make MSM container object
-            msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
-
-            # Make accelerator object
-            accelerator = Accelerator(
-                tmat_sim,
-                msm,
-                n_rounds=param['n_rounds'])
-
-            # Run it
-            accelerator.accelerator_loop(
-                n_tpr=param['n_tpr'],
-                n_spt=param['n_spt'])
-
-            rr = RunResult(param, accelerator.errors)
+            rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr)
             multierrors.append(rr)
-            with open('result-d-runcopy-%d-%d.pickl' % (runcopy,i), 'w') as f:
+            with open('result-h-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
-
         i += 1
+
+
+def one_long_traj():
+    """Run one long trajectory."""
+
+    log.warn("Doing one long trajectory.")
+
+    tmat_sim = TMatSimulator('../ntl9.mtx')
+    defaults = {'lag_time': 1, 'runcopy': 0}
+    beta = 1
+    n_rounds = 1
+    spt = {'n_spt': int(60000), 'n_rounds': n_rounds}
+    tpr = {'n_tpr': 1, 'n_rounds': n_rounds}
+    log.info("Running one long trajectory.")
+
+    rr = simulate(tmat_sim, defaults, beta, spt, tpr)
+    with open('result-olt-0-0.pickl', 'w') as f:
+        pickle.dump(rr, f, protocol=2)
 
 NPROCS = 16
 
-if __name__ == "__main__":
-    log.basicConfig(level=log.INFO)
-    if len(sys.argv) == 1:
+
+def parse(argv):
+    """Parse command line args."""
+    if len(argv) == 1:
         main()
-    elif len(sys.argv) == 2:
-        main(int(sys.argv[1]))
-    elif len(sys.argv) == 3:
-        TENS = int(sys.argv[1])
-        ONES = int(sys.argv[2])
-        main(NPROCS * TENS + ONES)
-    elif len(sys.argv) == 4:
-        TENS = int(sys.argv[1])
-        ONES = int(sys.argv[2])
-        RUNCOPY = int(sys.argv[3])
-        main(NPROCS * TENS + ONES, runcopy=RUNCOPY)
+    elif len(argv) == 2:
+        main(int(argv[1]))
+    elif len(argv) == 3:
+        tens = int(argv[1])
+        ones = int(argv[2])
+        main(NPROCS * tens + ones)
+    elif len(argv) == 4:
+        tens = int(argv[1])
+        ones = int(argv[2])
+        runcopy = int(argv[3])
+        main(NPROCS * tens + ones, runcopy=runcopy)
     else:
         print "Usage: python tmat_sumlation.py [index]"
+
+if __name__ == "__main__":
+    log.basicConfig(level=log.INFO)
+    np.seterr(under='warn')
+    parse(sys.argv)
+    #one_long_traj()

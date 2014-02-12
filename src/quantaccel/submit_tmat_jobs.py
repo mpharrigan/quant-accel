@@ -4,7 +4,7 @@ import re
 
 QSUB = """
 qsub {fn}
-sleep 1
+sleep 0.5
 """
 
 def main():

@@ -6,8 +6,8 @@ if [ -z "$1" ]; then
 	exit
 fi
 
-RUNCOPY=$[$1-1]
-DIRNAME=d-run-$1
+RUNCOPY=$1
+DIRNAME=h-run-$1
 
 echo dirname: $DIRNAME runcopy: $RUNCOPY
 pwd
