@@ -70,3 +70,5 @@ submit*.sh
 # Don't include movie frames
 *centroid-movie*
 *projection-movie*
+
+*starting_state.int
