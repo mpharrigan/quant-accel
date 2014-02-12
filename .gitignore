@@ -65,7 +65,8 @@ submit*.sh
 
 # Don't include pickl results from tmat-accel
 *result-*-*.pickl
+*quant-projection*.pickl
 
 # Don't include movie frames
 *centroid-movie*
-
+*projection-movie*
