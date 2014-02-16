@@ -141,12 +141,14 @@ def _get_eigenvec(tmat):
 
     return q
 
+
 def _invert_mapping(mapping):
     backmap = -2 * np.ones(np.max(mapping) + 1)
     for bmap, fmap in enumerate(mapping):
         if fmap > -1:
             backmap[fmap] = bmap
     return backmap
+
 
 class MSM(object):
 
@@ -181,8 +183,8 @@ class MSM(object):
 
         try:
             _, tmat, _, mapping = msmlib.build_msm(counts,
-                                             symmetrize='MLE',
-                                             ergodic_trimming=True)
+                                                   symmetrize='MLE',
+                                                   ergodic_trimming=True)
         except Exception as e:
             log.warn("Building msm with MLE failed: %s", str(e))
             log.warn("Defaulting to transpose")
@@ -197,9 +199,8 @@ class MSM(object):
         back_row = backmap[coo_tmat.row]
         back_col = backmap[coo_tmat.col]
         expanded_tmat = scipy.sparse.coo_matrix(
-                (coo_tmat.data, (back_row, back_col)),
-                shape=(sim.n_states, sim.n_states))
-
+            (coo_tmat.data, (back_row, back_col)),
+            shape=(sim.n_states, sim.n_states))
 
         self.tmat = expanded_tmat
 
@@ -424,8 +425,6 @@ def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive):
         "Setting beta = %f spt = %s tpr = %s take min round_i",
         set_beta, str(set_spt), str(set_tpr))
 
-    
-
     # Make param dict from defaults and set our set values
     param = dict(defaults)
     param.update(set_spt)
@@ -487,7 +486,13 @@ def main(run_i=-1, runcopy=0):
     i = 0
     for (set_beta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
         if run_i < 0 or run_i == i:
-            rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive=True)
+            rr = simulate(
+                tmat_sim,
+                defaults,
+                set_beta,
+                set_spt,
+                set_tpr,
+                adaptive=True)
             multierrors.append(rr)
             with open('result-h-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
@@ -505,18 +510,20 @@ def long_traj_control(run_i, runcopy):
 
     beta = 1
     params = [
-              {'n_tpr': 1, 'n_spt': 100, 'n_rounds': 100},
-              {'n_tpr': 10, 'n_spt': 10, 'n_rounds': 100},
-              {'n_tpr': 100, 'n_spt': 10, 'n_rounds': 50},
-              {'n_tpr': 500, 'n_spt': 4, 'n_rounds': 50},
-              {'n_tpr': 1000, 'n_spt': 4, 'n_rounds': 50}
-              ]
+        {'n_tpr': 1, 'n_spt': 100, 'n_rounds': 100},
+        {'n_tpr': 10, 'n_spt': 10, 'n_rounds': 100},
+        {'n_tpr': 100, 'n_spt': 10, 'n_rounds': 50},
+        {'n_tpr': 500, 'n_spt': 4, 'n_rounds': 50},
+        {'n_tpr': 1000, 'n_spt': 4, 'n_rounds': 50}
+    ]
 
     for i, set_params in enumerate(params):
         if run_i == i:
             rr = simulate(tmat_sim, defaults, beta,
-                          dict((k, set_params[k]) for k in ('n_tpr', 'n_rounds')),
-                          dict((k, set_params[k]) for k in ('n_spt', 'n_rounds')),
+                          dict((k, set_params[k])
+                               for k in ('n_tpr', 'n_rounds')),
+                          dict((k, set_params[k])
+                               for k in ('n_spt', 'n_rounds')),
                           adaptive=False)
 
             with open('result-ho-%d-%d.pickl' % (runcopy, i), 'w') as f:
