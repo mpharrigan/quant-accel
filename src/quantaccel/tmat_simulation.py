@@ -46,7 +46,7 @@ class TMatSimulator(object):
                  self.t_matrix.shape)
 
         # Load generators
-        #self.gens = mdtraj.load(self.gens_fn)
+        # self.gens = mdtraj.load(self.gens_fn)
 
     def simulate(self, state_i, number_of_steps, out_fn=None):
         """We run some KMC dynamics, and then send back the results.
@@ -142,7 +142,7 @@ def _get_eigenvec(tmat):
     return q
 
 def _invert_mapping(mapping):
-    backmap = -2 * np.ones(np.max(mapping)+1)
+    backmap = -2 * np.ones(np.max(mapping) + 1)
     for bmap, fmap in enumerate(mapping):
         if fmap > -1:
             backmap[fmap] = bmap
@@ -179,9 +179,16 @@ class MSM(object):
             lag_time=self.lag_time,
             sliding_window=True)
 
-        _, tmat, _, mapping = msmlib.build_msm(counts,
-                                         symmetrize='MLE',
-                                         ergodic_trimming=True)
+        try:
+            _, tmat, _, mapping = msmlib.build_msm(counts,
+                                             symmetrize='MLE',
+                                             ergodic_trimming=True)
+        except Exception as e:
+            log.warn("Building msm with MLE failed: %s", str(e))
+            log.warn("Defaulting to transpose")
+            _, tmat, _, mapping = msmlib.build_msm(counts,
+                                                   symmetrize='Transpose',
+                                                   ergodic_trimming=False)
         self.counts = counts
 
         # Back out full transition matrix
@@ -196,11 +203,32 @@ class MSM(object):
 
         self.tmat = expanded_tmat
 
-    def adapt(self, n_new):
-        return self.adapt_old(n_new)
+    def adapt(self, n_new, adaptive):
+        if adaptive:
+            # Do adaptive sampling.
+            # Note: my old version of the adaptive code is better
+            #       than the one based on ergodic trimming et al
+            #       because it trims too much.
+            return self.adapt_old(n_new)
+        else:
+            # Do not do adaptive sampling. Just continue previous trajectories.
+            return self.dont_adapt(n_new)
+
+    def dont_adapt(self, n_new):
+        """Return the ends of the previous n_new trajectories.
+
+        This effectively continues the previous trajectories.
+        """
+        # For the last n_new trajectories, pluck the last value
+        new_states = [traj[-1] for traj in self.traj_list[-n_new:]]
+        return np.array(new_states)
 
     def adapt_new(self, n_new):
-        """Use ergodic trimming and backtrack to sample new."""
+        """Use ergodic trimming and backtrack to sample new.
+
+        This trims too much: specifically states that only have a count 'to'
+        and states that only have a count 'from' will not be sampled.
+        """
         erg_counts, mapping = msmlib.ergodic_trim(self.counts)
 
         log.debug("shapes of trimmed vs original: %s %s",
@@ -331,11 +359,12 @@ class Accelerator(object):
         self.n_rounds = n_rounds
         self.errors = list()
 
-    def accelerator_loop(self, n_tpr, n_spt):
+    def accelerator_loop(self, n_tpr, n_spt, adaptive):
         """Run the accelerator loop
             n_rounds - number of rounds
             n_tpr - # trajectories per round (paralellization)
             n_spt - # of steps (length) per trajectory
+            adaptive - whether to run adaptive sampling or not
         """
 
         n_rounds = self.n_rounds
@@ -343,7 +372,7 @@ class Accelerator(object):
             starting_state = int(f.read())
 
         # Start each traj from a random starting state
-        #starting_states = np.random.randint(low=0, high=self.sim.n_states,
+        # starting_states = np.random.randint(low=0, high=self.sim.n_states,
          #                                   size=n_tpr)
 
         # Start everything from one starting state
@@ -360,7 +389,7 @@ class Accelerator(object):
             walltime = n_spt * (round_i + 1)
             self.msm.build(self.sim)
             self.errors.append([walltime, self.msm.error(self.sim)])
-            starting_states = self.msm.adapt(n_tpr)
+            starting_states = self.msm.adapt(n_tpr, adaptive)
             log.info("Built model %4d / %4d", (round_i + 1), n_rounds)
 
         self.errors = np.array(self.errors)
@@ -380,7 +409,7 @@ class RunResult(object):
                 'o-', label=self.params['n_spt'])
 
 
-def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr):
+def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive):
     """Run one simulation given the params
 
      - set_beta: a float to set beta to
@@ -390,9 +419,12 @@ def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr):
      This function will use the minimum number of rounds specified
      by set_spt or set_tpr
      """
+    log.info("This is %s run", 'an adaptive' if adaptive else 'a non-adaptive')
     log.info(
         "Setting beta = %f spt = %s tpr = %s take min round_i",
         set_beta, str(set_spt), str(set_tpr))
+
+    
 
     # Make param dict from defaults and set our set values
     param = dict(defaults)
@@ -413,7 +445,8 @@ def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr):
     # Run it
     accelerator.accelerator_loop(
         n_tpr=param['n_tpr'],
-        n_spt=param['n_spt'])
+        n_spt=param['n_spt'],
+        adaptive=adaptive)
 
     # Get the results
     rr = RunResult(param, accelerator.errors)
@@ -454,31 +487,43 @@ def main(run_i=-1, runcopy=0):
     i = 0
     for (set_beta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
         if run_i < 0 or run_i == i:
-            rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr)
+            rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive=True)
             multierrors.append(rr)
             with open('result-h-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
         i += 1
 
 
-def one_long_traj():
-    """Run one long trajectory."""
+def long_traj_control(run_i, runcopy):
+    """Run n_tpr long trajectories for comparison."""
 
-    log.warn("Doing one long trajectory.")
-
+    # Load up the transition matrix
     tmat_sim = TMatSimulator('../ntl9.mtx')
-    defaults = {'lag_time': 1, 'runcopy': 0}
-    beta = 1
-    n_rounds = 1
-    spt = {'n_spt': int(60000), 'n_rounds': n_rounds}
-    tpr = {'n_tpr': 1, 'n_rounds': n_rounds}
-    log.info("Running one long trajectory.")
 
-    rr = simulate(tmat_sim, defaults, beta, spt, tpr)
-    with open('result-olt-0-0.pickl', 'w') as f:
-        pickle.dump(rr, f, protocol=2)
+    # Default parameters
+    defaults = {'lag_time': 1, 'runcopy': runcopy}
+
+    beta = 1
+    params = [
+              {'n_tpr': 1, 'n_spt': 100, 'n_rounds': 100},
+              {'n_tpr': 10, 'n_spt': 10, 'n_rounds': 100},
+              {'n_tpr': 100, 'n_spt': 10, 'n_rounds': 50},
+              {'n_tpr': 500, 'n_spt': 4, 'n_rounds': 50},
+              {'n_tpr': 1000, 'n_spt': 4, 'n_rounds': 50}
+              ]
+
+    for i, set_params in enumerate(params):
+        if run_i == i:
+            rr = simulate(tmat_sim, defaults, beta,
+                          dict((k, set_params[k]) for k in ('n_tpr', 'n_rounds')),
+                          dict((k, set_params[k]) for k in ('n_spt', 'n_rounds')),
+                          adaptive=False)
+
+            with open('result-ho-%d-%d.pickl' % (runcopy, i), 'w') as f:
+                pickle.dump(rr, f, protocol=2)
 
 NPROCS = 16
+NADAPTIVE = 75
 
 
 def parse(argv):
@@ -494,8 +539,16 @@ def parse(argv):
     elif len(argv) == 4:
         tens = int(argv[1])
         ones = int(argv[2])
+        run_i = NPROCS * tens + ones
         runcopy = int(argv[3])
-        main(NPROCS * tens + ones, runcopy=runcopy)
+
+        if run_i < NADAPTIVE:
+            # Do an adaptive run
+            main(run_i, runcopy=runcopy)
+        else:
+            # Do a non-adaptive version
+            long_traj_control(run_i - NADAPTIVE, runcopy)
+
     else:
         print "Usage: python tmat_sumlation.py [index]"
 
@@ -503,4 +556,4 @@ if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
     np.seterr(under='warn')
     parse(sys.argv)
-    #one_long_traj()
+    # one_long_traj()

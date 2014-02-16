@@ -12,7 +12,6 @@ DIRNAME=h-run-$1
 echo dirname: $DIRNAME runcopy: $RUNCOPY
 pwd
 
-mkdir $DIRNAME
 cd ./$DIRNAME
 pwd
 python ../../src/quantaccel/make_tmat_jobs.py $RUNCOPY

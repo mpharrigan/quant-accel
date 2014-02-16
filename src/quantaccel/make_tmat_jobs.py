@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import os
 
 JOB_SCRIPT = """
 
@@ -21,12 +22,17 @@ RUNCOPY={runcopy}
 python ../../src/quantaccel/tmat_simulation.py 0 {job_i} $RUNCOPY &> tmat-{job_i}.log
 """
 
-def main(runcopy, num_permutes=75):
-    # Pick a starting state for all of them
-    start_state = np.random.randint(0, 10000)
-    with open('starting_state.int', 'w') as f:
-        f.write("{}".format(start_state))
+STARTSTATE_FN = 'starting_state.int'
 
+def main(runcopy, num_permutes=80):
+    
+    # Pick a starting state for all of them
+    if not os.path.exists(STARTSTATE_FN):
+        start_state = np.random.randint(0, 10000)
+        with open(STARTSTATE_FN, 'w') as f:
+            f.write("{}".format(start_state))
+
+    # Write all the job files
     for job_i in range(num_permutes):
         with open('tmat-{job_i}.job'.format(job_i=job_i), 'w') as f:
             f.write(JOB_SCRIPT.format(job_i=job_i, runcopy=runcopy))
