@@ -24,9 +24,12 @@ def load_runresults(rootdir):
     dirlist = os.listdir(rootdir)
     results = list()
     for fn in dirlist:
-        if re.match("result-h-runcopy-[0-9]+-[0-9]+\\.pickl", fn):
+        ma1 = re.match(r"^result-h-runcopy-[0-9]+-[0-9]+\.pickl$", fn)
+        ma2 = re.match(r"^result-ho-[0-9]+-[0-9]+\.pickl$", fn)
+        if ma1 or ma2:
             with open(os.path.join(rootdir, fn)) as f:
                 r = pickle.load(f)
+                r.params['adaptive'] = True if ma1 else False
                 results.append(fix_result(r))
     return results
 
@@ -84,11 +87,24 @@ def cliff_find(errors, highc, lowc, percent=False):
 
 
     if higharg < len(vals) and higharg > 0:
-        return (errors[higharg, 0] + errors[higharg - 1, 0]) / 2.0
+        cliff_x = (errors[higharg, 0] + errors[higharg - 1, 0]) / 2.0
     elif higharg == len(vals):
-        return np.inf
+        cliff_x = np.inf
+        # Bias = bias of the last element, which is high
+        bias = errors[-1,1]
+        return cliff_x, [0, 0, bias], np.linspace(0,np.max(errors[:,0]), 2), np.array([bias]*2)
     elif higharg == 0:
-        return errors[0, 0]
+        cliff_x = errors[0, 0]
+
+    # Try to fit
+    popt, pcov = scipy.optimize.curve_fit(
+        offset_exp, errors[higharg:, 0], errors[higharg:, 1], p0=[100,1,0])
+
+    x = np.linspace(cliff_x, np.max(errors[:,0]), 100)
+    y = offset_exp(x, *popt)
+
+    tau, c, off = popt
+    return cliff_x, popt, x, y
 
 def ifunc(x, a):
     """Inverse."""
@@ -101,8 +117,11 @@ def ifunc_off(x, a, offset):
 
 
 def simple_exp(x, tau):
-    """Exponential with a y-offset."""
+    """Exponential"""
     return np.exp(-x / tau)
+
+def offset_exp(x, tau, c, off):
+    return c*np.exp(-x / tau) + off
 
 def bendy_exp(x, tau, n):
     """Exponential where the power of the exponent can vary."""
@@ -165,7 +184,7 @@ def calc_speedup(fit_func, popt, err_bits=0.1, scale=1e6):
         tau1, tau2, off1, off2, a1, a2, t0 = popt
         return scale / t0
     elif fit_func == cliff_find:
-        cliff_x = popt[0]
+        cliff_x, tau, c, off = popt
         return scale / cliff_x
     else:
         raise Exception("No speedup calc for this fit func.")
@@ -216,10 +235,15 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
 
             if fit_func == cliff_find:
                 highc, lowc = p0
-                cliff_x = cliff_find(r.errors, highc, lowc)
+                cliff_x, popt, x, y = cliff_find(r.errors, highc, lowc)
                 pp.hlines(p0, 0.0, np.max(r.errors[:,0]))
                 pp.vlines(cliff_x, 0, 1.0)
-                popt = [cliff_x]
+
+                pp.plot(x, y, 'r-')
+                tau, c, off = popt
+                quality = 1.0 - off
+                popt = np.append([cliff_x], popt)
+
             else:
                 # Try to fit
                 popt, pcov = scipy.optimize.curve_fit(
@@ -241,17 +265,19 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
                 if np.any(popt<0):
                     raise Exception("Negative params")
 
+                quality = 1.0
+
             speedup = calc_speedup(fit_func, popt)
 
             # Labels
             pp.title(_params_to_str(r.params))
             pp.xlabel(', '.join(["%f" % po for po in popt]))
-            pp.suptitle("Speedup: %d" % int(speedup))
+            pp.suptitle("Speedup: %d, Quality: %f" % (int(speedup), quality))
 
             # Add it to the dictionary
             add_result_to_dict(
                 out_dict, speedup,
-                1.0, r.params)
+                quality, r.params)
             n_fit += 1
         except Exception as e:
             pp.title(_params_to_str(r.params))
@@ -271,8 +297,11 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
     return out_dict
 
 
-def average_many(superrootdir='.', regexp='h-run-[0-9]+'):
+def average_many(superrootdir='.', regexp='^h-run-[0-9]+$', test=False):
     """Fit over a set of runcopys (directories)."""
+
+    if test:
+        regexp='^h-run-1$'
 
     # Get all our directories
     dirlist = os.listdir(superrootdir)
