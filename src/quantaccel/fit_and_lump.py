@@ -18,18 +18,21 @@ from collections import defaultdict
 
 import logging as log
 
-
-def load_runresults(rootdir):
+def load_runresults(rootdir, adaptive):
     """From a directory, load all the results."""
     dirlist = os.listdir(rootdir)
+    if not adaptive:
+        regex = r"^result-ho-[0-9]+-[0-9]+\.pickl$"
+    else:
+        regex = r"^result-h-runcopy-[0-9]+-[0-9]+\.pickl$"
+
     results = list()
     for fn in dirlist:
-        ma1 = re.match(r"^result-h-runcopy-[0-9]+-[0-9]+\.pickl$", fn)
-        ma2 = re.match(r"^result-ho-[0-9]+-[0-9]+\.pickl$", fn)
-        if ma1 or ma2:
+        if re.match(regex, fn):
             with open(os.path.join(rootdir, fn)) as f:
                 r = pickle.load(f)
-                r.params['adaptive'] = True if ma1 else False
+                # Hackily include whether its adaptive in the params
+                r.params['adaptive'] = adaptive
                 results.append(fix_result(r))
     return results
 
@@ -42,7 +45,7 @@ def fix_result(r):
     if not np.all(np.isreal(r.errors)):
         raise Exception("Unreal!")
 
-    #r.errors = np.delete(r.errors, np.where(r.errors[:, 1] > 1.0)[0], 0)
+    # r.errors = np.delete(r.errors, np.where(r.errors[:, 1] > 1.0)[0], 0)
     return r
 
 
@@ -55,7 +58,7 @@ def cliff_find(errors, highc, lowc, percent=False):
     vals = errors[:, 1]
     highscore = 0.0
     higharg = -1
-    for i in range(len(vals)+1):
+    for i in range(len(vals) + 1):
         left = vals[:i]
         n_left = len(left)
         right = vals[i:]
@@ -85,25 +88,34 @@ def cliff_find(errors, highc, lowc, percent=False):
             highscore = score
             higharg = i
 
+    n_params = 4
 
+    # Normal
     if higharg < len(vals) and higharg > 0:
         cliff_x = (errors[higharg, 0] + errors[higharg - 1, 0]) / 2.0
-    elif higharg == len(vals):
-        cliff_x = np.inf
+
+    # Not enough to fit the tail
+    if higharg >= len(vals) - n_params:
+        if higharg == len(vals):
+            cliff_x = np.inf
         # Bias = bias of the last element, which is high
-        bias = errors[-1,1]
-        return cliff_x, [0, 0, bias], np.linspace(0,np.max(errors[:,0]), 2), np.array([bias]*2)
-    elif higharg == 0:
+        bias = errors[-1, 1]
+        return cliff_x, [0, 0, bias], np.linspace(0, np.max(errors[:, 0]), 2), np.array([bias] * 2)
+
+    if higharg == 0:
         cliff_x = errors[0, 0]
 
     # Try to fit
-    popt, pcov = scipy.optimize.curve_fit(
-        offset_exp, errors[higharg:, 0], errors[higharg:, 1], p0=[100,1,0])
+    x = np.linspace(cliff_x, np.max(errors[:, 0]), 100)
+    try:
+        popt, pcov = scipy.optimize.curve_fit(
+            offset_exp, errors[higharg:, 0], errors[higharg:, 1], p0=[100, 1, 0])
+    except:
+        popt = [1e5, 1.0, 0.0]
 
-    x = np.linspace(cliff_x, np.max(errors[:,0]), 100)
+    
     y = offset_exp(x, *popt)
 
-    tau, c, off = popt
     return cliff_x, popt, x, y
 
 def ifunc(x, a):
@@ -121,43 +133,35 @@ def simple_exp(x, tau):
     return np.exp(-x / tau)
 
 def offset_exp(x, tau, c, off):
-    return c*np.exp(-x / tau) + off
+    return c * np.exp(-x / tau) + off
 
 def bendy_exp(x, tau, n):
     """Exponential where the power of the exponent can vary."""
-    return np.exp(- (x / tau) ** n)
+    return np.exp(-(x / tau) ** n)
 
 def offset_bendy_exp(x, tau, n, off):
-    return (1-off) * np.exp(- (x / tau) ** n) + off
+    return (1 - off) * np.exp(-(x / tau) ** n) + off
 
 def expifunc(x, a, n):
     """Inverse with tunable exponent."""
     return a / (x ** n)
 
 def double_exp(x, c, d, tau1, tau2):
-    return c * np.exp(-x/tau1) + d * np.exp(-x/tau2)
+    return c * np.exp(-x / tau1) + d * np.exp(-x / tau2)
 
 def sigmoid(t, tau, t0, c, off):
-    return ((c-off)/(1+np.exp((t-t0)/tau))) + off
+    return ((c - off) / (1 + np.exp((t - t0) / tau))) + off
 
 def two_exps(t, tau1, tau2, off1, off2, a1, a2, t0):
 
-    right = (a2 - off2) * np.exp(-t/tau2) + off2
-    left = (a1 - off1) * np.exp(-t/tau1) + off1
-    mright = 0.5 * (np.sign(t-t0)+1)
-    mleft = 0.5 * (np.sign(-t+t0) + 1)
+    right = (a2 - off2) * np.exp(-t / tau2) + off2
+    left = (a1 - off1) * np.exp(-t / tau1) + off1
+    mright = 0.5 * (np.sign(t - t0) + 1)
+    mleft = 0.5 * (np.sign(-t + t0) + 1)
     return mleft * left + mright * right
 
-def add_result_to_dict(out_dict, speedup, quality, params):
-    """After fitting, add it to some data structure.
 
-    Note: no longer a dictionary.
-    """
-    to_append = (speedup, quality, params)
-    out_dict.append(to_append)
-
-
-def calc_speedup(fit_func, popt, err_bits=0.1, scale=1e6):
+def calc_speed(fit_func, popt, err_bits=0.1, scale=1e6):
     """Calculate speedup for a given fit function and parameters
 
     err_bits is reference 'error'.
@@ -167,15 +171,15 @@ def calc_speedup(fit_func, popt, err_bits=0.1, scale=1e6):
         return scale * (err_bits / a) ** (1.0 / n)
     elif fit_func == simple_exp:
         tau = popt
-        return -scale * (1/(tau * np.log(err_bits)))
+        return -scale * (1 / (tau * np.log(err_bits)))
     elif fit_func == bendy_exp:
         tau, n = popt
-        time = tau * (-np.log(err_bits))**(1.0/n)
+        time = tau * (-np.log(err_bits)) ** (1.0 / n)
         return scale / time
     elif fit_func == offset_bendy_exp:
         # TODO: (maybe) put something better here
         tau, n, off = popt
-        time = tau * (-np.log(err_bits))**(1.0/n)
+        time = tau * (-np.log(err_bits)) ** (1.0 / n)
         return scale / tau
     elif fit_func == sigmoid:
         tau, t0, c, off = popt
@@ -190,12 +194,28 @@ def calc_speedup(fit_func, popt, err_bits=0.1, scale=1e6):
         raise Exception("No speedup calc for this fit func.")
 
 
-def _params_to_str(params, get_rid_of=['lag_time', 'runcopy']):
+def _params_to_str(params, get_rid_of=None):
+    if get_rid_of is None:
+        get_rid_of = ['lag_time', 'runcopy']
     return ', '.join(["%s: %s" % (key, val)
                         for (key, val) in params.items()
                         if key not in get_rid_of])
 
-def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
+
+class FitResult(object):
+    """The results from a fit."""
+
+    @property
+    def speedup(self):
+        return self.speed / self.norm
+
+    def __init__(self, params, speed=0.0, quality=0.0, norm=None):
+        self.speed = speed
+        self.quality = quality
+        self.params = params
+        self.norm = norm
+
+def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, ctrl=None):
     """Fit all the results from a particular runcopy (directory of results)
     """
     n_fit = 0
@@ -229,6 +249,12 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
     for i, r in enumerate(results):
         pp.clf()
         pp.plot(r.errors[:, 0], r.errors[:, 1], 'o')
+
+        if ctrl is not None:
+            norm = ctrl[r.params['n_tpr']].speed
+        else:
+            norm = None
+
         try:
             if r.errors.shape[0] <= len(p0) * 2:
                 raise Exception("Not enough data points")
@@ -236,7 +262,7 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
             if fit_func == cliff_find:
                 highc, lowc = p0
                 cliff_x, popt, x, y = cliff_find(r.errors, highc, lowc)
-                pp.hlines(p0, 0.0, np.max(r.errors[:,0]))
+                pp.hlines(p0, 0.0, np.max(r.errors[:, 0]))
                 pp.vlines(cliff_x, 0, 1.0)
 
                 pp.plot(x, y, 'r-')
@@ -253,7 +279,7 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
                     # For those that blow up at 0
                     x = np.linspace(np.min(r.errors[:, 0]), np.max(r.errors[:, 0]))
                 else:
-                    x = np.linspace(0, np.max(r.errors[:,0]), num=200)
+                    x = np.linspace(0, np.max(r.errors[:, 0]), num=200)
                 yfit = fit_func(x, *popt)
                 pp.plot(x, yfit, '-')
 
@@ -262,32 +288,31 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False):
                     raise Exception("Same as p0")
 
                 # We don't want any negative params either
-                if np.any(popt<0):
+                if np.any(popt < 0):
                     raise Exception("Negative params")
 
                 quality = 1.0
 
-            speedup = calc_speedup(fit_func, popt)
+            speed = calc_speed(fit_func, popt)
 
             # Labels
             pp.title(_params_to_str(r.params))
             pp.xlabel(', '.join(["%f" % po for po in popt]))
-            pp.suptitle("Speedup: %d, Quality: %f" % (int(speedup), quality))
+            pp.suptitle("Speed: %d, Quality: %f" % (int(speed), quality))
 
-            # Add it to the dictionary
-            add_result_to_dict(
-                out_dict, speedup,
-                quality, r.params)
+            # Add it to the list
+            out_dict.append(FitResult(speed=speed, quality=quality, params=r.params, norm=norm))
             n_fit += 1
         except Exception as e:
             pp.title(_params_to_str(r.params))
             pp.suptitle("Didn't fit: %s" % e.args)
+            log.warning("Didn't fit %s. Message: %s" % (str(r.params), str(e)))
 
-            add_result_to_dict(out_dict, 0, 0.0, r.params)
+            out_dict.append(FitResult(params=r.params, norm=norm))
 
         pp.xlim(xmin=0)
         ymin, ymax = pp.ylim()
-        pp.ylim(ymin=min(ymin, 0.0), ymax=max(ymax,1.0))
+        pp.ylim(ymin=min(ymin, 0.0), ymax=max(ymax, 1.0))
         pp.savefig(os.path.join(fig_out_dir, 'fit-%d.png' % i))
         if show: pp.show()
         log.debug("Fit result %d", i)
@@ -301,7 +326,7 @@ def average_many(superrootdir='.', regexp='^h-run-[0-9]+$', test=False):
     """Fit over a set of runcopys (directories)."""
 
     if test:
-        regexp='^h-run-1$'
+        regexp = '^h-run-1$'
 
     # Get all our directories
     dirlist = os.listdir(superrootdir)
@@ -312,8 +337,20 @@ def average_many(superrootdir='.', regexp='^h-run-[0-9]+$', test=False):
     for fn in dirlist:
         fullpath = os.path.join(superrootdir, fn)
         log.info("Loading results from %s", fullpath)
-        results = load_runresults(rootdir=fullpath)
-        out_list += fit_results(results, os.path.join(fullpath, 'figs/'))
+
+        # First fit non-adaptive run
+        # Save results in a dict where key is n_tpr
+        log.debug("Fitting non-adaptive control runs.")
+        ctrl_results = load_runresults(rootdir=fullpath, adaptive=False)
+        ctrl_fits = fit_results(ctrl_results, os.path.join(fullpath, 'na-figs/'))
+        if len(ctrl_fits) != 5:
+            log.critical('Not enough controls.')
+        ctrl_fits = [ (fit.params['n_tpr'], fit) for fit in ctrl_fits ]
+        ctrl_fits = dict(ctrl_fits)
+
+        log.debug("Fitting adaptive runs.")
+        adap_results = load_runresults(rootdir=fullpath, adaptive=True)
+        out_list += fit_results(adap_results, os.path.join(fullpath, 'figs/'), ctrl=ctrl_fits)
     return out_list
 
 
