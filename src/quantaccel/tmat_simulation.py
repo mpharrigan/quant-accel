@@ -377,7 +377,7 @@ class Accelerator(object):
          #                                   size=n_tpr)
 
         # Start everything from one starting state
-        starting_states = np.ones(n_tpr) * starting_state
+        starting_states = np.ones(n_tpr, dtype='int') * starting_state
 
         log.debug("Starting states: %s", str(starting_states))
 
