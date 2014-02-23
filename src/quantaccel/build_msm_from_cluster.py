@@ -17,7 +17,7 @@ from quantaccel import toy
 import logging as log
 
 
-NPOINTS = 20
+NPOINTS = 50
 PERCENTS = np.linspace(0.05, 1.0, NPOINTS)
 
 def do(round_i, which, how):

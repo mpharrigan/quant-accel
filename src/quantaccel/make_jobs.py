@@ -77,4 +77,4 @@ if __name__ == '__main__':
     elif sys.argv[1] == 'mullerclus':
         do('dirs.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'round', 'whence':'tmatfromclus'})
     elif sys.argv[1] == 'mullerclusolt':
-        do('oltdirs.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'percent', 'whence':'tmatfromclus'})
+        do('ltsdirs.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'percent', 'whence':'tmatfromclus'})
