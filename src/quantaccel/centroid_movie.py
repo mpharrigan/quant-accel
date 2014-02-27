@@ -126,6 +126,10 @@ def load(result, helper):
     est_distr, theory_distr, errorval = helper(centroids, tmat)
     return centroids, tmat, wallsteps, est_distr, theory_distr, errorval
 
+def load_numstates(centroids, tmat):
+    """Just put the number of states in the errorval."""
+    return None, None, len(centroids)
+
 def load_centroid_eigen(centroids, tmat):
     """Plot first eigenvalue on centroids and return errorval = 1st IT."""
     # Get the eigenvectors
@@ -367,6 +371,8 @@ def make_movie(param_str, results, movie_dirname, movie):
         scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=False)
     elif movie == 'projection-it':
         load_helper = None  # TODO
+    elif movie == 'num-states':
+        load_helper = load_numstates
     else:
         log.error("Invalid movie type %s", movie)
 
@@ -390,20 +396,23 @@ def make_movie(param_str, results, movie_dirname, movie):
         errors[round_i - 1] = [walltime, errorval]
 
         biggest_v.union(Volume(centroids[:, 0], centroids[:, 1]))
-
+        
+        save_fig = True
         if 'centroid' in movie:
             scatter_helper(est_distr, theory_distr, param_str)
         elif 'projection' in movie:
             project(est_distr, theory_distr, param_str)
         else:
-            log.error("Unknown movie type %s", movie)
+            log.warn("Not making a movie for %s", movie)
+            save_fig = False
 
         # Save and clear
         fn_formatstr = os.path.join(abs_movie_dirname, '%s-%03d.png')
 
-        pp.gcf().set_size_inches(14, 5)
-        pp.savefig(fn_formatstr % ('frame', round_i))
-        pp.clf()
+        if save_fig:
+            pp.gcf().set_size_inches(14, 5)
+            pp.savefig(fn_formatstr % ('frame', round_i))
+            pp.clf()
 
     VOLUMES[param_str] = biggest_v
     BIGV.union(biggest_v)
@@ -447,7 +456,7 @@ def parse():
     parser.set_defaults(debug=False)
     parser.add_argument('--movietype', '-mt', choices=
                         ['centroid-pop', 'projection-pop', 'centroid-it',
-                         'projection-it'],
+                         'projection-it', 'num-states'],
                         help='''Type of movie''',
                         default='projection-pop')
 
