@@ -1,0 +1,10 @@
+*.png
+system.xml
+db.sqlite
+integrator.xml
+metric.pickl
+msmaccelerator_config.py
+seed_structures.h5
+
+*.pickl
+
