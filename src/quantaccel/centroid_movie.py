@@ -20,6 +20,7 @@ import pickle
 
 from toy_accel import mullerforce as mf
 from quantaccel.tmat_simulation import RunResult
+from msmbuilder import msm_analysis as msma
 
 from collections import defaultdict
 import scipy.sparse.linalg
@@ -27,9 +28,11 @@ from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
 import scipy.interpolate
 import logging as log
 
+
 TEMP = 750
 # Boltzmann constant in md units
 KB = 0.0083145
+LAGTIME = 20
 
 class CentroidResult(object):
     def __init__(self):
@@ -94,9 +97,6 @@ def walk(walkydir, centroid_regex, tmat_regex):
                     # Load transition matrix with scipy
                     result.tmat_fn = complete_fn
 
-
-
-
                 # In any event, save the params and round information
                 result.params = params
                 result.round_i = round_i
@@ -113,7 +113,6 @@ def load(result, helper):
     # Load transition matrix
     with open(result.tmat_fn) as tmat_f:
         tmat = scipy.io.mmread(tmat_f)
-        tmat = tmat.transpose()
 
         # Parse number of wallsteps
         tmat_f.seek(0)  # go to comment line
@@ -127,11 +126,36 @@ def load(result, helper):
     est_distr, theory_distr, errorval = helper(centroids, tmat)
     return centroids, tmat, wallsteps, est_distr, theory_distr, errorval
 
+def load_centroid_eigen(centroids, tmat):
+    """Plot first eigenvalue on centroids and return errorval = 1st IT."""
+    # Get the eigenvectors
+    try:
+        n = tmat.shape[0]
+        if n < 2:
+            raise ValueError('Transition matrix too small')
+        elif n <= 3:
+            tmat = tmat.todense()
+        vals, vecs = msma.get_eigenvectors(tmat, n_eigs=2)
+        if np.abs(vals[0] - 1) > 1e-6:
+            log.warn("First eigenvalue is not one!")
+        errorval = -LAGTIME / np.log(vals[1])
+    except (ArpackNoConvergence, ValueError) as e:
+        log.warn("No eigenv convergence %s", str(e))
+        vecs = np.ones((tmat.shape[0], 2))
+        errorval = 0
+    
+    est_plot = [centroids[:, 0], centroids[:, 1], vecs[:, 1]]
+    # TODO: Get actual theoretical eigenvec
+    theory_plot = [centroids[:, 0], centroids[:, 1], np.ones(tmat.shape[0])]
+
+    return est_plot, theory_plot, errorval
+
 def load_project_eqdistr(centroids, tmat):
     """Compute equilibrium density."""
     xx, yy = GRID
 
     # Get the eigenvectors
+    tmat = tmat.transpose()
     try:
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
@@ -167,6 +191,7 @@ def load_centroid_eqdistr(centroids, tmat):
     """Compute equilibrium density for centroids."""
 
     # Get the eigenvectors
+    tmat = tmat.transpose()
     try:
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
@@ -181,7 +206,7 @@ def load_centroid_eqdistr(centroids, tmat):
         eq_distr = np.ones(tmat.shape[0])
 
     # Compute a normalized equilibrium distribution
-    #eq_distr = eq_distr.clip(min=0.0)
+    # eq_distr = eq_distr.clip(min=0.0)
     eq_distr /= np.sum(eq_distr)
 
     calc_eq = mf.MullerForce.potential(centroids[:, 0], centroids[:, 1])
@@ -256,20 +281,32 @@ def project(est_plot, theory_plot, param_str):
     pp.colorbar()
 
 
-def scatter(est_plot, theory_plot, param_str):
+def scatter(est_plot, theory_plot, param_str, do_size):
     """Scatter plot centroids where size and color are based on population.
     """
+    if do_size:
+        est_s = 2000 * est_plot[2]
+        theory_s = 2000 * theory_plot[2]
+        norm = Normalize(vmin=0)
+    else:
+        est_s = 100
+        theory_s = 100
+        extent = max(np.max(est_plot[2]), -np.min(est_plot[2]))
+        norm = Normalize(vmin=-extent, vmax=extent)
+        
+    #import pdb; pdb.set_trace()
+
     # Make a scatter
     pp.subplot(121)
     pp.scatter(est_plot[0], est_plot[1],
-               c=est_plot[2], s=2000 * est_plot[2], norm=Normalize(vmin=0))
+               c=est_plot[2], s=est_s, norm=norm)
     pp.title(param_str)
     pp.colorbar()
 
     # Make theoretical distribution
     pp.subplot(122)
     pp.scatter(theory_plot[0], theory_plot[1],
-               c=theory_plot[2], s=2000 * theory_plot[2], norm=Normalize(vmin=0))
+               c=theory_plot[2], s=theory_s, norm=norm)
     pp.title("Theoretical")
     pp.colorbar()
 
@@ -322,10 +359,12 @@ def make_movie(param_str, results, movie_dirname, movie):
 
     if movie == 'centroid-pop':
         load_helper = load_centroid_eqdistr
+        scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=True)
     elif movie == 'projection-pop':
         load_helper = load_project_eqdistr
     elif movie == 'centroid-it':
-        load_helper = None  # TODO
+        load_helper = load_centroid_eigen
+        scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=False)
     elif movie == 'projection-it':
         load_helper = None  # TODO
     else:
@@ -353,7 +392,7 @@ def make_movie(param_str, results, movie_dirname, movie):
         biggest_v.union(Volume(centroids[:, 0], centroids[:, 1]))
 
         if 'centroid' in movie:
-            scatter(est_distr, theory_distr, param_str)
+            scatter_helper(est_distr, theory_distr, param_str)
         elif 'projection' in movie:
             project(est_distr, theory_distr, param_str)
         else:
@@ -372,7 +411,7 @@ def make_movie(param_str, results, movie_dirname, movie):
     # Delete anything with -1 (no round)
     errors = np.delete(errors, np.where(errors[:, 0] < 0)[0], axis=0)
 
-    with open('quant-populations-%s-%s.pickl' % (movie, param_str), 'w') as f:
+    with open('quant-%s-%s.pickl' % (movie, param_str), 'w') as f:
         (_, someresult) = results.items()[0]
         pickle.dump(RunResult(someresult.params, errors), f, protocol=2)
 
@@ -406,9 +445,10 @@ def parse():
                         help='''Print extremely verbose output''',
                         action='store_true')
     parser.set_defaults(debug=False)
-    parser.add_argument('--movietype', '-mt',
-                        help='''Type of movie: ['centroid-pop', 'projection-pop',
-                        'centroid-it', 'projection-it']''',
+    parser.add_argument('--movietype', '-mt', choices=
+                        ['centroid-pop', 'projection-pop', 'centroid-it',
+                         'projection-it'],
+                        help='''Type of movie''',
                         default='projection-pop')
 
 
