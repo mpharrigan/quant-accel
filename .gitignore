@@ -67,10 +67,8 @@ submit*.sh
 *result-*-*.pickl
 *quant-projection*.pickl
 
-# Don't include movie frames
-*centroid-movie*
-*projection-movie*
 
 *starting_state.int
 
 *h-run-*
+.settings

@@ -17,6 +17,14 @@ from quantaccel import toy
 import logging as log
 
 
+ #==============================================================================
+ # - mk4 used a distance cutoff of 0.2
+ # - mk5 uses a distance cutoff of 0.4. This will reduce the number of
+ #   states, which will increase the bias but potentially reduce statistical
+ #   error
+ #==============================================================================
+
+
 NPOINTS = 50
 PERCENTS = np.linspace(0.05, 1.0, NPOINTS)
 
@@ -31,17 +39,16 @@ def do(round_i, which, how):
     if which == 'muller':
         metric = toy.Euclidean2d()
         lag_time = 20
-        distance_cutoff = 0.2
+        distance_cutoff = 0.4
     elif which == 'tmat':
         metric = rmsd.RMSD()
         raise Exception("No longer supported.")
-        lag_time = 1
-        distance_cutoff = 0.2
+        #lag_time = 1
+        #distance_cutoff = 0.2
 
 
     log.info("Starting cluster")
     hkm = clustering.KMeans(metric, trajs, distance_cutoff=distance_cutoff)
-    centroids = hkm._centroids
     assignments = clustering.split(hkm._assignments, hkm._traj_lengths)
     assignments = np.array(assignments)
 
@@ -54,10 +61,10 @@ def do(round_i, which, how):
 
     log.info("Saving trimmed centroids.")
     trimmed_centroids = hkm._centroids[np.where(mapping != -1)[0]]
-    np.savetxt('centroids-%s-mk4-%d.npy' % (how, round_i), trimmed_centroids)
+    np.savetxt('centroids-%s-mk5-%d.npy' % (how, round_i), trimmed_centroids)
 
 
-    with open('tmatfromclus-%s-mk4-%d.mtx' % (how, round_i), 'w') as f:
+    with open('tmatfromclus-%s-mk5-%d.mtx' % (how, round_i), 'w') as f:
         scipy.io.mmwrite(f, t_matrix, comment='Wallsteps: %d' % wall_steps)
 
 

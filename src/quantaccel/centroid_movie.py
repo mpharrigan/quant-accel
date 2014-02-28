@@ -20,6 +20,7 @@ import pickle
 
 from toy_accel import mullerforce as mf
 from quantaccel.tmat_simulation import RunResult
+from msmbuilder import msm_analysis as msma
 
 from collections import defaultdict
 import scipy.sparse.linalg
@@ -27,11 +28,17 @@ from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
 import scipy.interpolate
 import logging as log
 
+
 TEMP = 750
 # Boltzmann constant in md units
 KB = 0.0083145
+LAGTIME = 20
+
 
 class CentroidResult(object):
+
+    """Container for filenames and params."""
+
     def __init__(self):
         self.centroids_fn = None
         self.tmat_fn = None
@@ -39,10 +46,15 @@ class CentroidResult(object):
         self.round_i = None
         self.abspath = None
 
+
 def _defaultdict_CentroidResult():
+    """For making a defaultdict of defaultdicts."""
     return defaultdict(CentroidResult)
 
+
 def walk(walkydir, centroid_regex, tmat_regex):
+    """Walk over the directory structure looking for centroid and tmat files.
+    """
     # Two level defaltdict
     results = defaultdict(_defaultdict_CentroidResult)
 
@@ -94,15 +106,13 @@ def walk(walkydir, centroid_regex, tmat_regex):
                     # Load transition matrix with scipy
                     result.tmat_fn = complete_fn
 
-
-
-
                 # In any event, save the params and round information
                 result.params = params
                 result.round_i = round_i
                 result.abspath = cwd
 
     return results
+
 
 def load(result, helper):
     """Load the actual data given an object that has their filenames.
@@ -113,7 +123,6 @@ def load(result, helper):
     # Load transition matrix
     with open(result.tmat_fn) as tmat_f:
         tmat = scipy.io.mmread(tmat_f)
-        tmat = tmat.transpose()
 
         # Parse number of wallsteps
         tmat_f.seek(0)  # go to comment line
@@ -127,11 +136,43 @@ def load(result, helper):
     est_distr, theory_distr, errorval = helper(centroids, tmat)
     return centroids, tmat, wallsteps, est_distr, theory_distr, errorval
 
+
+def load_numstates(centroids, tmat):
+    """Just put the number of states in the errorval."""
+    return None, None, len(centroids)
+
+
+def load_centroid_eigen(centroids, tmat):
+    """Plot first eigenvalue on centroids and return errorval = 1st IT."""
+    # Get the eigenvectors
+    try:
+        n = tmat.shape[0]
+        if n < 2:
+            raise ValueError('Transition matrix too small')
+        elif n <= 3:
+            tmat = tmat.todense()
+        vals, vecs = msma.get_eigenvectors(tmat, n_eigs=2)
+        if np.abs(vals[0] - 1) > 1e-6:
+            log.warn("First eigenvalue is not one!")
+        errorval = -LAGTIME / np.log(vals[1])
+    except (ArpackNoConvergence, ValueError) as e:
+        log.warn("No eigenv convergence %s", str(e))
+        vecs = np.ones((tmat.shape[0], 2))
+        errorval = 0
+
+    est_plot = [centroids[:, 0], centroids[:, 1], vecs[:, 1]]
+    # TODO: Get actual theoretical eigenvec
+    theory_plot = [centroids[:, 0], centroids[:, 1], np.ones(tmat.shape[0])]
+
+    return est_plot, theory_plot, errorval
+
+
 def load_project_eqdistr(centroids, tmat):
     """Compute equilibrium density."""
     xx, yy = GRID
 
     # Get the eigenvectors
+    tmat = tmat.transpose()
     try:
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
@@ -163,10 +204,12 @@ def load_project_eqdistr(centroids, tmat):
 
     return est, calc_eq, errorval
 
+
 def load_centroid_eqdistr(centroids, tmat):
     """Compute equilibrium density for centroids."""
 
     # Get the eigenvectors
+    tmat = tmat.transpose()
     try:
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
@@ -181,7 +224,7 @@ def load_centroid_eqdistr(centroids, tmat):
         eq_distr = np.ones(tmat.shape[0])
 
     # Compute a normalized equilibrium distribution
-    #eq_distr = eq_distr.clip(min=0.0)
+    # eq_distr = eq_distr.clip(min=0.0)
     eq_distr /= np.sum(eq_distr)
 
     calc_eq = mf.MullerForce.potential(centroids[:, 0], centroids[:, 1])
@@ -195,6 +238,7 @@ def load_centroid_eqdistr(centroids, tmat):
 
     return est_plot, theory_plot, errorval
 
+
 def load_it_distr(centroids, tmat):
     """Compute IT error and plot first eigen."""
     # TODO: Implement
@@ -204,13 +248,13 @@ def load_it_distr(centroids, tmat):
 def get_grid(volume, resolution):
     """Grid up a space
 
-    resolution - how fine the grid should be
+    :resolution: how fine the grid should be
     """
     (xmin, xmax, ymin, ymax) = volume.bounds
     log.debug('Making grid with bounds %.2f %.2f %.2f %.2f', *volume.bounds)
     grid_width = max(xmax - xmin, ymax - ymin) / resolution
     log.debug("Gridwithd %f", grid_width)
-    grid = np.mgrid[xmin : xmax : grid_width, ymin : ymax : grid_width]
+    grid = np.mgrid[xmin: xmax: grid_width, ymin: ymax: grid_width]
     return grid
 
 
@@ -225,15 +269,18 @@ def distribution_norm_tvd(p, q):
 
     return res
 
+
 def distribution_norm(p, q):
     """Take the norm of a distribution.
 
-        p: actual
-        q: estimated
+        :p: actual
+        :q: estimated
     """
     return distribution_norm_tvd(p, q)
 
+
 def project(est_plot, theory_plot, param_str):
+    """Plot a projection onto a grid."""
     grid = get_grid(SETVOL, resolution=200)
     xx, yy = grid
     bounds = (xx.min(), xx.max(), yy.min(), yy.max())
@@ -256,24 +303,44 @@ def project(est_plot, theory_plot, param_str):
     pp.colorbar()
 
 
-def scatter(est_plot, theory_plot, param_str):
+def scatter(est_plot, theory_plot, param_str, do_size):
     """Scatter plot centroids where size and color are based on population.
     """
+    if do_size:
+        est_s = 2000 * est_plot[2]
+        theory_s = 2000 * theory_plot[2]
+        norm = Normalize(vmin=0)
+    else:
+        est_s = 100
+        theory_s = 100
+        extent = max(np.max(est_plot[2]), -np.min(est_plot[2]))
+        norm = Normalize(vmin=-extent, vmax=extent)
+
+    # import pdb; pdb.set_trace()
+
     # Make a scatter
     pp.subplot(121)
     pp.scatter(est_plot[0], est_plot[1],
-               c=est_plot[2], s=2000 * est_plot[2], norm=Normalize(vmin=0))
+               c=est_plot[2], s=est_s, norm=norm)
     pp.title(param_str)
     pp.colorbar()
 
     # Make theoretical distribution
     pp.subplot(122)
     pp.scatter(theory_plot[0], theory_plot[1],
-               c=theory_plot[2], s=2000 * theory_plot[2], norm=Normalize(vmin=0))
+               c=theory_plot[2], s=theory_s, norm=norm)
     pp.title("Theoretical")
     pp.colorbar()
 
+
 class Volume(object):
+
+    """An object representing a rectangular area
+
+    Use this to keep track of how big of a grid we need to make to
+    project onto without discarding any info.
+    """
+
     def __init__(self, centroidx=None, centroidy=None):
         if centroidx is not None and centroidy is not None:
             self.xmin = np.min(centroidx)
@@ -288,10 +355,12 @@ class Volume(object):
 
     @property
     def volume(self):
+        """The volume."""
         return (self.xmax - self.xmin) * (self.ymax - self.ymin)
 
     @property
     def bounds(self):
+        """Bounds of this volume."""
         return (self.xmin, self.xmax, self.ymin, self.ymax)
 
     def union(self, other_v):
@@ -308,6 +377,7 @@ BIGV = Volume()
 SETVOL = Volume([-3.0, 1.0], [-1.0, 3.0])
 GRID = get_grid(SETVOL, resolution=200)
 
+
 def make_movie(param_str, results, movie_dirname, movie):
     """Make a movie for a given accelerator run.
 
@@ -322,17 +392,28 @@ def make_movie(param_str, results, movie_dirname, movie):
 
     if movie == 'centroid-pop':
         load_helper = load_centroid_eqdistr
+        scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=True)
     elif movie == 'projection-pop':
         load_helper = load_project_eqdistr
     elif movie == 'centroid-it':
-        load_helper = None  # TODO
+        load_helper = load_centroid_eigen
+        scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=False)
     elif movie == 'projection-it':
         load_helper = None  # TODO
+    elif movie == 'num-states':
+        load_helper = load_numstates
     else:
         log.error("Invalid movie type %s", movie)
 
-    abs_movie_dirname = os.path.join(results.items()[0][1].abspath, movie_dirname % movie)
-    log.info("Making %s movie for %s in directory %s", movie, param_str, abs_movie_dirname)
+    abs_movie_dirname = os.path.join(
+        results.items()[0][1].abspath,
+        movie_dirname %
+        movie)
+    log.info(
+        "Making %s movie for %s in directory %s",
+        movie,
+        param_str,
+        abs_movie_dirname)
 
     # Make the directory
     try:
@@ -352,19 +433,22 @@ def make_movie(param_str, results, movie_dirname, movie):
 
         biggest_v.union(Volume(centroids[:, 0], centroids[:, 1]))
 
+        save_fig = True
         if 'centroid' in movie:
-            scatter(est_distr, theory_distr, param_str)
+            scatter_helper(est_distr, theory_distr, param_str)
         elif 'projection' in movie:
             project(est_distr, theory_distr, param_str)
         else:
-            log.error("Unknown movie type %s", movie)
+            log.warn("Not making a movie for %s", movie)
+            save_fig = False
 
         # Save and clear
         fn_formatstr = os.path.join(abs_movie_dirname, '%s-%03d.png')
 
-        pp.gcf().set_size_inches(14, 5)
-        pp.savefig(fn_formatstr % ('frame', round_i))
-        pp.clf()
+        if save_fig:
+            pp.gcf().set_size_inches(14, 5)
+            pp.savefig(fn_formatstr % ('frame', round_i))
+            pp.clf()
 
     VOLUMES[param_str] = biggest_v
     BIGV.union(biggest_v)
@@ -372,7 +456,7 @@ def make_movie(param_str, results, movie_dirname, movie):
     # Delete anything with -1 (no round)
     errors = np.delete(errors, np.where(errors[:, 0] < 0)[0], axis=0)
 
-    with open('quant-populations-%s-%s.pickl' % (movie, param_str), 'w') as f:
+    with open('quant-%s-%s.pickl' % (movie, param_str), 'w') as f:
         (_, someresult) = results.items()[0]
         pickle.dump(RunResult(someresult.params, errors), f, protocol=2)
 
@@ -381,6 +465,9 @@ def make_movie(param_str, results, movie_dirname, movie):
 
 
 def make_movies(all_results, movie_dirname, movie_type):
+    """Iterate through all folders and results in folders,
+    make movie in :movie_dirname: of type :movie_type:
+    """
     log.info("Making %d movies", len(all_results.keys()))
     log.debug("Different param configurations: %s", str(all_results.keys()))
 
@@ -392,6 +479,7 @@ def make_movies(all_results, movie_dirname, movie_type):
 
 
 def parse():
+    """Parse command line options."""
     parser = argparse.ArgumentParser(description="Make movies etc",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('walkydir',
@@ -406,17 +494,18 @@ def parse():
                         help='''Print extremely verbose output''',
                         action='store_true')
     parser.set_defaults(debug=False)
-    parser.add_argument('--movietype', '-mt',
-                        help='''Type of movie: ['centroid-pop', 'projection-pop',
-                        'centroid-it', 'projection-it']''',
+    parser.add_argument('--movietype', '-mt', choices=
+                        ['centroid-pop', 'projection-pop', 'centroid-it',
+                         'projection-it', 'num-states'],
+                        help='''Type of movie''',
                         default='projection-pop')
 
-
     args = parser.parse_args()
-    if args.debug: log.basicConfig(level=log.DEBUG)
-    else: log.basicConfig(level=log.INFO)
+    if args.debug:
+        log.basicConfig(level=log.DEBUG)
+    else:
+        log.basicConfig(level=log.INFO)
     main(args.walkydir, args.how, args.version, args.movietype)
-
 
 
 def main(walkydir, how, version, movietype):
