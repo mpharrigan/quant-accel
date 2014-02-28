@@ -20,6 +20,11 @@ import logging as log
 
 def load_runresults(rootdir, adaptive):
     """From a directory, load all the results."""
+
+    # First get the starting state
+    with open(os.path.join(rootdir, 'starting_state.int')) as f:
+        starting_state = int(f.read())
+
     dirlist = os.listdir(rootdir)
     if not adaptive:
         regex = r"^result-ho-[0-9]+-[0-9]+\.pickl$"
@@ -33,6 +38,7 @@ def load_runresults(rootdir, adaptive):
                 r = pickle.load(f)
                 # Hackily include whether its adaptive in the params
                 r.params['adaptive'] = adaptive
+                r.params['starting_state'] = starting_state
                 results.append(fix_result(r))
     return results
 
@@ -51,9 +57,6 @@ def fix_result(r):
 
 def cliff_find(errors, highc, lowc, percent=False):
     """Find the x val that is the cliff."""
-
-#    inds = np.lexsort((errors[:,1], errors[:,0]))
-#    errors = errors[inds]
 
     vals = errors[:, 1]
     highscore = 0.0
@@ -108,12 +111,14 @@ def cliff_find(errors, highc, lowc, percent=False):
     # Try to fit
     x = np.linspace(cliff_x, np.max(errors[:, 0]), 100)
     try:
+        timescale = errors[-1, 0] - errors[higharg, 0]
+        assert timescale > 0
         popt, pcov = scipy.optimize.curve_fit(
-            offset_exp, errors[higharg:, 0], errors[higharg:, 1], p0=[100, 1, 0])
+            offset_exp, errors[higharg:, 0], errors[higharg:, 1], p0=[timescale / 10.0, 0.6, 0.2])
     except:
         popt = [1e5, 1.0, 0.0]
 
-    
+
     y = offset_exp(x, *popt)
 
     return cliff_x, popt, x, y
@@ -248,7 +253,10 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
 
     for i, r in enumerate(results):
         pp.clf()
-        pp.plot(r.errors[:, 0], r.errors[:, 1], 'o')
+        inds = np.lexsort((r.errors[:, 1], r.errors[:, 0]))
+        # assert np.allclose(errors, errors[inds]), "wasn't sorted"
+        r.errors = r.errors[inds]
+        pp.plot(r.errors[:, 0], r.errors[:, 1], 'o-')
 
         if ctrl is not None:
             norm = ctrl[r.params['n_tpr']].speed
@@ -267,7 +275,12 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
 
                 pp.plot(x, y, 'r-')
                 tau, c, off = popt
+                if off > 1.0:
+                    off = r.errors[-1, 1]
+                elif off < 0.0:
+                    off = r.errors[-1, 1]
                 quality = 1.0 - off
+
                 popt = np.append([cliff_x], popt)
 
             else:
