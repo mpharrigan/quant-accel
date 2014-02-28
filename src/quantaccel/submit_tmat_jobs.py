@@ -20,10 +20,10 @@ def main(runcopy):
             if match:
                 run_i = int(match.group(1))
                 if run_i < 75:
-                    letter = 'h-runcopy'
+                    letter = 'j-runcopy'
                     offset = 0
                 else:
-                    letter = 'ho'
+                    letter = 'jo'
                     offset = -75
                 outfn = 'result-%s-%d-%d.pickl' % (letter, runcopy, run_i + offset)
                 f.write(QSUB.format(jobfn=fn, outfn=outfn))

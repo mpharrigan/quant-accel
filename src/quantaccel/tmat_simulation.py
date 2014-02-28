@@ -18,7 +18,6 @@ import scipy.sparse.csgraph
 import scipy.sparse
 
 from msmbuilder import MSMLib as msmlib
-from matplotlib import pyplot as pp
 
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence, ArpackError
 
@@ -40,7 +39,7 @@ class TMatSimulator(object):
         t_matrix = t_matrix.tocsr()
         self.t_matrix = t_matrix
 
-        self.p = _get_eigenvec(t_matrix)
+        self.p, self.actual_it = _get_eigenvec(t_matrix, eigenval=True)
 
         log.info('Loaded transition matrix of shape %s',
                  self.t_matrix.shape)
@@ -115,7 +114,7 @@ def _super_debug_get_eq_distr(vals, vecs):
     return q
 
 
-def _get_eigenvec(tmat):
+def _get_eigenvec(tmat, eigenval=False):
     try:
         ttr = tmat.transpose()
         vals, vecs = scipy.sparse.linalg.eigs(ttr, which="LR",
@@ -138,8 +137,12 @@ def _get_eigenvec(tmat):
         log.warn("No eigenv convergence: %s", str(e))
         log.warn("Returning uniform distribution.")
         q = np.ones(ttr.shape[0])
+        vals = [1, 1e-8]
 
-    return q
+    if eigenval:
+        return q, vals[1]
+    else:
+        return q
 
 
 def _invert_mapping(mapping):
@@ -162,6 +165,7 @@ class MSM(object):
 
         self.lag_time = lag_time
         self.beta = beta
+        self.n_states = 0
 
     def add(self, traj):
         """Add a new trajectory from which the next MSM will be built."""
@@ -191,7 +195,9 @@ class MSM(object):
             _, tmat, _, mapping = msmlib.build_msm(counts,
                                                    symmetrize='Transpose',
                                                    ergodic_trimming=False)
+
         self.counts = counts
+        self.n_states = tmat.shape[0]
 
         # Back out full transition matrix
         backmap = _invert_mapping(mapping)
@@ -331,6 +337,13 @@ class MSM(object):
 
         return res
 
+    def error_it_logdiff(self, sim):
+        """Calculate our implied timescale and subtract in log-space from
+        actual one."""
+        actual_it = sim.actual_it
+        _, est_it = _get_eigenvec(self.tmat, eigenval=True)
+        return np.log(actual_it / est_it)
+
     def error_euc(self, sim):
         """Euclidean distance."""
         p = sim.p
@@ -358,7 +371,9 @@ class Accelerator(object):
         self.msm = msm
 
         self.n_rounds = n_rounds
-        self.errors = list()
+        self.poperrors = list()
+        self.iterrors = list()
+        self.nstates = list()
 
     def accelerator_loop(self, n_tpr, n_spt, adaptive):
         """Run the accelerator loop
@@ -372,9 +387,6 @@ class Accelerator(object):
         with open(STARTING_STATE_FN) as f:
             starting_state = int(f.read())
 
-        # Start each traj from a random starting state
-        # starting_states = np.random.randint(low=0, high=self.sim.n_states,
-         #                                   size=n_tpr)
 
         # Start everything from one starting state
         starting_states = np.ones(n_tpr, dtype='int') * starting_state
@@ -387,27 +399,33 @@ class Accelerator(object):
                                          state_i=starting_states[traj_i])
                 self.msm.add(traj)
 
+            # Build MSM
             walltime = n_spt * (round_i + 1)
             self.msm.build(self.sim)
-            self.errors.append([walltime, self.msm.error(self.sim)])
-            starting_states = self.msm.adapt(n_tpr, adaptive)
-            log.info("Built model %4d / %4d", (round_i + 1), n_rounds)
 
-        self.errors = np.array(self.errors)
+            # Record interesting info
+            self.poperrors.append([walltime, self.msm.error_tvd(self.sim)])
+            self.iterrors.append([walltime, self.msm.error_it_logdiff(self.sim)])
+            self.nstates.append([walltime, self.msm.n_states])
+
+            # Adapt
+            starting_states = self.msm.adapt(n_tpr, adaptive)
+            log.info("Built and sampled model %4d / %4d", (round_i + 1), n_rounds)
+
+        self.poperrors = np.array(self.poperrors)
+        self.iterrors = np.array(self.iterrors)
+        self.nstates = np.array(self.nstates, dtype=int)
 
 
 class RunResult(object):
 
     """Hold the results of an adaptive run for pickling."""
 
-    def __init__(self, params, errors):
+    def __init__(self, params, accelerator):
         self.params = params
-        self.errors = errors
-
-    def plot(self):
-        """Plot the convergence vs. 'walltime'."""
-        pp.plot(self.errors[:, 0], self.errors[:, 1],
-                'o-', label=self.params['n_spt'])
+        self.poperrors = accelerator.poperrors
+        self.iterrors = accelerator.iterrors
+        self.nstates = accelerator.nstates
 
 
 def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive):
@@ -448,7 +466,7 @@ def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive):
         adaptive=adaptive)
 
     # Get the results
-    rr = RunResult(param, accelerator.errors)
+    rr = RunResult(param, accelerator)
     return rr
 
 
@@ -494,7 +512,7 @@ def main(run_i=-1, runcopy=0):
                 set_tpr,
                 adaptive=True)
             multierrors.append(rr)
-            with open('result-h-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
+            with open('result-j-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
         i += 1
 
@@ -526,7 +544,7 @@ def long_traj_control(run_i, runcopy):
                                for k in ('n_spt', 'n_rounds')),
                           adaptive=False)
 
-            with open('result-ho-%d-%d.pickl' % (runcopy, i), 'w') as f:
+            with open('result-jo-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
 
 NPROCS = 16
