@@ -39,7 +39,8 @@ class TMatSimulator(object):
         t_matrix = t_matrix.tocsr()
         self.t_matrix = t_matrix
 
-        self.p, self.actual_it = _get_eigenvec(t_matrix, eigenval=True)
+        self.p, actual_lam = _get_eigenvec(t_matrix, eigenval=True)
+        self.actual_it = -1.0 / np.log(actual_lam)
 
         log.info('Loaded transition matrix of shape %s',
                  self.t_matrix.shape)
@@ -341,7 +342,8 @@ class MSM(object):
         """Calculate our implied timescale and subtract in log-space from
         actual one."""
         actual_it = sim.actual_it
-        _, est_it = _get_eigenvec(self.tmat, eigenval=True)
+        _, est_lam = _get_eigenvec(self.tmat, eigenval=True)
+        est_it = -1.0/np.log(est_lam)
         return np.log(actual_it / est_it)
 
     def error_euc(self, sim):

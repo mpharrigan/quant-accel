@@ -36,8 +36,8 @@ PREVWD=$CWD
 
 
 
-JOBFN = "{whence}-{how}-mk4-{round_i:d}.job"
-OUTFN = "{whence}-{how}-mk4-{round_i:d}.mtx"
+JOBFN = "{whence}-{how}-mk5-{round_i:d}.job"
+OUTFN = "{whence}-{how}-mk5-{round_i:d}.mtx"
 SUBMITFN = 'submit.sh'
 
 SUBMITTER_ENTRY = """
@@ -75,6 +75,6 @@ if __name__ == '__main__':
     elif sys.argv[1] == 'tmatolt':
         do('oltdirs.dat', PBS_HEADER, MSM_FROM_ASSIGNMENTS_SCRIPT, {'which': 'tmat', 'how': 'percent', 'whence':'tmatfromass'})
     elif sys.argv[1] == 'mullerclus':
-        do('dirs.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'round', 'whence':'tmatfromclus'})
+        do('dirs_round.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'round', 'whence':'tmatfromclus'})
     elif sys.argv[1] == 'mullerclusolt':
-        do('ltsdirs.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'percent', 'whence':'tmatfromclus'})
+        do('dirs_lts.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'percent', 'whence':'tmatfromclus'})
