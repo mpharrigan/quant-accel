@@ -27,32 +27,33 @@ def load_runresults(rootdir, adaptive):
 
     dirlist = os.listdir(rootdir)
     if not adaptive:
-        regex = r"^result-ho-[0-9]+-[0-9]+\.pickl$"
+        regex = r"^result-jo-[0-9]+-[0-9]+\.pickl$"
     else:
-        regex = r"^result-h-runcopy-[0-9]+-[0-9]+\.pickl$"
+        regex = r"^result-j-runcopy-[0-9]+-[0-9]+\.pickl$"
 
     results = list()
     for fn in dirlist:
         if re.match(regex, fn):
             with open(os.path.join(rootdir, fn)) as f:
                 r = pickle.load(f)
-                # Hackily include whether its adaptive in the params
                 r.params['adaptive'] = adaptive
                 r.params['starting_state'] = starting_state
-                results.append(fix_result(r))
+                results.append(r)
     return results
 
-
-def fix_result(r):
-    """Process the results to make them fittable
-
-    e.g. make real, remove outliers.
-    """
-    if not np.all(np.isreal(r.errors)):
-        raise Exception("Unreal!")
-
-    # r.errors = np.delete(r.errors, np.where(r.errors[:, 1] > 1.0)[0], 0)
-    return r
+#===============================================================================
+# broken
+# def fix_result(r):
+#     """Process the results to make them fittable
+# 
+#     e.g. make real, remove outliers.
+#     """
+#     if not np.all(np.isreal(r.errors)):
+#         raise Exception("Unreal!")
+# 
+#     # r.errors = np.delete(r.errors, np.where(r.errors[:, 1] > 1.0)[0], 0)
+#     return r
+#===============================================================================
 
 
 def cliff_find(errors, highc, lowc, percent=False):
@@ -253,10 +254,11 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
 
     for i, r in enumerate(results):
         pp.clf()
-        inds = np.lexsort((r.errors[:, 1], r.errors[:, 0]))
+        errors = r.poperrors # TODO: make this more general
+        inds = np.lexsort((errors[:, 1], errors[:, 0]))
         # assert np.allclose(errors, errors[inds]), "wasn't sorted"
-        r.errors = r.errors[inds]
-        pp.plot(r.errors[:, 0], r.errors[:, 1], 'o-')
+        errors = errors[inds]
+        pp.plot(errors[:, 0], errors[:, 1], 'o-')
 
         if ctrl is not None:
             norm = ctrl[r.params['n_tpr']].speed
@@ -264,21 +266,21 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
             norm = None
 
         try:
-            if r.errors.shape[0] <= len(p0) * 2:
+            if errors.shape[0] <= len(p0) * 2:
                 raise Exception("Not enough data points")
 
             if fit_func == cliff_find:
                 highc, lowc = p0
-                cliff_x, popt, x, y = cliff_find(r.errors, highc, lowc)
-                pp.hlines(p0, 0.0, np.max(r.errors[:, 0]))
+                cliff_x, popt, x, y = cliff_find(errors, highc, lowc)
+                pp.hlines(p0, 0.0, np.max(errors[:, 0]))
                 pp.vlines(cliff_x, 0, 1.0)
 
                 pp.plot(x, y, 'r-')
                 tau, c, off = popt
                 if off > 1.0:
-                    off = r.errors[-1, 1]
+                    off = errors[-1, 1]
                 elif off < 0.0:
-                    off = r.errors[-1, 1]
+                    off = errors[-1, 1]
                 quality = 1.0 - off
 
                 popt = np.append([cliff_x], popt)
@@ -286,13 +288,13 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
             else:
                 # Try to fit
                 popt, pcov = scipy.optimize.curve_fit(
-                    fit_func, r.errors[:, 0], r.errors[:, 1], p0=p0)
+                    fit_func, errors[:, 0], errors[:, 1], p0=p0)
                 # Make fit curve
                 if fit_func in [expifunc]:
                     # For those that blow up at 0
-                    x = np.linspace(np.min(r.errors[:, 0]), np.max(r.errors[:, 0]))
+                    x = np.linspace(np.min(errors[:, 0]), np.max(errors[:, 0]))
                 else:
-                    x = np.linspace(0, np.max(r.errors[:, 0]), num=200)
+                    x = np.linspace(0, np.max(errors[:, 0]), num=200)
                 yfit = fit_func(x, *popt)
                 pp.plot(x, yfit, '-')
 
@@ -335,7 +337,7 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
     return out_dict
 
 
-def average_many(superrootdir='.', regexp='^h-run-[0-9]+$', test=False):
+def average_many(superrootdir='.', regexp='^j-run-[0-9]+$', test=False):
     """Fit over a set of runcopys (directories)."""
 
     if test:
@@ -358,8 +360,10 @@ def average_many(superrootdir='.', regexp='^h-run-[0-9]+$', test=False):
         ctrl_fits = fit_results(ctrl_results, os.path.join(fullpath, 'na-figs/'))
         if len(ctrl_fits) != 5:
             log.critical('Not enough controls.')
-        ctrl_fits = [ (fit.params['n_tpr'], fit) for fit in ctrl_fits ]
-        ctrl_fits = dict(ctrl_fits)
+            ctrl_fits = None
+        else:
+            ctrl_fits = [ (fit.params['n_tpr'], fit) for fit in ctrl_fits ]
+            ctrl_fits = dict(ctrl_fits)
 
         log.debug("Fitting adaptive runs.")
         adap_results = load_runresults(rootdir=fullpath, adaptive=True)
@@ -370,7 +374,7 @@ def average_many(superrootdir='.', regexp='^h-run-[0-9]+$', test=False):
 def main():
     """call `average_many` and save the results."""
     out_dict = average_many()
-    with open('h-run.list.pickl', 'w') as f:
+    with open('j-run.list.pickl', 'w') as f:
         pickle.dump(out_dict, f)
 
 if __name__ == "__main__":
