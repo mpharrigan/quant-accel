@@ -5,7 +5,7 @@ import os
 JOB_SCRIPT = """
 
 #PBS -l nodes=1:ppn=1
-#PBS -l walltime=24:00:00
+#PBS -l walltime=72:00:00
 #PBS -l mem=8gb
 #PBS -j oe
 #PBS -o .

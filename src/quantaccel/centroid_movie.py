@@ -458,7 +458,9 @@ def make_movie(param_str, results, movie_dirname, movie):
 
     with open('quant-%s-%s.pickl' % (movie, param_str), 'w') as f:
         (_, someresult) = results.items()[0]
-        pickle.dump(RunResult(someresult.params, errors), f, protocol=2)
+        rr = RunResult(someresult.params)
+        rr.errors = errors
+        pickle.dump(rr, f, protocol=2)
 
     log.info("The largest volume for that movie is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
              *(biggest_v.bounds + (biggest_v.volume,)))
