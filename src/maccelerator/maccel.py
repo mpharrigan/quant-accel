@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 '''
 Created on Mar 5, 2014
 
@@ -6,12 +8,35 @@ Created on Mar 5, 2014
 
 import argparse
 import os
+import stat
+import shutil
 
 import logging as log
 from maccelerator import simulate, model
 import mdtraj as md
 import numpy as np
 
+PBS_HEADER = """
+#PBS -l nodes=1:ppn=1
+#PBS -l walltime={hours}:00:00
+#PBS -l mem=8gb
+#PBS -j oe
+#PBS -M harrigan@stanford.edu
+#PBS -m ae
+
+
+cd $PBS_O_WORKDIR
+export OMP_NUM_THREADS=1
+
+"""
+
+SIMULATE_JOB = PBS_HEADER + """
+maccel.py run --round {round_i} --traj {traj_i} --n_spt {n_spt} --report {report} &> jobs/{job_fn}.log
+"""
+
+MODEL_JOB = PBS_HEADER + """
+maccel.py model --round {round_i} --lagtime {lagtime} --n_tpr {n_tpr} &> jobs/{job_fn}.log
+"""
 
 def run_func(args):
 
@@ -54,7 +79,64 @@ def model_func(args):
 
 
 def system_func(args):
-    pass
+    proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
+    log.info('Creating directory %s', proj_dir)
+
+    # Make project
+    os.mkdir(proj_dir)
+
+    # Make starting structures
+    os.mkdir(os.path.join(proj_dir, 'sstates'))
+    shutil.copy(args.seed_structures, os.path.join(proj_dir, 'sstates', 'round-0.h5'))
+
+    # Make jobs dir
+    os.mkdir(os.path.join(proj_dir, 'jobs'))
+
+    # Make traj dirs
+    submit_lines = []
+    j = 0
+    os.mkdir(os.path.join(proj_dir, 'trajs'))
+    for round_i in range(args.n_round):
+        os.mkdir(os.path.join(proj_dir, 'trajs', 'round-%d' % round_i))
+
+        m_dep = '-W depend=afterok'
+
+        # Make simulate jobs
+        for traj_i in range(args.n_tpr):
+            job_fn = 'round-{round_i}_traj-{traj_i}'.format(round_i=round_i,
+                                                                traj_i=traj_i)
+            with open(os.path.join(proj_dir, 'jobs', "%s.job" % job_fn), 'w') as job_f:
+                job_f.write(SIMULATE_JOB.format(round_i=round_i, traj_i=traj_i,
+                                                n_spt=args.n_spt * args.report,
+                                                report=args.report, job_fn=job_fn,
+                                                hours=1))
+                if round_i > 0:
+                    dep = '-W depend=afterok:$M{pti}'.format(pti=round_i - 1)
+                else:
+                    dep = ''
+
+                submit_lines += ["S{traj_i}=`qsub {dep} jobs/{job_fn}.job`".format(traj_i=traj_i,
+                                                                                  job_fn=job_fn,
+                                                                                  dep=dep)]
+                m_dep += ':$S{traj_i}'.format(traj_i=traj_i)
+
+        # Make model job
+        job_fn = 'round-{round_i}_model'.format(round_i=round_i)
+        with open(os.path.join(proj_dir, 'jobs', "%s.job" % job_fn), 'w') as job_f:
+            job_f.write(MODEL_JOB.format(round_i=round_i,
+                                         lagtime=args.lagtime,
+                                         n_tpr=args.n_tpr, hours=3,
+                                         job_fn=job_fn))
+            submit_lines += ['M{round_i}=`qsub {dep} jobs/{job_fn}.job`'.format(job_fn=job_fn,
+                                                                                dep=m_dep,
+                                                                                round_i=round_i)]
+
+
+    with open(os.path.join(proj_dir, 'submit.sh'), 'w') as sub_f:
+        sub_f.write('\n'.join(submit_lines))
+
+    st = os.stat(os.path.join(proj_dir, 'submit.sh'))
+    os.chmod(os.path.join(proj_dir, 'submit.sh'), st.st_mode | stat.S_IEXEC)
 
 
 
@@ -100,6 +182,18 @@ def parse():
     #===========================================================================
     system_p = sp.add_parser('system', help='Generate a system of jobs and submission scripts',
                              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    system_p.add_argument('--n_tpr', help='Number of trajs per round', type=int,
+                          required=True)
+    system_p.add_argument('--n_spt', help='Number of steps per traj. *Units of rep* ',
+                          type=int, required=True)
+    system_p.add_argument('--lagtime', '-lt', help='Lagtime at which to make the model.',
+                          type=int, required=True)
+    system_p.add_argument('--n_round', help='Number of rounds',
+                          type=int, default=20)
+    system_p.add_argument('--seed_structures', help='Initial structures',
+                          default='seed_structures.h5')
+    system_p.add_argument('--report', help='Report interval', type=int,
+                          default=10)
     system_p.set_defaults(func=system_func)
 
 
