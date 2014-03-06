@@ -45,7 +45,7 @@ SIMULATE_SUBMIT = """S{traj_i}=`qsub {dep} jobs/{job_fn}.job`
 if echo "$S{traj_i}" | grep -qi "invalid credential"; then echo "error: {job_fn}; exit 1; fi"""
 
 MODEL_SUBMIT = """M{round_i}=`qsub {dep} jobs/{job_fn}.job`
-if echo "$M{traj_i}" | grep -qi "invalid credential"; then echo "error: {job_fn}; exit 1; fi"""
+if echo "$M{round_i}" | grep -qi "invalid credential"; then echo "error: {job_fn}; exit 1; fi"""
 
 
 def run_func(args):
@@ -127,7 +127,11 @@ def system_func(args):
     
     submit_lines = []
     for round_i in range(start_from, args.n_round):
-        os.mkdir(os.path.join(proj_dir, 'trajs', 'round-%d' % round_i))
+        
+        try:
+            os.mkdir(os.path.join(proj_dir, 'trajs', 'round-%d' % round_i))
+        except OSError:
+            pass
 
         m_dep = '-W depend=afterok'
 
