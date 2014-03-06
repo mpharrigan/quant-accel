@@ -31,10 +31,8 @@ def model(trajs, lagtime, distance_cutoff):
     #_, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True, symmetrize='mle')
     
     centroids = hkm._centroids
+    centroids_t = md.Trajectory(centroids[:, np.newaxis, :], trajs[0].topology)
     
-    # Hack out a trajectory
-    centroids_t = trajs[0]
-    centroids_t.xyz = centroids[:, np.newaxis, :]
     
     return counts, centroids_t
     

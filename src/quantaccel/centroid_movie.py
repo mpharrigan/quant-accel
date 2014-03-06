@@ -188,6 +188,9 @@ def load_project_eqdistr(centroids, tmat):
 
     # Compute a normalized equilibrium distribution
     eq_distr /= np.sum(eq_distr)
+    
+    if len(centroids.shape) == 1:
+        centroids = centroids[np.newaxis, :]
 
     known_points = np.vstack((centroids[:, 0], centroids[:, 1])).T
     est = scipy.interpolate.griddata(known_points, eq_distr,
