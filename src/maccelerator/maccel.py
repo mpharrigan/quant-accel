@@ -56,14 +56,21 @@ def run_func(args):
                       report_stride=args.report, traj_out_fn=traj_out_fn)
     pass
 
-def model_func(args):
-
+def load_trajectories(round_i):
     # Load trajectories
     trajs = []
-    for round in range(args.round + 1):
-        tdir = os.path.join('trajs', 'round-%d' % round)
+    for cround in range(round_i + 1):
+        tdir = os.path.join('trajs', 'round-%d' % cround)
         trajs += [md.load(os.path.join(tdir, s)) for s in os.listdir(tdir) if s.endswith('.h5')]
+        
+    # Stats
+    traj_len = trajs[0].n_frames
+    wall_steps = traj_len * (round_i + 1)
+    return wall_steps, trajs
 
+def model_func(args):
+
+    _, trajs = load_trajectories(args.round)
     counts, centroids = model.model(trajs=trajs,
                          lagtime=args.lagtime,
                          distance_cutoff=args.distance_cutoff)

@@ -4,16 +4,20 @@ Created on Nov 11, 2013
 @author: harrigan
 '''
 
+from msmaccelerator.core import markovstatemodel
 import os, re
-import numpy as np
+import pickle
+import sys
+
 import mdtraj
 from msmbuilder import MSMLib as msml, msm_analysis as msma
 from msmbuilder import clustering
 from msmbuilder.metrics.baseclasses import Vectorized
-from msmaccelerator.core import markovstatemodel
-import sys
-import pickle
+
+import logging as log
+import numpy as np
 import sqlite3 as sql
+
 
 MPIRANK = 0
 MPISIZE = 0
