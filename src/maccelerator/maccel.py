@@ -41,11 +41,9 @@ MODEL_JOB = PBS_HEADER + """
 maccel.py model --round {round_i} --lagtime {lagtime} --n_tpr {n_tpr} &> jobs/{job_fn}.log
 """
 
-SIMULATE_SUBMIT = """S{traj_i}=`qsub {dep} jobs/{job_fn}.job`
-if echo "$S{traj_i}" | grep -qi "invalid credential"; then echo "error: {job_fn}; exit 1; fi"""
+SIMULATE_SUBMIT = """S{traj_i}=`mqsub {dep} jobs/{job_fn}.job`"""
 
-MODEL_SUBMIT = """M{round_i}=`qsub {dep} jobs/{job_fn}.job`
-if echo "$M{round_i}" | grep -qi "invalid credential"; then echo "error: {job_fn}; exit 1; fi"""
+MODEL_SUBMIT = """M{round_i}=`mqsub {dep} jobs/{job_fn}.job`"""
 
 
 def run_func(args):
