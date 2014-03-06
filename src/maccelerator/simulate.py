@@ -7,7 +7,6 @@ Code copied from rmcgibbo
 '''
 
 
-
 import os
 
 from mdtraj.reporters import HDF5Reporter
@@ -80,13 +79,18 @@ def simulate(sstate, system, integrator, n_spt, report_stride, traj_out_fn,
         del reporter
 
 
-
-
-
 def sanity_check(simulation):
-    positions = simulation.context.getState(getPositions=True).getPositions(asNumpy=True)
+    positions = simulation.context.getState(
+        getPositions=True).getPositions(
+        asNumpy=True)
     for atom1, atom2 in simulation.topology.bonds():
-        d = np.linalg.norm(positions[atom1.index, :] - positions[atom2.index, :])
+        d = np.linalg.norm(
+            positions[
+                atom1.index,
+                :] -
+            positions[
+                atom2.index,
+                :])
         if not d < 0.3:
             log.error(positions[atom1.index, :])
             log.error(positions[atom2.index, :])
@@ -94,7 +98,7 @@ def sanity_check(simulation):
                              'in space: %s. %s' % (d, positions))
 
 
-#===============================================================================
+#=========================================================================
 # def deserialize_input(self, content):
 #     """Retreive the state and topology from the message content
 #
@@ -106,7 +110,7 @@ def sanity_check(simulation):
 #     The assumption that data can be passed around on the local filesystem
 #     shouldn't be built deep into the code at all
 #     """
-#     # todo: better name for this function?
+# todo: better name for this function?
 #
 #
 #     with open(content.starting_state.path) as f:
@@ -119,28 +123,36 @@ def sanity_check(simulation):
 #
 #
 #     return state, topology
-#===============================================================================
+#=========================================================================
 
-#===============================================================================
+#=========================================================================
 # def set_state(self, state, simulation):
 #     "Set the state of a simulation to whatever is in the state object"
-#     # why do I have to do this so... manually?
-#     # this is why:
+# why do I have to do this so... manually?
+# this is why:
 #
-#     # simulation.context.setState(state)
-#     # TypeError: in method 'Context_setState', argument 2 of type 'State const &'
+# simulation.context.setState(state)
+# TypeError: in method 'Context_setState', argument 2 of type 'State const &'
 #
 #     simulation.context.setPositions(state.getPositions())
 #     simulation.context.setVelocities(state.getVelocities())
 #     simulation.context.setPeriodicBoxVectors(*state.getPeriodicBoxVectors())
 #     for key, value in state.getParameters():
 #         simulation.context.setParameter(key, value)
-#===============================================================================
+#=========================================================================
 
 class CallbackReporter(StateDataReporter):
+
     """An openmmm reporter subclass to send report to a callback function."""
-    def __init__(self, reportCallback, reportInterval, total_steps=None, **kwargs):
-        super(CallbackReporter, self).__init__(os.devnull, reportInterval, **kwargs)
+
+    def __init__(
+            self, reportCallback, reportInterval, total_steps=None, **kwargs):
+        super(
+            CallbackReporter,
+            self).__init__(
+            os.devnull,
+            reportInterval,
+            **kwargs)
 
         self.total_steps = total_steps
         self.reportCallback = reportCallback
@@ -166,6 +178,7 @@ class CallbackReporter(StateDataReporter):
 
         self.reportCallback(content)
 
+
 def add_reporters(simulation, outfn, report_stride, n_spt):
     "Add reporters to a simulation"
     def reporter_callback(report):
@@ -173,8 +186,8 @@ def add_reporters(simulation, outfn, report_stride, n_spt):
         log.debug(report)
 
     callback_reporter = CallbackReporter(reporter_callback,
-        report_stride, step=True, potentialEnergy=True,
-        temperature=True, time=True, total_steps=n_spt)
+                                         report_stride, step=True, potentialEnergy=True,
+                                         temperature=True, time=True, total_steps=n_spt)
 
     h5_reporter = HDF5Reporter(outfn, report_stride, coordinates=True,
                                time=True, cell=True, potentialEnergy=True,
@@ -197,6 +210,9 @@ def random_seed():
     import time
     import hashlib
     plt = ''.join(platform.uname())
-    seed = int(hashlib.md5('%s%s%s' % (plt, os.getpid(), time.time())).hexdigest(), 16)
+    seed = int(
+        hashlib.md5(
+            '%s%s%s' %
+            (plt, os.getpid(), time.time())).hexdigest(), 16)
 
     return seed % np.iinfo(np.int32).max
