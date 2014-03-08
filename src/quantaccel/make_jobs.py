@@ -43,7 +43,7 @@ SUBMITFN = 'submit.sh'
 SUBMITTER_ENTRY = """
 if [ ! -e {outfn} ]
     then
-        qsub {jobfn}
+        mqsub {jobfn}
 fi
 
 """
