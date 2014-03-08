@@ -527,4 +527,5 @@ def main(walkydir, how, version, movietype):
     make_movies(results, '%s-mk{version}'.format(**fmt), movietype)
 
 if __name__ == "__main__":
+    log.basicConfig(level=log.INFO)
     parse()
