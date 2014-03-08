@@ -51,8 +51,13 @@ def do(round_i, how):
 
 
     counts = msml.get_count_matrix_from_assignments(assignments, lag_time=lag_time)
-    _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
-                                             symmetrize='mle')
+    
+    try:
+        _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
+                                                 symmetrize='mle')
+    except:
+        _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
+                                                 symmetrize='transpose')    
 
 
     try:
