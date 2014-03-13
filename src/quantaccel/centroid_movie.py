@@ -4,30 +4,31 @@ Created on Thu Jan 30 14:19:53 2014
 
 @author: harrigan
 """
+
+
 from __future__ import division
+
+import logging as log
+log.basicConfig(level=log.INFO)
 
 import matplotlib
 matplotlib.use('Agg')
 
-import os
-import numpy as np
+from collections import defaultdict
 from matplotlib import pyplot as pp
 from matplotlib.colors import Normalize, LogNorm
-import re
-import scipy.io
-import argparse
-import pickle
-
-from toy_accel import mullerforce as mf
-from quantaccel.tmat_simulation import RunResult
 from msmbuilder import msm_analysis as msma
-
-from collections import defaultdict
-import scipy.sparse.linalg
+from quantaccel.tmat_simulation import RunResult
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
+from toy_accel import mullerforce as mf
+import argparse
+import numpy as np
+import os
+import pickle
+import re
 import scipy.interpolate
-import logging as log
-
+import scipy.io
+import scipy.sparse.linalg
 
 TEMP = 750
 # Boltzmann constant in md units
@@ -86,19 +87,24 @@ def walk(walkydir, centroid_regex, tmat_regex):
 
                 # Hacky get params
                 cwd = os.path.abspath(dirpath)
-                param_str = cwd[cwd.rfind('/') + 1:]
-                fn_splits = param_str.split('-')
-                try:
-                    params = {fn_splits[0]: fn_splits[1]}
-                except IndexError:
-                    params = {param_str: param_str}
+                dnames = cwd.split('/')
+                dname = dnames[-2]
+                param_strs = dname.split('_')
+                params = dict()
+                for param_str in param_strs:
+                    splits = param_str.split('-')
+                    try:
+                        params[splits[0]] = splits[1]
+                    except IndexError:
+                        params[param_str] = param_str
+                
 
                 # Debug statement
                 log.debug("Found %s %d\tFilename: %s\tParams: %s",
                           mtype, round_i, complete_fn, params)
 
                 # Get the result from the dictionary or make a new one
-                result = results[param_str][round_i]
+                result = results[dname][round_i]
                 if centroid_match:
                     # Load centroids with numpy
                     result.centroids_fn = complete_fn
@@ -119,6 +125,8 @@ def load(result, helper):
     """
     # Load centroids
     centroids = np.loadtxt(result.centroids_fn)
+    if len(centroids.shape) == 1:
+        centroids = centroids[np.newaxis, :]
 
     # Load transition matrix
     with open(result.tmat_fn) as tmat_f:
@@ -170,28 +178,37 @@ def load_centroid_eigen(centroids, tmat):
 def load_project_eqdistr(centroids, tmat):
     """Compute equilibrium density."""
     xx, yy = GRID
+    n_states = tmat.shape[0]
 
     # Get the eigenvectors
     tmat = tmat.transpose()
     try:
         vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
                                               maxiter=100000, tol=1e-30)
-        vecs = np.real_if_close(vecs)
-
-        if np.abs(np.real(vals) - 1) > 1e-8:
-            raise ValueError('Eigenvalue is not 1')
-
-        eq_distr = vecs[:, 0]
     except (ArpackNoConvergence, ValueError) as e:
-        log.warn("No eigenv convergence %s", str(e))
-        eq_distr = np.ones(tmat.shape[0])
+        log.warn('Sparse solver threw error: %s', str(e))
+        vals, vecs = scipy.linalg.eig(tmat.toarray())
+        
+    order = np.argsort(-np.real(vals))
+    vals = np.real_if_close(vals[order])
+    vecs = np.real_if_close(vecs[:, order])
 
+    if np.abs(np.real(vals[0]) - 1) > 1e-8:
+        log.warn('Eigenvalue is not 1: %f', vals[0])
+        
+    
+    eq_distr = vecs[:, 0]
     # Compute a normalized equilibrium distribution
     eq_distr /= np.sum(eq_distr)
+    
+    if len(centroids.shape) == 1:
+        centroids = centroids[np.newaxis, :]
 
     known_points = np.vstack((centroids[:, 0], centroids[:, 1])).T
+    if n_states >= 4: method = 'cubic'
+    else: method = 'nearest'
     est = scipy.interpolate.griddata(known_points, eq_distr,
-                                     (xx, yy), method='cubic',
+                                     (xx, yy), method=method,
                                      fill_value=0.0)
     est = est.clip(min=0.0)
     est /= np.sum(est)
@@ -458,7 +475,9 @@ def make_movie(param_str, results, movie_dirname, movie):
 
     with open('quant-%s-%s.pickl' % (movie, param_str), 'w') as f:
         (_, someresult) = results.items()[0]
-        pickle.dump(RunResult(someresult.params, errors), f, protocol=2)
+        rr = RunResult(someresult.params)
+        rr.errors = errors
+        pickle.dump(rr, f, protocol=2)
 
     log.info("The largest volume for that movie is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
              *(biggest_v.bounds + (biggest_v.volume,)))
@@ -501,10 +520,10 @@ def parse():
                         default='projection-pop')
 
     args = parser.parse_args()
-    if args.debug:
-        log.basicConfig(level=log.DEBUG)
-    else:
-        log.basicConfig(level=log.INFO)
+#     if args.debug:
+#         log.basicConfig(level=log.DEBUG)
+#     else:
+#         log.basicConfig(level=log.INFO)
     main(args.walkydir, args.how, args.version, args.movietype)
 
 
@@ -522,4 +541,5 @@ def main(walkydir, how, version, movietype):
     make_movies(results, '%s-mk{version}'.format(**fmt), movietype)
 
 if __name__ == "__main__":
+    log.info("Logging is working")
     parse()

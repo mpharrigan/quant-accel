@@ -423,11 +423,12 @@ class RunResult(object):
 
     """Hold the results of an adaptive run for pickling."""
 
-    def __init__(self, params, accelerator):
+    def __init__(self, params, accelerator=None):
         self.params = params
-        self.poperrors = accelerator.poperrors
-        self.iterrors = accelerator.iterrors
-        self.nstates = accelerator.nstates
+        if accelerator is not None:
+            self.poperrors = accelerator.poperrors
+            self.iterrors = accelerator.iterrors
+            self.nstates = accelerator.nstates
 
 
 def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive):
@@ -496,7 +497,7 @@ def main(run_i=-1, runcopy=0):
         {'n_tpr': 1, 'n_rounds': 200},
         {'n_tpr': 10, 'n_rounds': 200},
         {'n_tpr': 100, 'n_rounds': 100},
-        {'n_tpr': 500, 'n_rounds': 100},
+        {'n_tpr': 500, 'n_rounds': 50},
         {'n_tpr': 1000, 'n_rounds': 20}
     ]
 
