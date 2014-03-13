@@ -23,6 +23,7 @@ import os
  # - mk5 uses a distance cutoff of 0.4. This will reduce the number of
  #   states, which will increase the bias but potentially reduce statistical
  #   error
+ # - mk6 (for muller3) uses a distance cutoff of 0.3 and a lag time of 19
  #==============================================================================
 
 NPOINTS = 50
@@ -40,7 +41,7 @@ def do(round_i, how):
 
     
     metric = toy.Euclidean2d()
-    lag_time = 20
+    lag_time = 19
     distance_cutoff = 0.3
     
 
