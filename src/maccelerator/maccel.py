@@ -84,6 +84,19 @@ def load_trajectories(round_i):
     wall_steps = traj_len * (round_i + 1)
     return wall_steps, trajs
 
+def load_trajectories_percent(percent):
+    """Load trajectories up to a certain percent."""
+
+    trajs = []
+    tdir = os.path.join('trajs', 'round-0' )
+    trajs += [md.load(os.path.join(tdir, s)) for s in os.listdir(tdir) if s.endswith('.h5')]
+
+    # Find ending index
+    traj_len = trajs[0].n_frames
+    endstep = int(percent * traj_len)
+
+    trajs = [traj[:endstep] for traj in trajs]
+    return endstep, trajs
 
 def model_func(args):
 

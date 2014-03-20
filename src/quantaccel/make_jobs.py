@@ -80,3 +80,5 @@ if __name__ == '__main__':
         do('dirs_lts.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'percent', 'whence':'tmatfromclus'})
     elif sys.argv[1] == 'muller3':
         do('dirs.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'how':'rnew', 'whence': 'tmat'}, finder='trajs')
+    elif sys.argv[1] == 'muller3lts':
+        do('dirs_lts.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'how': 'pnew', 'whence': 'tmat'}, finder='percents')

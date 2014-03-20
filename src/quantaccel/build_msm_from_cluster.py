@@ -38,6 +38,9 @@ def do(round_i, how):
         wall_steps, trajs = toy.load_trajs_by_percent(".", PERCENTS[round_i])
     elif how == 'rnew':
         wall_steps, trajs = maccel.load_trajectories(round_i)
+    elif how == 'pnew':
+        wall_steps, trajs = maccel.load_trajectories_percent(PERCENTS[round_i])
+
 
     
     metric = toy.Euclidean2d()
