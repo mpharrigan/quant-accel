@@ -36,8 +36,8 @@ PREVWD=$CWD
 
 
 
-JOBFN = "{whence}-{how}-mk6-{round_i:d}.job"
-OUTFN = "msms/tmatfromclus-{how}-mk6-{round_i:d}.mtx"
+JOBFN = "{whence}-{how}-mk7-{round_i:d}.job"
+OUTFN = "msms/tmatfromclus-{how}-mk7-{round_i:d}.mtx"
 SUBMITFN = 'submit.sh'
 
 SUBMITTER_ENTRY = """

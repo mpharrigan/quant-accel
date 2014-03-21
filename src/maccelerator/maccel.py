@@ -72,7 +72,8 @@ def run_func(args):
 
 
 def load_trajectories(round_i):
-    # Load trajectories
+    """Load trajectories up to and including :round_i:"""
+    
     trajs = []
     for cround in range(round_i + 1):
         tdir = os.path.join('trajs', 'round-%d' % cround)

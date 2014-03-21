@@ -24,6 +24,7 @@ import os
  #   states, which will increase the bias but potentially reduce statistical
  #   error
  # - mk6 (for muller3) uses a distance cutoff of 0.3 and a lag time of 19
+ # - mk7 (for muller3) uses a distance cutoff of 0.1
  #==============================================================================
 
 NPOINTS = 50
@@ -45,7 +46,7 @@ def do(round_i, how):
     
     metric = toy.Euclidean2d()
     lag_time = 19
-    distance_cutoff = 0.3
+    distance_cutoff = 0.1
     
 
     log.info("Starting cluster")
@@ -71,12 +72,41 @@ def do(round_i, how):
 
     log.info("Saving trimmed centroids.")
     trimmed_centroids = hkm._centroids[np.where(mapping != -1)[0]]
-    np.savetxt(os.path.join('msms', 'centroids-%s-mk6-%d.npy' % (how, round_i)), trimmed_centroids)
+    np.savetxt(os.path.join('msms', 'centroids-%s-mk7-%d.npy' % (how, round_i)), trimmed_centroids)
 
 
-    with open(os.path.join('msms', 'tmatfromclus-%s-mk6-%d.mtx' % (how, round_i)), 'w') as f:
+    with open(os.path.join('msms', 'tmatfromclus-%s-mk7-%d.mtx' % (how, round_i)), 'w') as f:
         scipy.io.mmwrite(f, t_matrix, comment='Wallsteps: %d' % wall_steps)
 
+
+def debug_do(how, round_i):
+    if how == 'rnew':
+        wall_steps, trajs = maccel.load_trajectories(round_i)
+    elif how == 'pnew':
+        wall_steps, trajs = maccel.load_trajectories_percent(PERCENTS[round_i])
+    
+    metric = toy.Euclidean2d()
+    lag_time = 19
+    distance_cutoff = 0.1
+    
+
+    log.info("Starting cluster")
+    hkm = clustering.KMeans(metric, trajs, distance_cutoff=distance_cutoff)
+    assignments = clustering.split(hkm._assignments, hkm._traj_lengths)
+    assignments = np.array(assignments)
+
+
+    counts = msml.get_count_matrix_from_assignments(assignments, lag_time=lag_time)
+    
+    try:
+        _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
+                                                 symmetrize='mle')
+    except:
+        log.warn('MLE Failed')
+        _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
+                                                 symmetrize='transpose')
+        
+    return trajs, t_matrix, mapping, assignments, hkm
 
 
 if __name__ == "__main__":
