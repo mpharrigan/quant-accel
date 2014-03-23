@@ -41,20 +41,6 @@ def load_runresults(rootdir, adaptive):
                 results.append(r)
     return results
 
-#===============================================================================
-# broken
-# def fix_result(r):
-#     """Process the results to make them fittable
-# 
-#     e.g. make real, remove outliers.
-#     """
-#     if not np.all(np.isreal(r.errors)):
-#         raise Exception("Unreal!")
-# 
-#     # r.errors = np.delete(r.errors, np.where(r.errors[:, 1] > 1.0)[0], 0)
-#     return r
-#===============================================================================
-
 
 def cliff_find(errors, highc, lowc, percent=False):
     """Find the x val that is the cliff."""
