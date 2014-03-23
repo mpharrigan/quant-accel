@@ -144,7 +144,8 @@ def system_func(args):
         start_from = 0
     else:
         try:
-            with open(os.path.join(proj_dir, 'last.id'), 'r') as f:
+            # Note: This is a bad idea
+            with open(os.path.join(proj_dir, 'last.bad.id'), 'r') as f:
                 last_id = f.readline().strip()
         except IOError:
             pass
