@@ -9,7 +9,7 @@ import sys
 
 PBS_HEADER = """
 #PBS -l nodes=1:ppn=1
-#PBS -l walltime=72:00:00
+#PBS -l walltime=24:00:00
 #PBS -l mem=8gb
 #PBS -j oe
 #PBS -o {d}
@@ -27,7 +27,7 @@ python -u ../../../src/quantaccel/build_msm_from_assignments.py {round_i} {which
 """
 
 MSM_FROM_CLUSTER_SCRIPT = """
-python -u ../../../src/quantaccel/build_msm_from_cluster.py {round_i} {which} {how} &> tmatfromclus-{how}-{round_i:d}.log
+build_msm_from_cluster.py {round_i} {how} &> tmatfromclus-{how}-{round_i:d}.log
 """
 
 SUBMITTER_HEADER = """
@@ -36,26 +36,25 @@ PREVWD=$CWD
 
 
 
-JOBFN = "{whence}-{how}-mk5-{round_i:d}.job"
-OUTFN = "{whence}-{how}-mk5-{round_i:d}.mtx"
+JOBFN = "{whence}-{how}-mk7-{round_i:d}.job"
+OUTFN = "msms/tmatfromclus-{how}-mk7-{round_i:d}.mtx"
 SUBMITFN = 'submit.sh'
 
 SUBMITTER_ENTRY = """
 if [ ! -e {outfn} ]
     then
-        qsub {jobfn}
-        sleep 1
+        mqsub {jobfn}
 fi
 
 """
 
-def do(dir_dat, qsub_header, executable, options):
+def do(dir_dat, qsub_header, executable, options, finder='models'):
     with open(dir_dat) as f:
         dirs = [line.strip() for line in f if len(line) > 1]
 
     with open (SUBMITFN, 'w') as subf:
         for d in dirs:
-            nrounds = len(os.listdir(os.path.join(d, 'models')))
+            nrounds = len(os.listdir(os.path.join(d, finder)))
             print "%d rounds for %s" % (nrounds, d)
 
             for i in xrange(nrounds):
@@ -66,6 +65,7 @@ def do(dir_dat, qsub_header, executable, options):
                     f.write(executable.format(round_i=i, **options))
                 subf.write(SUBMITTER_ENTRY.format(outfn=outfn, jobfn=jobfn))
 
+   
 
 if __name__ == '__main__':
     if sys.argv[1] == 'tmatass':
@@ -78,3 +78,7 @@ if __name__ == '__main__':
         do('dirs_round_new.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'round', 'whence':'tmatfromclus'})
     elif sys.argv[1] == 'mullerclusolt':
         do('dirs_lts.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'which':'muller', 'how':'percent', 'whence':'tmatfromclus'})
+    elif sys.argv[1] == 'muller3':
+        do('dirs.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'how':'rnew', 'whence': 'tmat'}, finder='trajs')
+    elif sys.argv[1] == 'muller3lts':
+        do('dirs_lts.dat', PBS_HEADER, MSM_FROM_CLUSTER_SCRIPT, {'how': 'pnew', 'whence': 'tmat'}, finder='percents')
