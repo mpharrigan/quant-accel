@@ -254,9 +254,11 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
 
     for i, r in enumerate(results):
         pp.clf()
-        errors = r.poperrors # TODO: make this more general
+        if hasattr(r, 'poperrors'):
+            errors = r.poperrors # TODO: make this more general
+        else:
+            errors = r.errors
         inds = np.lexsort((errors[:, 1], errors[:, 0]))
-        # assert np.allclose(errors, errors[inds]), "wasn't sorted"
         errors = errors[inds]
         pp.plot(errors[:, 0], errors[:, 1], 'o-')
 
