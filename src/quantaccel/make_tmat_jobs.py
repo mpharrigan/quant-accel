@@ -12,7 +12,6 @@ JOB_SCRIPT = """
 #PBS -M harrigan@stanford.edu
 #PBS -m a
 
-# We need 80
 
 cd $PBS_O_WORKDIR
 export OMP_NUM_THREADS=1
@@ -24,8 +23,10 @@ python ../../src/quantaccel/tmat_simulation.py 0 {job_i} $RUNCOPY &> tmat-{job_i
 
 STARTSTATE_FN = 'starting_state.int'
 UNFOLD_FN = '../unfolded.dat'
+NADAPTIVE = 60
+NCONTROL = 5
 
-def main(runcopy, num_permutes=80):
+def main(runcopy, num_permutes=NADAPTIVE + NCONTROL):
 
     # Pick a starting state for all of them
     if not os.path.exists(STARTSTATE_FN):

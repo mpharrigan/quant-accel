@@ -7,7 +7,7 @@ if [ -z "$1" ]; then
 fi
 
 RUNCOPY=$1
-DIRNAME=j-run-$1
+DIRNAME=k-run-$1
 
 echo dirname: $DIRNAME runcopy: $RUNCOPY
 pwd
@@ -18,6 +18,7 @@ pwd
 python ../../src/quantaccel/make_tmat_jobs.py $RUNCOPY
 python ../../src/quantaccel/submit_tmat_jobs.py $RUNCOPY
 chmod +x submitter.sh
+
 ./submitter.sh
 
 cd ../

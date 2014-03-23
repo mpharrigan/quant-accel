@@ -27,9 +27,9 @@ def load_runresults(rootdir, adaptive):
 
     dirlist = os.listdir(rootdir)
     if not adaptive:
-        regex = r"^result-jo-[0-9]+-[0-9]+\.pickl$"
+        regex = r"^result-ko-[0-9]+-[0-9]+\.pickl$"
     else:
-        regex = r"^result-j-runcopy-[0-9]+-[0-9]+\.pickl$"
+        regex = r"^result-k-[0-9]+-[0-9]+\.pickl$"
 
     results = list()
     for fn in dirlist:
@@ -325,7 +325,7 @@ def fit_results(results, fig_out_dir, fit_func=cliff_find, p0=None, show=False, 
     return out_dict
 
 
-def average_many(superrootdir='.', regexp='^j-run-[0-9]+$', test=False):
+def average_many(superrootdir='.', regexp='^k-run-[0-9]+$', test=False):
     """Fit over a set of runcopys (directories)."""
 
     if test:
@@ -362,7 +362,7 @@ def average_many(superrootdir='.', regexp='^j-run-[0-9]+$', test=False):
 def main():
     """call `average_many` and save the results."""
     out_dict = average_many()
-    with open('j-run.list.pickl', 'w') as f:
+    with open('k-run.list.pickl', 'w') as f:
         pickle.dump(out_dict, f)
 
 if __name__ == "__main__":

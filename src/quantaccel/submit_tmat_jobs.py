@@ -6,10 +6,11 @@ import sys
 QSUB = """
 if [ ! -e {outfn} ]
     then
-        qsub {jobfn}
-        sleep 0.5
+        mqsub {jobfn}
 fi
 """
+
+NADAPTIVE = 60
 
 def main(runcopy):
     dirlist = os.listdir('.')
@@ -19,12 +20,12 @@ def main(runcopy):
             match = re.match(r'tmat-([0-9]+)\.job$', fn)
             if match:
                 run_i = int(match.group(1))
-                if run_i < 75:
-                    letter = 'j-runcopy'
+                if run_i < NADAPTIVE:
+                    letter = 'k'
                     offset = 0
                 else:
-                    letter = 'jo'
-                    offset = -75
+                    letter = 'ko'
+                    offset = -NADAPTIVE
                 outfn = 'result-%s-%d-%d.pickl' % (letter, runcopy, run_i + offset)
                 f.write(QSUB.format(jobfn=fn, outfn=outfn))
 

@@ -22,6 +22,9 @@ from msmbuilder import MSMLib as msmlib
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence, ArpackError
 
 STARTING_STATE_FN = 'starting_state.int'
+POPCONVERGE = 0.4
+NPROCS = 16
+NADAPTIVE = 60
 
 
 class TMatSimulator(object):
@@ -385,17 +388,24 @@ class Accelerator(object):
             adaptive - whether to run adaptive sampling or not
         """
 
-        n_rounds = self.n_rounds
         with open(STARTING_STATE_FN) as f:
             starting_state = int(f.read())
-
 
         # Start everything from one starting state
         starting_states = np.ones(n_tpr, dtype='int') * starting_state
 
         log.debug("Starting states: %s", str(starting_states))
+        
+        # We will run until convergence, then start decrementing this
+        # value. rounds_left is the number of additional rounds to do
+        # after convergence
+        rounds_left = 10
+        converged = False
+        round_i = 0
 
-        for round_i in range(n_rounds):
+        while rounds_left > 0:
+            
+            # Simulate
             for traj_i in range(n_tpr):
                 traj = self.sim.simulate(number_of_steps=n_spt,
                                          state_i=starting_states[traj_i])
@@ -406,13 +416,25 @@ class Accelerator(object):
             self.msm.build(self.sim)
 
             # Record interesting info
-            self.poperrors.append([walltime, self.msm.error_tvd(self.sim)])
-            self.iterrors.append([walltime, self.msm.error_it_logdiff(self.sim)])
-            self.nstates.append([walltime, self.msm.n_states])
+            poperror = self.msm.error_tvd(self.sim)
+            iterror = self.msm.error_it_logdiff(self.sim)
+            nstate = self.msm.n_states
+            self.poperrors.append([walltime, poperror])
+            self.iterrors.append([walltime, iterror])
+            self.nstates.append([walltime, nstate])
+            
+            if not converged and poperror < POPCONVERGE:
+                log.info("Convergence achieved at round %4d", (round_i + 1))
+                converged = True
+                rounds_left -= 1
+            elif converged:
+                rounds_left -= 1
 
             # Adapt
             starting_states = self.msm.adapt(n_tpr, adaptive)
-            log.info("Built and sampled model %4d / %4d", (round_i + 1), n_rounds)
+            log.info("Built and sampled model %4d", (round_i + 1))
+            
+            round_i += 1
 
         self.poperrors = np.array(self.poperrors)
         self.iterrors = np.array(self.iterrors)
@@ -485,13 +507,12 @@ def main(run_i=-1, runcopy=0):
     defaults = {'lag_time': 1, 'runcopy': runcopy}
 
     # Changy params
-    beta = [0, 1, 2]
+    beta = [-1, 1, 3]
     spt = [
+        {'n_spt': 2, 'n_rounds': 200},
         {'n_spt': 4, 'n_rounds': 200},
-        {'n_spt': 10, 'n_rounds': 200},
-        {'n_spt': 30, 'n_rounds': 100},
-        {'n_spt': 100, 'n_rounds': 100},
-        {'n_spt': 1000, 'n_rounds': 20},
+        {'n_spt': 8, 'n_rounds': 100},
+        {'n_spt': 16, 'n_rounds': 100}
     ]
     tpr = [
         {'n_tpr': 1, 'n_rounds': 200},
@@ -515,7 +536,7 @@ def main(run_i=-1, runcopy=0):
                 set_tpr,
                 adaptive=True)
             multierrors.append(rr)
-            with open('result-j-runcopy-%d-%d.pickl' % (runcopy, i), 'w') as f:
+            with open('result-k-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
         i += 1
 
@@ -547,11 +568,8 @@ def long_traj_control(run_i, runcopy):
                                for k in ('n_spt', 'n_rounds')),
                           adaptive=False)
 
-            with open('result-jo-%d-%d.pickl' % (runcopy, i), 'w') as f:
+            with open('result-ko-%d-%d.pickl' % (runcopy, i), 'w') as f:
                 pickle.dump(rr, f, protocol=2)
-
-NPROCS = 16
-NADAPTIVE = 75
 
 
 def parse(argv):
@@ -584,4 +602,3 @@ if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
     np.seterr(under='warn')
     parse(sys.argv)
-    # one_long_traj()
