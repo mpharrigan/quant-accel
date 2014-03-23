@@ -391,7 +391,9 @@ class Volume(object):
 
 VOLUMES = dict()
 BIGV = Volume()
-SETVOL = Volume([-3.0, 1.0], [-1.0, 3.0])
+#SETVOL = Volume([-3.0, 1.0], [-1.0, 3.0])
+#minx=-1.5, maxx=1.2, miny=-0.2, maxy=2
+SETVOL = Volume([-1.5, 1.2], [-0.2, 3.0])
 GRID = get_grid(SETVOL, resolution=200)
 
 
