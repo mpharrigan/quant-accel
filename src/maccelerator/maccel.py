@@ -98,13 +98,12 @@ def model_func(args):
 
 
 def dep_system_func(args):
-    # TODO
-    pass
-
+    proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
+    generate_system.write_dep_jobs(proj_dir, args)
 
 def one_system_func(args):
-    # TODO
-    pass
+    proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
+    generate_system.write_one_job(proj_dir, args)
 
 
 def parse():
@@ -177,16 +176,12 @@ def parse():
     system_p.add_argument('--n_spt', help='Number of steps per traj. *Units of rep* ',
                           type=int, required=True)
     system_p.add_argument('--lagtime', '-lt', help='Lagtime at which to make the model.',
-                          type=int, required=True)
-    system_p.add_argument('--n_round', help='Number of rounds',
-                          type=int, default=20)
+                          type=int, required=True)    
     system_p.add_argument('--seed_structures', help='Initial structures',
                           default='seed_structures.h5')
     system_p.add_argument('--report', help='Report interval', type=int,
                           default=10)
-    system_p.add_argument('--start_from', '-sf', help="""Start at a particular round
-                          Note: ! This doesn't do any fancy error checking.""",
-                          type=int)
+    
 
     #=========================================================================
     # System -> Dependency
@@ -196,6 +191,11 @@ def parse():
                                formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     dep_sys_p.add_argument('--n_tpj', help='Number of trajectories per job',
                            type=int, default=1)
+    dep_sys_p.add_argument('--n_round', help='Number of rounds',
+                          type=int, default=20)
+    dep_sys_p.add_argument('--start_from', '-sf', help="""Start at a particular round
+                          Note: ! This doesn't do any fancy error checking.""",
+                          type=int)
     dep_sys_p.set_defaults(func=dep_system_func)
 
     #=========================================================================

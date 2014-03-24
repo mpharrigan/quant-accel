@@ -67,13 +67,23 @@ def create_file_structure(proj_dir, seed_structures):
     os.mkdir(os.path.join(proj_dir, 'trajs'))
 
 
-def write_dep_jobs(proj_dir, start_from, args):
+def write_dep_jobs(proj_dir, args):
     """Write files for a dependency run.
 
     :proj_dir: project directory
     :start_from: round from which to start, none for starting from beginning
     :args: from command line
     """
+
+    start_from = args.start_from
+    if start_from is None:
+        create_file_structure(proj_dir, args.seed_structures)
+        start_from = 0
+    else:
+        # We used to try to recover the qsub id so that we could restart
+        # before it was finished. But if the job no longer exists, the jobs
+        # never start
+        pass
 
     submit_lines = []
     # Iterate over rounds
@@ -130,21 +140,13 @@ def write_dep_jobs(proj_dir, start_from, args):
     os.chmod(os.path.join(proj_dir, 'submit.sh'), st.st_mode | stat.S_IEXEC)
 
 
-def write_one_job(proj_dir, start_from, args):
+def write_one_job(proj_dir, args):
     """Write files where there will only be one job."""
     # TODO
-    pass
+    
+    create_file_structure(proj_dir, args.seed_structures)
+    
 
 
-def system_func(args):
-    proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
-    start_from = args.start_from
 
-    if start_from is None:
-        create_file_structure(proj_dir, args.seed_structures)
-        start_from = 0
-    else:
-        # We used to try to recover the qsub id so that we could restart
-        # before it was finished. But if the job no longer exists, the jobs
-        # never start
-        pass
+
