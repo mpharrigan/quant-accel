@@ -3,6 +3,8 @@ Created on Mar 5, 2014
 
 @author: harrigan
 
+Code for running rounds of simulation
+
 Code copied from rmcgibbo
 '''
 
@@ -11,7 +13,7 @@ import os
 
 from mdtraj.reporters import HDF5Reporter
 from simtk.openmm import XmlSerializer, Platform
-from simtk.openmm.app import (Simulation, PDBFile)
+from simtk.openmm.app import Simulation 
 from simtk.openmm.app import StateDataReporter
 
 import logging as log
@@ -65,7 +67,6 @@ def simulate(sstate, system, integrator, n_spt, report_stride, traj_out_fn,
         except AttributeError:
             print "I don't know what temperature to use!!"
             raise
-        pass
 
     log.debug('adding reporters...')
     add_reporters(simulation, traj_out_fn, report_stride, n_spt)
@@ -87,7 +88,7 @@ def sanity_check(simulation):
         d = np.linalg.norm(
             positions[
                 atom1.index,
-                :] -
+                :] - 
             positions[
                 atom2.index,
                 :])
@@ -97,49 +98,6 @@ def sanity_check(simulation):
             raise ValueError('atoms are bonded according to topology but not close by '
                              'in space: %s. %s' % (d, positions))
 
-
-#=========================================================================
-# def deserialize_input(self, content):
-#     """Retreive the state and topology from the message content
-#
-#     The message protocol tries not to pass 'data' around within the
-#     messages, but instead pass paths to data. So far we're only sending
-#     paths on the local filesystem, but we might could generalize this to
-#     HTTP or S3 or something later.
-#
-#     The assumption that data can be passed around on the local filesystem
-#     shouldn't be built deep into the code at all
-#     """
-# todo: better name for this function?
-#
-#
-#     with open(content.starting_state.path) as f:
-#         self.log.info('Opening state file: %s', content.starting_state.path)
-#         state = XmlSerializer.deserialize(f.read())
-#
-#
-#
-#     topology = PDBFile(content.topology_pdb.path).topology
-#
-#
-#     return state, topology
-#=========================================================================
-
-#=========================================================================
-# def set_state(self, state, simulation):
-#     "Set the state of a simulation to whatever is in the state object"
-# why do I have to do this so... manually?
-# this is why:
-#
-# simulation.context.setState(state)
-# TypeError: in method 'Context_setState', argument 2 of type 'State const &'
-#
-#     simulation.context.setPositions(state.getPositions())
-#     simulation.context.setVelocities(state.getVelocities())
-#     simulation.context.setPeriodicBoxVectors(*state.getPeriodicBoxVectors())
-#     for key, value in state.getParameters():
-#         simulation.context.setParameter(key, value)
-#=========================================================================
 
 class CallbackReporter(StateDataReporter):
 
@@ -212,7 +170,7 @@ def random_seed():
     plt = ''.join(platform.uname())
     seed = int(
         hashlib.md5(
-            '%s%s%s' %
+            '%s%s%s' % 
             (plt, os.getpid(), time.time())).hexdigest(), 16)
 
     return seed % np.iinfo(np.int32).max
