@@ -28,7 +28,7 @@ export OMP_NUM_THREADS=1
 SIMULATE_JOB = PBS_HEADER + """
 for i in {{{start_i}..{end_i}}}
 do
-    maccel.py run --round {round_i} --traj $i --n_spt {n_spt} --report {report} &> jobs/{job_fn}.log
+    maccel.py run --round {round_i} --traj $i --n_spt {n_spt} --report {report} &> jobs/{job_fn}-{round_i}.log
 done
 """
 
