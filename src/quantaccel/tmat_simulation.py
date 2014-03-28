@@ -24,7 +24,7 @@ from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence, ArpackError
 STARTING_STATE_FN = 'starting_state.int'
 POPCONVERGE = 0.4
 NPROCS = 16
-NADAPTIVE = 60
+NADAPTIVE = 90
 
 
 class TMatSimulator(object):
@@ -512,7 +512,9 @@ def main(run_i=-1, runcopy=0):
         {'n_spt': 2, 'n_rounds': 200},
         {'n_spt': 4, 'n_rounds': 200},
         {'n_spt': 8, 'n_rounds': 100},
-        {'n_spt': 16, 'n_rounds': 100}
+        {'n_spt': 16, 'n_rounds': 100},
+        {'n_spt': 32, 'n_rounds': 100},
+        {'n_spt': 64, 'n_rounds': 100}
     ]
     tpr = [
         {'n_tpr': 1, 'n_rounds': 200},
