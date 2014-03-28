@@ -80,7 +80,7 @@ done
 python ../../../src/quantaccel/centroid_movie.py . {version} -how {how}
 """
 
-ONE_SUBMIT = """mqsub {proj_dir}/{job_fn}"""
+ONE_SUBMIT = """cd {proj_dir}; mqsub {job_fn}; cd $OLDPWD"""
 
 def create_file_structure(proj_dir, seed_structures):
     """Create folders and files to initialize a directory for a run.
