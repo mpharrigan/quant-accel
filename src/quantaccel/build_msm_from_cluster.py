@@ -110,7 +110,7 @@ def debug_do(how, round_i):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 3:
         print """Usage: xxx.py round_i how.
                     how = {round, percent, rnew}"""
 

@@ -23,7 +23,7 @@ python ../../src/quantaccel/tmat_simulation.py 0 {job_i} $RUNCOPY &> tmat-{job_i
 
 STARTSTATE_FN = 'starting_state.int'
 UNFOLD_FN = '../unfolded.dat'
-NADAPTIVE = 60
+NADAPTIVE = 90
 NCONTROL = 5
 
 def main(runcopy, num_permutes=NADAPTIVE + NCONTROL):

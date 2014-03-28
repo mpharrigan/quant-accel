@@ -4,7 +4,6 @@ Created on Mar 5, 2014
 @author: harrigan
 '''
 
-import os
 
 from msmbuilder import MSMLib as msml, clustering
 from quantaccel import toy

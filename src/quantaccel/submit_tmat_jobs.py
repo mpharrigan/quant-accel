@@ -10,7 +10,7 @@ if [ ! -e {outfn} ]
 fi
 """
 
-NADAPTIVE = 60
+NADAPTIVE = 90
 
 def main(runcopy):
     dirlist = os.listdir('.')
