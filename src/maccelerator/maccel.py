@@ -101,9 +101,12 @@ def dep_system_func(args):
     proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
     generate_system.write_dep_jobs(proj_dir, args)
 
-def one_system_func(args):
+def one_system_init_func(args):
     proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
     generate_system.write_one_job(proj_dir, args)
+
+def one_system_newround_func(args):
+    generate_system.write_new_round(args)
 
 
 def parse():
@@ -126,28 +129,14 @@ def parse():
     #=========================================================================
     run_p = sp.add_parser('run', help='Run a simulation',
                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    run_p.add_argument(
-        '--round',
-        '-r',
-        help='Round index',
-        type=int,
-        required=True)
-    run_p.add_argument(
-        '--traj',
-        '-t',
-        help='Trajectory index',
-        type=int,
-        required=True)
-    run_p.add_argument(
-        '--n_spt',
-        help='Steps per traj',
-        type=int,
-        required=True)
-    run_p.add_argument(
-        '--report',
-        help='Report interval',
-        type=int,
-        required=True)
+    run_p.add_argument('--round', '-r',
+                       help='Round index', type=int, required=True)
+    run_p.add_argument('--traj', '-t', 
+                       help='Trajectory index', type=int, required=True)
+    run_p.add_argument('--n_spt',
+                       help='Steps per traj', type=int, required=True)
+    run_p.add_argument('--report',
+                       help='Report interval', type=int, required=True)
 
     run_p.set_defaults(func=run_func)
 
@@ -176,12 +165,12 @@ def parse():
     system_p.add_argument('--n_spt', help='Number of steps per traj. *Units of rep* ',
                           type=int, required=True)
     system_p.add_argument('--lagtime', '-lt', help='Lagtime at which to make the model.',
-                          type=int, required=True)    
+                          type=int, required=True)
     system_p.add_argument('--seed_structures', help='Initial structures',
                           default='seed_structures.h5')
     system_p.add_argument('--report', help='Report interval', type=int,
                           default=10)
-    
+
 
     #=========================================================================
     # System -> Dependency
@@ -203,7 +192,26 @@ def parse():
     #=========================================================================
     one_sys_p = ssp.add_parser('one', help='Put everything in one job',
                                formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    one_sys_p.set_defaults(func=one_system_func)
+
+
+    #===========================================================================
+    # System -> One job -> Init
+    #===========================================================================
+    osp = one_sys_p.add_subparsers()
+    one_init_p = osp.add_parser('init', help="Initialize directory",
+                              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    one_init_p.set_defaults(func=one_system_init_func)
+
+    #===========================================================================
+    # System -> One job -> New round
+    #===========================================================================
+    one_newround_p = osp.add_parser('newround', help="Write jobs for a new round",
+                                    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    one_newround_p.add_argument('--round_i', help="Round to build stuff for",
+                                type=int, required=True)
+    one_newround_p.set_defaults(func=one_system_newround_func)
+
+
 
     args = parser.parse_args()
     args.func(args)

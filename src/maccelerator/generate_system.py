@@ -28,7 +28,8 @@ export OMP_NUM_THREADS=1
 SIMULATE_JOB = PBS_HEADER + """
 for i in {{{start_i}..{end_i}}}
 do
-    maccel.py run --round {round_i} --traj $i --n_spt {n_spt} --report {report} &> jobs/{job_fn}-{round_i}.log
+    echo "simulating traj $i"
+    maccel.py run --round {round_i} --traj $i --n_spt {n_spt} --report {report} &> jobs/{job_fn}-{round_i}-$i.log
 done
 """
 
@@ -65,6 +66,7 @@ def create_file_structure(proj_dir, seed_structures):
     # Make jobs and trajs dir
     os.mkdir(os.path.join(proj_dir, 'jobs'))
     os.mkdir(os.path.join(proj_dir, 'trajs'))
+
 
 
 def write_dep_jobs(proj_dir, args):
@@ -143,9 +145,36 @@ def write_dep_jobs(proj_dir, args):
 def write_one_job(proj_dir, args):
     """Write files where there will only be one job."""
     # TODO
-    
     create_file_structure(proj_dir, args.seed_structures)
-    
+
+def write_new_round(args):
+    """Write job files for one round."""
+    # Make the trajectory subdirectory
+    try:
+        os.mkdir(os.path.join('.', 'trajs', 'round-%d' % args.round_i))
+    except OSError:
+        pass
+
+    # Make simulate jobs    
+    job_fn = 'round-{round_i}_simulate'.format(round_i=args.round_i)
+    with open(os.path.join('.', 'jobs', "%s.job" % job_fn), 'w') as job_f:
+        job_f.write(SIMULATE_JOB.format(round_i=args.round_i,
+                                        n_spt=args.n_spt * args.report,
+                                        report=args.report, job_fn=job_fn,
+                                        hours=1,
+                                        start_i=0,
+                                        end_i=args.n_tpr - 1))
+
+    # Make model job
+    job_fn = 'round-{round_i}_model'.format(round_i=args.round_i)
+    with open(os.path.join('.', 'jobs', "%s.job" % job_fn), 'w') as job_f:
+        job_f.write(MODEL_JOB.format(round_i=args.round_i,
+                                     lagtime=args.lagtime,
+                                     n_tpr=args.n_tpr, hours=3,
+                                     job_fn=job_fn))
+
+
+
 
 
 

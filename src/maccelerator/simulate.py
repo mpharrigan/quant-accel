@@ -49,7 +49,8 @@ def simulate(sstate, system, integrator, n_spt, report_stride, traj_out_fn,
     log.debug('Setting up simulation...')
 
     # Use cpu platform
-    platform = Platform.getPlatformByName('CPU')
+    #platform = Platform.getPlatformByName('CPU')
+    platform = None
 
     simulation = Simulation(sstate.topology.to_openmm(), system, integrator,
                             platform)
