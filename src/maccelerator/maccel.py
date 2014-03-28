@@ -98,16 +98,30 @@ def model_func(args):
 
 
 def dep_system_func(args):
+    """Entry point for generating a system of dependent jobs."""
     proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
     generate_system.write_dep_jobs(proj_dir, args)
 
 def one_system_init_func(args):
+    """Entry point for initializing a one-job run.
+
+    This will set up folder structures and write the bash
+    script that actually does the loop.
+    """
     proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
     generate_system.write_one_job(proj_dir, args)
 
 def one_system_newround_func(args):
+    """Entry point for generating one round of jobs."""
     generate_system.write_new_round(args)
 
+def one_system_combi_func(args):
+    """Entry point for generating jobs with combinatorical parameters."""
+    spts = [21, 40, 80, 160, 320]
+    tprs = [1, 10, 100, 500, 1000]
+    lagtimes = [20]
+    generate_system.write_combi_jobs(spts, tprs, lagtimes, args.runcopy)
+        
 
 def parse():
     """Parse arguments."""
@@ -118,11 +132,11 @@ def parse():
     parser.add_argument(
         '--sys_fn',
         help='System xml file',
-        default='../system.xml')
+        default='../../system.xml')
     parser.add_argument(
         '--int_fn',
         help='Integrator xml file',
-        default='../integrator.xml')
+        default='../../integrator.xml')
 
     #=========================================================================
     # Run
@@ -131,7 +145,7 @@ def parse():
                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     run_p.add_argument('--round', '-r',
                        help='Round index', type=int, required=True)
-    run_p.add_argument('--traj', '-t', 
+    run_p.add_argument('--traj', '-t',
                        help='Trajectory index', type=int, required=True)
     run_p.add_argument('--n_spt',
                        help='Steps per traj', type=int, required=True)
@@ -200,6 +214,15 @@ def parse():
     osp = one_sys_p.add_subparsers()
     one_init_p = osp.add_parser('init', help="Initialize directory",
                               formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    one_init_p.add_argument('--n_postconverge',
+                            help="Number of rounds to run post convergence",
+                            default=10, type=int)
+    one_init_p.add_argument('--how',
+                            help="'how' string for building msm et al",
+                            default='rnew')
+    one_init_p.add_argument('--version',
+                            help="'version' number mk{version} for building msm et al.",
+                            default=7, type=int)
     one_init_p.set_defaults(func=one_system_init_func)
 
     #===========================================================================
@@ -210,6 +233,15 @@ def parse():
     one_newround_p.add_argument('--round_i', help="Round to build stuff for",
                                 type=int, required=True)
     one_newround_p.set_defaults(func=one_system_newround_func)
+
+    #===========================================================================
+    # Combi
+    #===========================================================================
+    one_combi = sp.add_parser('combi', help="Make combinatorical jobs",
+                               formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    one_combi.add_argument('--runcopy', help="Index of the run to generate",
+                           required=True, type=int)
+    one_combi.set_defaults(func=one_system_combi_func)
 
 
 

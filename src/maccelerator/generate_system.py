@@ -10,8 +10,9 @@ import os
 import shutil
 import stat
 import logging as log
+import itertools
 
-PBS_HEADER = """
+PBS_HEADER = """#!/bin/bash
 #PBS -l nodes=1:ppn=1
 #PBS -l walltime={hours}:00:00
 #PBS -l mem=8gb
@@ -19,8 +20,9 @@ PBS_HEADER = """
 #PBS -M harrigan@stanford.edu
 #PBS -m ae
 
-
+: ${{PBS_O_WORKDIR="$PWD"}}
 cd $PBS_O_WORKDIR
+export PBS_O_WORKDIR
 export OMP_NUM_THREADS=1
 
 """
@@ -41,6 +43,44 @@ SIMULATE_SUBMIT = """S{traj_i}=`mqsub {dep} jobs/{job_fn}.job`"""
 
 MODEL_SUBMIT = """M{round_i}=`mqsub {dep} jobs/{job_fn}.job`"""
 
+
+ONE_JOB = PBS_HEADER + """
+
+# Number of rounds after convergence
+roundsleft="{n_postconverge}"
+# Current round index
+round_i="0"
+
+while [ "$roundsleft" -gt "0" ]
+do
+    echo "== Doing Round $round_i == with at least $roundsleft rounds left =="
+
+    # prepare this round
+    maccel.py system --n_tpr {n_tpr} --n_spt {n_spt} --lagtime {lagtime} one newround --round_i $round_i
+
+    # simulate
+    PBS_O_WORKDIR=$PBS_O_WORKDIR /bin/bash jobs/round-${{round_i}}_simulate.job
+
+    # adaptive model
+    PBS_O_WORKDIR=$PBS_O_WORKDIR /bin/bash jobs/round-${{round_i}}_model.job
+
+    # actually build msm
+    python ../../../src/quantaccel/build_msm_from_cluster.py $round_i {how}
+
+    if [ -f converged ]; then
+        ((roundsleft -= 1))
+    else
+        # check convergence
+        python ../../../src/maccelerator/check_convergence.py $round_i {how} {version}
+    fi
+
+    ((round_i += 1))
+done
+
+python ../../../src/quantaccel/centroid_movie.py . {version} -how {how}
+"""
+
+ONE_SUBMIT = """mqsub {proj_dir}/{job_fn}.job"""
 
 def create_file_structure(proj_dir, seed_structures):
     """Create folders and files to initialize a directory for a run.
@@ -144,8 +184,18 @@ def write_dep_jobs(proj_dir, args):
 
 def write_one_job(proj_dir, args):
     """Write files where there will only be one job."""
-    # TODO
     create_file_structure(proj_dir, args.seed_structures)
+    
+    job_fn = "%s.job" % os.path.basename(proj_dir)
+    with open(os.path.join(proj_dir, job_fn), 'w') as job_f:
+        job_f.write(ONE_JOB.format(n_tpr=args.n_tpr,
+                                   n_spt=args.n_spt,
+                                   lagtime=args.lagtime,
+                                   hours=72,
+                                   n_postconverge=args.n_postconverge,
+                                   how=args.how,
+                                   version=args.version))
+    return job_fn
 
 def write_new_round(args):
     """Write job files for one round."""
@@ -175,7 +225,37 @@ def write_new_round(args):
 
 
 
-
-
-
+def write_combi_jobs(spts, tprs, lagtimes, runcopy):
+    """Write jobs at combinatorical of those."""
+    class Container(object):
+        pass
+    
+    run_dir = 'runcopy-%d' % runcopy
+    os.mkdir(run_dir)
+    
+    submit_lines = []
+    
+    for (spt, tpr, lagtime) in itertools.product(spts, tprs, lagtimes):
+        args = Container()
+        args.n_tpr = tpr
+        args.n_spt = spt
+        args.lagtime = lagtime
+        args.n_postconverge=10
+        args.how='rnew'
+        args.version=7
+        args.seed_structures = 'seed_structures.h5'
+        
+        proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
+        proj_dir = os.path.join(run_dir, proj_dir)
+        job_fn = write_one_job(proj_dir, args)
+        
+        submit_lines += [ONE_SUBMIT.format(proj_dir=proj_dir,
+                                           job_fn=job_fn)]
+        
+    with open(os.path.join(run_dir, 'submit.sh'), 'w') as sub_f:
+        sub_f.write('\n'.join(submit_lines))
+        
+    # Make executable
+    st = os.stat(os.path.join(run_dir, 'submit.sh'))
+    os.chmod(os.path.join(run_dir, 'submit.sh'), st.st_mode | stat.S_IEXEC)
 
