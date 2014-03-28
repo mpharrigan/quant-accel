@@ -65,19 +65,19 @@ do
     PBS_O_WORKDIR=$PBS_O_WORKDIR /bin/bash jobs/round-${{round_i}}_model.job
 
     # actually build msm
-    python ../../../src/quantaccel/build_msm_from_cluster.py $round_i {how}
+    python -m build_msm_from_cluster $round_i {how}
 
     if [ -f converged ]; then
         ((roundsleft -= 1))
     else
         # check convergence
-        python ../../../src/maccelerator/check_convergence.py $round_i {how} {version}
+        python -m check_convergence $round_i {how} {version}
     fi
 
     ((round_i += 1))
 done
 
-python ../../../src/quantaccel/centroid_movie.py . {version} -how {how}
+python -m centroid_movie . {version} -how {how}
 """
 
 ONE_SUBMIT = """cd {proj_dir}; mqsub {job_fn}; cd $OLDPWD"""
