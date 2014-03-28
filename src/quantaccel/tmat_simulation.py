@@ -12,6 +12,7 @@ import logging as log
 import pickle
 import itertools
 import sys
+import argparse
 import scipy.optimize
 
 import scipy.sparse.csgraph
@@ -214,13 +215,13 @@ class MSM(object):
 
         self.tmat = expanded_tmat
 
-    def adapt(self, n_new, adaptive):
-        if adaptive:
+    def adapt(self, n_new, adapt_func):
+        if adapt_func in [MSM.adapt_weights, MSM.adapt_sort]:
             # Do adaptive sampling.
             # Note: my old version of the adaptive code is better
             #       than the one based on ergodic trimming et al
             #       because it trims too much.
-            return self.adapt_old(n_new)
+            return self.adapt_old(n_new, adapt_func)
         else:
             # Do not do adaptive sampling. Just continue previous trajectories.
             return self.dont_adapt(n_new)
@@ -234,7 +235,7 @@ class MSM(object):
         new_states = [traj[-1] for traj in self.traj_list[-n_new:]]
         return np.array(new_states)
 
-    def adapt_new(self, n_new):
+    def adapt_new(self, n_new, adapt_func):
         """Use ergodic trimming and backtrack to sample new.
 
         This trims too much: specifically states that only have a count 'to'
@@ -262,7 +263,7 @@ class MSM(object):
 
         return new_states
 
-    def adapt_old(self, n_new):
+    def adapt_old(self, n_new, adapt_func):
         """Return new starting states
 
             n_new - number of new states
@@ -287,6 +288,17 @@ class MSM(object):
             len(only_no_fro),
             len(only_no_to))
 
+        new_states = adapt_func(self, n_new, abs_no)
+        log.debug("Starting from states: %s", new_states)
+
+        return new_states
+
+    def adapt_weights(self, n_new, abs_no):
+        """Adapt based on weights and beta.
+
+        :n_new: number of new states to generate
+        :abs_no: states we should not sample
+        """
         counts_per_state = np.array(
             self.counts.sum(axis=1)).flatten() + 1e-8
 
@@ -304,11 +316,29 @@ class MSM(object):
             new_states[i] = np.sum(cum_weights < np.random.rand())
             if np.in1d(new_states[i], abs_no):
                 log.error("Picking an unfound state")
-
-        log.debug("Starting from states: %s", new_states)
         log.debug("cps %s", str(counts_per_state[new_states]))
-
         return new_states
+
+
+    def adapt_sort(self, n_new, abs_no):
+        """Adapt by sorting and selecting in order.
+
+        :n_new: number of new states to generate
+        :abs_no: states we should not sample
+        """
+        counts_per_state = np.array(self.counts.sum(axis=1)).flatten()
+        states_to_sample = np.argsort(counts_per_state)
+        states_to_sample = np.setdiff1d(states_to_sample, abs_no)
+        if len(states_to_sample) > n_new:
+            states_to_sample = states_to_sample[:n_new]
+        elif len(states_to_sample) < n_new:
+            n_copy = n_new // len(states_to_sample)
+            n_add = n_new % len(states_to_sample)
+            states_to_sample = np.repeat(states_to_sample, n_copy)
+            states_to_sample = np.append(states_to_sample, states_to_sample[:n_add])
+        if len(states_to_sample) != n_new:
+            log.error("Incorrect number of new states")
+        return states_to_sample
 
     def error_fro(self, sim):
         """Frobenius norm between transition matrices."""
@@ -346,7 +376,7 @@ class MSM(object):
         actual one."""
         actual_it = sim.actual_it
         _, est_lam = _get_eigenvec(self.tmat, eigenval=True)
-        est_it = -1.0/np.log(est_lam)
+        est_it = -1.0 / np.log(est_lam)
         return np.log(actual_it / est_it)
 
     def error_euc(self, sim):
@@ -371,21 +401,20 @@ class Accelerator(object):
 
     """Runs rounds of adaptive sampling and keeps the convergence."""
 
-    def __init__(self, simulator, msm, n_rounds=20):
+    def __init__(self, simulator, msm):
         self.sim = simulator
         self.msm = msm
 
-        self.n_rounds = n_rounds
         self.poperrors = list()
         self.iterrors = list()
         self.nstates = list()
 
-    def accelerator_loop(self, n_tpr, n_spt, adaptive):
+    def accelerator_loop(self, n_tpr, n_spt, adapt_func):
         """Run the accelerator loop
-            n_rounds - number of rounds
             n_tpr - # trajectories per round (paralellization)
             n_spt - # of steps (length) per trajectory
             adaptive - whether to run adaptive sampling or not
+            :adapt_func: function for adaptive sampling
         """
 
         with open(STARTING_STATE_FN) as f:
@@ -395,7 +424,7 @@ class Accelerator(object):
         starting_states = np.ones(n_tpr, dtype='int') * starting_state
 
         log.debug("Starting states: %s", str(starting_states))
-        
+
         # We will run until convergence, then start decrementing this
         # value. rounds_left is the number of additional rounds to do
         # after convergence
@@ -404,7 +433,7 @@ class Accelerator(object):
         round_i = 0
 
         while rounds_left > 0:
-            
+
             # Simulate
             for traj_i in range(n_tpr):
                 traj = self.sim.simulate(number_of_steps=n_spt,
@@ -422,7 +451,7 @@ class Accelerator(object):
             self.poperrors.append([walltime, poperror])
             self.iterrors.append([walltime, iterror])
             self.nstates.append([walltime, nstate])
-            
+
             if not converged and poperror < POPCONVERGE:
                 log.info("Convergence achieved at round %4d", (round_i + 1))
                 converged = True
@@ -431,9 +460,9 @@ class Accelerator(object):
                 rounds_left -= 1
 
             # Adapt
-            starting_states = self.msm.adapt(n_tpr, adaptive)
+            starting_states = self.msm.adapt(n_tpr, adapt_func)
             log.info("Built and sampled model %4d", (round_i + 1))
-            
+
             round_i += 1
 
         self.poperrors = np.array(self.poperrors)
@@ -453,52 +482,69 @@ class RunResult(object):
             self.nstates = accelerator.nstates
 
 
-def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adaptive):
+def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adapt_func):
     """Run one simulation given the params
-
-     - set_beta: a float to set beta to
-     - set_spt: a dict with keys 'n_spt' and 'n_rounds'
-     - set_tpr: a dict with keys 'n_tpr' and 'n_rounds'
-
-     This function will use the minimum number of rounds specified
-     by set_spt or set_tpr
      """
-    log.info("This is %s run", 'an adaptive' if adaptive else 'a non-adaptive')
-    log.info(
-        "Setting beta = %f spt = %s tpr = %s take min round_i",
-        set_beta, str(set_spt), str(set_tpr))
+
+
+    log.info("Setting beta = %f spt = %d tpr = %d", set_beta, set_spt, set_tpr)
+    log.info("Using %s as adapt method", adapt_func.func_name)
 
     # Make param dict from defaults and set our set values
     param = dict(defaults)
-    param.update(set_spt)
-    param.update(set_tpr)
-    param.update(n_rounds=min(set_spt['n_rounds'], set_tpr['n_rounds']))
+    param.update(n_spt=set_spt)
+    param.update(n_tpr=set_tpr)
     param.update(beta=set_beta)
 
     # Make MSM container object
     msm = MSM(lag_time=param['lag_time'], beta=param['beta'])
 
     # Make accelerator object
-    accelerator = Accelerator(
-        tmat_sim,
-        msm,
-        n_rounds=param['n_rounds'])
+    accelerator = Accelerator(tmat_sim, msm)
 
     # Run it
-    accelerator.accelerator_loop(
-        n_tpr=param['n_tpr'],
-        n_spt=param['n_spt'],
-        adaptive=adaptive)
+    accelerator.accelerator_loop(n_tpr=param['n_tpr'],
+                                 n_spt=param['n_spt'],
+                                 adapt_func=adapt_func)
 
     # Get the results
     rr = RunResult(param, accelerator)
     return rr
 
 
-def main(run_i=-1, runcopy=0):
+def get_params_adaptive(beta):
+    spt = [2, 4, 8, 16, 32, 64]
+    tpr = [1, 10, 100, 500, 1000]
+    log.info("Number of permutations = %d", len(beta) * len(spt) * len(tpr))
+    return itertools.product(beta, spt, tpr)
+
+def get_params_adapt_weights():
+    beta = [-1, 1, 3]
+    return get_params_adaptive(beta)
+
+def get_params_adapt_sort():
+    beta = [0]  # Can be anything
+    return get_params_adaptive(beta)
+
+def get_params_control():
+    beta = 0  # Can be anything
+
+    # (beta, n_spt, n_tpr)
+    params = [
+              (beta, 100, 1),
+              (beta, 10, 10),
+              (beta, 10, 100),
+              (beta, 4, 500),
+              (beta, 4, 1000)
+              ]
+    return params
+
+def main(run_i=-1, runcopy=0, adapt_func_str='weights'):
     """Define our parameter sets and run the simulations.
 
-    run_i is for pbsdsh. If it is less than 0, all will be run
+    :run_i: run this permutation. set negative to do all
+    :runcopy: append this id to distinguish between copies
+    :adapt_func_str: string to choose function for adapting
     """
     # Load up the transition matrix
     tmat_sim = TMatSimulator('../ntl9.mtx')
@@ -506,101 +552,49 @@ def main(run_i=-1, runcopy=0):
     # Default parameters, i.e. those that do not vary over the different sims
     defaults = {'lag_time': 1, 'runcopy': runcopy}
 
-    # Changy params
-    beta = [-1, 1, 3]
-    spt = [
-        {'n_spt': 2, 'n_rounds': 200},
-        {'n_spt': 4, 'n_rounds': 200},
-        {'n_spt': 8, 'n_rounds': 100},
-        {'n_spt': 16, 'n_rounds': 100},
-        {'n_spt': 32, 'n_rounds': 100},
-        {'n_spt': 64, 'n_rounds': 100}
-    ]
-    tpr = [
-        {'n_tpr': 1, 'n_rounds': 200},
-        {'n_tpr': 10, 'n_rounds': 200},
-        {'n_tpr': 100, 'n_rounds': 100},
-        {'n_tpr': 500, 'n_rounds': 50},
-        {'n_tpr': 1000, 'n_rounds': 20}
-    ]
-
-    log.info("Number of permutations = %d", len(beta) * len(spt) * len(tpr))
-
-    multierrors = list()
-    i = 0
-    for (set_beta, set_spt, set_tpr) in itertools.product(beta, spt, tpr):
-        if run_i < 0 or run_i == i:
-            rr = simulate(
-                tmat_sim,
-                defaults,
-                set_beta,
-                set_spt,
-                set_tpr,
-                adaptive=True)
-            multierrors.append(rr)
-            with open('result-k-%d-%d.pickl' % (runcopy, i), 'w') as f:
-                pickle.dump(rr, f, protocol=2)
-        i += 1
-
-
-def long_traj_control(run_i, runcopy):
-    """Run n_tpr long trajectories for comparison."""
-
-    # Load up the transition matrix
-    tmat_sim = TMatSimulator('../ntl9.mtx')
-
-    # Default parameters
-    defaults = {'lag_time': 1, 'runcopy': runcopy}
-
-    beta = 1
-    params = [
-        {'n_tpr': 1, 'n_spt': 100, 'n_rounds': 100},
-        {'n_tpr': 10, 'n_spt': 10, 'n_rounds': 100},
-        {'n_tpr': 100, 'n_spt': 10, 'n_rounds': 50},
-        {'n_tpr': 500, 'n_spt': 4, 'n_rounds': 50},
-        {'n_tpr': 1000, 'n_spt': 4, 'n_rounds': 50}
-    ]
-
-    for i, set_params in enumerate(params):
-        if run_i == i:
-            rr = simulate(tmat_sim, defaults, beta,
-                          dict((k, set_params[k])
-                               for k in ('n_tpr', 'n_rounds')),
-                          dict((k, set_params[k])
-                               for k in ('n_spt', 'n_rounds')),
-                          adaptive=False)
-
-            with open('result-ko-%d-%d.pickl' % (runcopy, i), 'w') as f:
-                pickle.dump(rr, f, protocol=2)
-
-
-def parse(argv):
-    """Parse command line args."""
-    if len(argv) == 1:
-        main()
-    elif len(argv) == 2:
-        main(int(argv[1]))
-    elif len(argv) == 3:
-        tens = int(argv[1])
-        ones = int(argv[2])
-        main(NPROCS * tens + ones)
-    elif len(argv) == 4:
-        tens = int(argv[1])
-        ones = int(argv[2])
-        run_i = NPROCS * tens + ones
-        runcopy = int(argv[3])
-
-        if run_i < NADAPTIVE:
-            # Do an adaptive run
-            main(run_i, runcopy=runcopy)
-        else:
-            # Do a non-adaptive version
-            long_traj_control(run_i - NADAPTIVE, runcopy)
-
+    # Beta only makes sense for weights
+    if adapt_func_str == 'weights':
+        params = get_params_adapt_weights()
+        adapt_func = MSM.adapt_weights
+    elif adapt_func_str == 'sort':
+        params = get_params_adapt_sort()
+        adapt_func = MSM.adapt_sort
+    elif adapt_func_str == 'non':
+        params = get_params_control()
+        adapt_func = MSM.dont_adapt
     else:
-        print "Usage: python tmat_sumlation.py [index]"
+        log.error("Unrecognized adapt func: %s", adapt_func_str)
+
+
+    for i, (set_beta, set_spt, set_tpr) in enumerate(params):
+        if run_i < 0 or run_i == i:
+            rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr,
+                          adapt_func=adapt_func)
+            with open('result-{adapt}-{runcopy}-{i}.pickl'.format(
+                    adapt=adapt_func_str, runcopy=runcopy, i=i), 'w') as f:
+                pickle.dump(rr, f, protocol=2)
+
+
+
+def parse():
+    """Parse command line args."""
+    parser = argparse.ArgumentParser(description='Perform accelerated sampling on transition matrix',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('run_i', type=int,
+                        help="Which permute to run")
+    parser.add_argument('--runcopy', type=int,
+                        help="ID for this copy", default=0)
+    parser.add_argument('--adapt', choices=['weights', 'sort', 'non'],
+                        help="What method to use for adaptive",
+                        default='weights')
+    args = parser.parse_args()
+
+
+    main(args.run_i, runcopy=args.runcopy, adapt_func_str=args.adapt)
+
+
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
     np.seterr(under='warn')
-    parse(sys.argv)
+    parse()

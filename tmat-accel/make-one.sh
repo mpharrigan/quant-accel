@@ -15,10 +15,8 @@ pwd
 mkdir $DIRNAME
 cd ./$DIRNAME
 pwd
-python ../../src/quantaccel/make_tmat_jobs.py $RUNCOPY
-python ../../src/quantaccel/submit_tmat_jobs.py $RUNCOPY
+python -m quantaccel.make_tmat_jobs $RUNCOPY --adapt weights
 chmod +x submitter.sh
 
 ./submitter.sh
 
-cd ../
