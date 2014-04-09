@@ -17,7 +17,7 @@ matplotlib.use('Agg')
 
 from collections import defaultdict
 from matplotlib import pyplot as pp
-from matplotlib.colors import Normalize, LogNorm
+from matplotlib.colors import Normalize
 from msmbuilder import msm_analysis as msma
 from quantaccel.tmat_simulation import RunResult
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence
@@ -306,18 +306,14 @@ def project(est_plot, theory_plot, param_str):
     # Make the projection
     pp.subplot(121)
     pp.title(param_str)
-    pp.imshow(est_plot.T, interpolation='nearest',
-              extent=bounds,
-              aspect='auto',
+    pp.imshow(est_plot.T, interpolation='nearest', extent=bounds, aspect='auto',
               origin='lower')
     pp.colorbar()
 
     pp.subplot(122)
     pp.title("Theoretical")
-    pp.imshow(theory_plot.T, interpolation='nearest',
-              extent=bounds,
-              aspect='auto',
-              origin='lower')
+    pp.imshow(theory_plot.T, interpolation='nearest', extent=bounds,
+              aspect='auto', origin='lower')
     pp.colorbar()
 
 
@@ -424,6 +420,7 @@ def make_movie(param_str, results, movie_dirname, movie):
         load_helper = load_numstates
     else:
         log.error("Invalid movie type %s", movie)
+        raise ValueError("Invalid movie type %s" % movie)
 
     pickl_out = 'quant-%s-%s.pickl' % (movie, param_str)
     if os.path.exists(pickl_out):
