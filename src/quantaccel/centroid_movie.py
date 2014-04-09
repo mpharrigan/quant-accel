@@ -7,9 +7,8 @@ Created on Thu Jan 30 14:19:53 2014
 
 from __future__ import division
 
-import logging as log
-
-log.basicConfig(level=log.INFO)
+import logging
+log = logging.getLogger()
 
 import matplotlib
 
@@ -512,7 +511,7 @@ def parse():
                         help='''version. Will look for files with mk{version}''',
                         type=int)
     parser.add_argument('-how', dest='how',
-                        help='''either percent or round''',
+                        help='''either percent or round (or pnew or rnew)''',
                         default='round')
     parser.add_argument('--debug', dest='debug',
                         help='''Print extremely verbose output''',
@@ -525,10 +524,13 @@ def parse():
                         default='projection-pop')
 
     args = parser.parse_args()
-    #     if args.debug:
-    #         log.basicConfig(level=log.DEBUG)
-    #     else:
-    #         log.basicConfig(level=log.INFO)
+    if args.debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
+
+    log.info("Info logging is working")
+    log.debug("Debug logging is working")
     main(args.walkydir, args.how, args.version, args.movietype)
 
 
@@ -547,5 +549,5 @@ def main(walkydir, how, version, movietype):
 
 
 if __name__ == "__main__":
-    log.info("Logging is working")
+    log.info("Pre-parsing info logging is working")
     parse()
