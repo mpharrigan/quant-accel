@@ -35,10 +35,6 @@ export OMP_NUM_THREADS=1
 JOB = PBS_HEADER + """
 
 python -m quantaccel.subdivide_one_round subdivide --dirname {abspath}
-cd {abspath}/../
-mkdir -p percent
-cd percent
-python -m quantaccel.centroid_movie {abspath}/msms 7 -how pnew --movietype projection-pop
 """
 
 
