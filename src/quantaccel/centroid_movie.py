@@ -5,13 +5,14 @@ Created on Thu Jan 30 14:19:53 2014
 @author: harrigan
 """
 
-
 from __future__ import division
 
 import logging as log
+
 log.basicConfig(level=log.INFO)
 
 import matplotlib
+
 matplotlib.use('Agg')
 
 from collections import defaultdict
@@ -37,7 +38,6 @@ LAGTIME = 20
 
 
 class CentroidResult(object):
-
     """Container for filenames and params."""
 
     def __init__(self):
@@ -97,7 +97,7 @@ def walk(walkydir, centroid_regex, tmat_regex):
                         params[splits[0]] = splits[1]
                     except IndexError:
                         params[param_str] = param_str
-                
+
 
                 # Debug statement
                 log.debug("Found %s %d\tFilename: %s\tParams: %s",
@@ -188,25 +188,26 @@ def load_project_eqdistr(centroids, tmat):
     except (ArpackNoConvergence, ValueError) as e:
         log.warn('Sparse solver threw error: %s', str(e))
         vals, vecs = scipy.linalg.eig(tmat.toarray())
-        
+
     order = np.argsort(-np.real(vals))
     vals = np.real_if_close(vals[order])
     vecs = np.real_if_close(vecs[:, order])
 
     if np.abs(np.real(vals[0]) - 1) > 1e-8:
         log.warn('Eigenvalue is not 1: %f', vals[0])
-        
-    
+
     eq_distr = vecs[:, 0]
     # Compute a normalized equilibrium distribution
     eq_distr /= np.sum(eq_distr)
-    
+
     if len(centroids.shape) == 1:
         centroids = centroids[np.newaxis, :]
 
     known_points = np.vstack((centroids[:, 0], centroids[:, 1])).T
-    if n_states >= 4: method = 'cubic'
-    else: method = 'nearest'
+    if n_states >= 4:
+        method = 'cubic'
+    else:
+        method = 'nearest'
     est = scipy.interpolate.griddata(known_points, eq_distr,
                                      (xx, yy), method=method,
                                      fill_value=0.0)
@@ -351,7 +352,6 @@ def scatter(est_plot, theory_plot, param_str, do_size):
 
 
 class Volume(object):
-
     """An object representing a rectangular area
 
     Use this to keep track of how big of a grid we need to make to
@@ -389,6 +389,7 @@ class Volume(object):
         self.xmax = max(self.xmax, other_v.xmax)
         self.ymax = max(self.ymax, other_v.ymax)
 
+
 VOLUMES = dict()
 BIGV = Volume()
 #SETVOL = Volume([-3.0, 1.0], [-1.0, 3.0])
@@ -424,15 +425,18 @@ def make_movie(param_str, results, movie_dirname, movie):
     else:
         log.error("Invalid movie type %s", movie)
 
+    pickl_out = 'quant-%s-%s.pickl' % (movie, param_str)
+    if os.path.exists(pickl_out):
+        log.warn("Result already exists for %s movie for %s",
+                 movie, param_str)
+        return
+
     abs_movie_dirname = os.path.join(
         results.items()[0][1].abspath,
-        movie_dirname %
-        movie)
+        movie_dirname % movie)
     log.info(
         "Making %s movie for %s in directory %s",
-        movie,
-        param_str,
-        abs_movie_dirname)
+        movie, param_str, abs_movie_dirname)
 
     # Make the directory
     try:
@@ -475,14 +479,15 @@ def make_movie(param_str, results, movie_dirname, movie):
     # Delete anything with -1 (no round)
     errors = np.delete(errors, np.where(errors[:, 0] < 0)[0], axis=0)
 
-    with open('quant-%s-%s.pickl' % (movie, param_str), 'w') as f:
+    with open(pickl_out, 'w') as f:
         (_, someresult) = results.items()[0]
         rr = RunResult(someresult.params)
         rr.errors = errors
         pickle.dump(rr, f, protocol=2)
 
-    log.info("The largest volume for that movie is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
-             *(biggest_v.bounds + (biggest_v.volume,)))
+    log.info(
+        "The largest volume for that movie is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
+        *(biggest_v.bounds + (biggest_v.volume,)))
 
 
 def make_movies(all_results, movie_dirname, movie_type):
@@ -495,8 +500,9 @@ def make_movies(all_results, movie_dirname, movie_type):
     for param_str, subresults in all_results.items():
         make_movie(param_str, subresults, movie_dirname, movie_type)
 
-    log.info("The largest volume overall is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
-             *(BIGV.bounds + (BIGV.volume,)))
+    log.info(
+        "The largest volume overall is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
+        *(BIGV.bounds + (BIGV.volume,)))
 
 
 def parse():
@@ -516,16 +522,16 @@ def parse():
                         action='store_true')
     parser.set_defaults(debug=False)
     parser.add_argument('--movietype', '-mt', choices=
-                        ['centroid-pop', 'projection-pop', 'centroid-it',
-                         'projection-it', 'num-states'],
+    ['centroid-pop', 'projection-pop', 'centroid-it',
+     'projection-it', 'num-states'],
                         help='''Type of movie''',
                         default='projection-pop')
 
     args = parser.parse_args()
-#     if args.debug:
-#         log.basicConfig(level=log.DEBUG)
-#     else:
-#         log.basicConfig(level=log.INFO)
+    #     if args.debug:
+    #         log.basicConfig(level=log.DEBUG)
+    #     else:
+    #         log.basicConfig(level=log.INFO)
     main(args.walkydir, args.how, args.version, args.movietype)
 
 
@@ -541,6 +547,7 @@ def main(walkydir, how, version, movietype):
                    tmat_regex=tmat_regex)
 
     make_movies(results, '%s-mk{version}'.format(**fmt), movietype)
+
 
 if __name__ == "__main__":
     log.info("Logging is working")
