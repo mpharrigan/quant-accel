@@ -132,6 +132,10 @@ class Results(object):
                         # Subtract 1 because later we add it on
                         r.popind = (s.spopind / s.errors.shape[0]) - 1
                         break
+                else:
+                    log.warn("Couldn't find subdivide (%d): %s", r.popind,
+                             r.params)
+
 
 
     def speed_it(self, it_cutoff=16605 / 1.5):
