@@ -14,10 +14,12 @@ import collections
 import scipy
 
 import logging
+
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 NPOINTS = 50.0
+
 
 def find_first_acceptable(r, bigger, cutoff):
     """Find the first point that is above or below a cutoff."""
@@ -40,13 +42,14 @@ def find_first_acceptable(r, bigger, cutoff):
         ftime = np.Inf
         wind, _ = r.errors.shape
 
-    # Trim things that jump back
-#     if bigger:
-#         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] < cutoff)[0], axis=0)
-#     else:
-#         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] > cutoff)[0], axis=0)
+        # Trim things that jump back
+    #     if bigger:
+    #         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] < cutoff)[0], axis=0)
+    #     else:
+    #         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] > cutoff)[0], axis=0)
 
     return ftime, wind
+
 
 def avg_and_errorbar(values):
     """Take average in log space."""
@@ -62,17 +65,21 @@ def avg_and_errorbar(values):
         avg_vals[i, 2] = np.std(values[selex, 1])
     return avg_vals
 
+
 def _linear(x, m, b):
     """y = -mx + b."""
     return -m * x + b
+
 
 def _exp(x, tau, c, off):
     """y = c * exp[-x/tau]"""
     return np.exp(-x / tau) * c + off
 
+
 def _quad(x, a, b, c):
     """y = ax^2 + bx + c"""
     return a * x * x + b * x + c
+
 
 def histogram(values, n_bins=15, whole_range=True, log=True):
     """Yield histograms for each "x" """
@@ -92,15 +99,16 @@ def histogram(values, n_bins=15, whole_range=True, log=True):
             hrange = ((np.min(ally) - 1, np.max(ally) + 1))
         else:
             hrange = None
-            
+
         if log:
             hist, bin_edges = np.histogram(y, bins=n_bins, range=hrange)
             bin_centers = np.diff(bin_edges) / 2.0 + bin_edges[:-1]
         else:
             hist = np.bincount(y)
             bin_centers = np.arange(np.amax(y) + 1)
-        
+
         yield (hist, bin_centers, xval)
+
 
 class Results(object):
     """An object with all the results for a run."""
@@ -119,14 +127,14 @@ class Results(object):
         """Find speed for population convergence, save results into the object."""
         for r in self.popresults:
             r.poptime, r.popind = find_first_acceptable(r, False, tvd_cutoff)
-            
+
     def speed_subdivide_pop(self, tvd_cutoff=0.6):
         for r in self.subdivide:
             r.spoptime, r.spopind = find_first_acceptable(r, False, tvd_cutoff)
-            
+
         # Iterate through and match up in naive double-for loop
         for r in self.popresults:
-            if r.popind == 0:                
+            if r.popind == 0:
                 for s in self.subdivide:
                     if r.params == s.params:
                         # Subtract 1 because later we add it on
@@ -135,7 +143,6 @@ class Results(object):
                 else:
                     log.warn("Couldn't find subdivide (%d): %s", r.popind,
                              r.params)
-
 
 
     def speed_it(self, it_cutoff=16605 / 1.5):
@@ -164,7 +171,6 @@ class Results(object):
 
         param_strs = sorted(param_strs, key=lambda x: x[0])
         return param_strs
-
 
 
     def plot_vs(self, name, yaxis, xaxis, label):
@@ -196,7 +202,8 @@ class Results(object):
                 print "Not supported"
 
             atlabel[r.params[label]] = np.append(atlabel[r.params[label]],
-                                [[int(r.params[xaxis]), yval]], axis=0)
+                                                 [[int(r.params[xaxis]), yval]],
+                                                 axis=0)
 
         return atlabel
 
@@ -258,12 +265,12 @@ class MullerResults(Results):
             self.popresults = results
         elif which == 'centroid-it' or which == 'it':
             self.itresults = results
-            
+
     def load_subdivide_from_biox(self, which):
         """Load additional results and combine them with previously loaded
         results."""
         pass
-        
+
 
 class TmatResults(Results):
     """A subclass for tmat results."""
@@ -284,7 +291,6 @@ class TmatResults(Results):
             return self.popresults
 
 
-
     def load(self, base_dir, letter):
         """Load results from a particular directory configuration.
 
@@ -296,15 +302,16 @@ class TmatResults(Results):
         # list dirs e.g. k-run-21
         run_dirs = os.listdir(base_dir)
         run_dirs = [rd for rd in run_dirs if re.match(run_dir_regex, rd)]
-        run_dirs = sorted(run_dirs, key=lambda x: int(re.search('[0-9]+', x).group(0)))
+        run_dirs = sorted(run_dirs,
+                          key=lambda x: int(re.search('[0-9]+', x).group(0)))
 
         results = list()
         for rd in run_dirs:
-            results += fit_and_lump.load_runresults(os.path.join(base_dir, rd), adaptive=True)
+            results += fit_and_lump.load_runresults(os.path.join(base_dir, rd),
+                                                    adaptive=True)
 
         self.all_results = results
         log.info("Loaded %d points", len(results))
-
 
 
 class PlotVS(collections.defaultdict):
@@ -325,8 +332,9 @@ class PlotVS(collections.defaultdict):
             self.fit_func = _exp
         else:
             raise ValueError()
-        
+
         self.otf = None
+
 
     def items(self):
         """Return items sorted by key."""
@@ -342,7 +350,7 @@ class PlotVS(collections.defaultdict):
         elif self.xaxis in ['tpr', 'n_tpr']:
             return self.enum_fit_vs_tpr()
 
-    def enum_fit_vs_spt(self):        
+    def enum_fit_vs_spt(self):
 
         for key, vals in self.items():
             fit = FitResult(key, vals)
@@ -354,6 +362,7 @@ class PlotVS(collections.defaultdict):
             fit = FitResult(key, vals)
             fit.fit_vs_tpr(n_spt=key, one_traj_na_time=self.otf.na_time)
             yield fit
+
 
 class FitResult(object):
     def __init__(self, key, vals):
@@ -387,24 +396,27 @@ class FitResult(object):
         elif fit_func == _exp:
             tau, c, b = self.popt
             log.info(b)
-            
+
             self.na_time = 1000
-            self.na_scale = np.exp(_linear(np.log(self.fitx), 1.0, np.log(self.na_time)))
-            
-            self.fit_time = self.fitx * np.exp(c * np.power(self.fitx, -1.0 / tau) + b)
+            self.na_scale = np.exp(
+                _linear(np.log(self.fitx), 1.0, np.log(self.na_time)))
+
+            self.fit_time = self.fitx * np.exp(
+                c * np.power(self.fitx, -1.0 / tau) + b)
         elif fit_func == _quad:
             a, b, c = self.popt
-            
+
             lowx = -b / (2.0 * a)
             lowy = _quad(lowx, a, b, c)
             log.info(lowy)
-            
+
             self.na_time = 1000
-            self.na_scale = np.exp(_linear(np.log(self.fitx), 1.0, np.log(self.na_time)))
-            
-            self.fit_time = np.power(self.fitx, b + 1) * np.exp(a * np.log(self.fitx) * np.log(self.fitx) + c)
-            
-        
+            self.na_scale = np.exp(
+                _linear(np.log(self.fitx), 1.0, np.log(self.na_time)))
+
+            self.fit_time = np.power(self.fitx, b + 1) * np.exp(
+                a * np.log(self.fitx) * np.log(self.fitx) + c)
+
         self.speed = one_traj_na_time / self.fit_time
         self.speedup = self.na_time / self.fit_time
 
@@ -413,10 +425,9 @@ class FitResult(object):
         self.fit(fit_func)
         self.dat_time = n_spt * self.y
         self.fit_time = self.fity * n_spt
-        
+
         self.speed = one_traj_na_time / self.fit_time
         self.speedup = np.zeros(len(self.fity))
-        
 
 
     def fit(self, fit_func):
