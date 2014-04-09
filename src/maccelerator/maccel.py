@@ -117,10 +117,7 @@ def one_system_newround_func(args):
 
 def one_system_combi_func(args):
     """Entry point for generating jobs with combinatorical parameters."""
-    spts = [21, 40, 80, 160, 320, 640, 1280, 2560]
-    tprs = [1, 10, 100, 500, 1000]
-    lagtimes = [20]
-    generate_system.write_combi_jobs(spts, tprs, lagtimes, args.runcopy)
+    generate_system.write_combi_jobs(args.runcopy)
         
 
 def parse():

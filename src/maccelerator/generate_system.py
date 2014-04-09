@@ -225,17 +225,24 @@ def write_new_round(args):
 
 
 
-def write_combi_jobs(spts, tprs, lagtimes, runcopy):
+def write_combi_jobs(runcopy):
     """Write jobs at combinatorical of those."""
     class Container(object):
         pass
+    
+    spts = [21, 40, 80, 160, 320, 640, 1280, 2560]
+    tprs = [1, 10, 100, 500, 1000]
+    lagtimes = [20]
+    
+    configs = list(itertools.product(spts, tprs, lagtimes))
+    configs += list(itertools.product([5052,10104,20208,40416], [1,10], [20]))
     
     run_dir = 'runcopy-%d' % runcopy
     os.mkdir(run_dir)
     
     submit_lines = []
     
-    for (spt, tpr, lagtime) in itertools.product(spts, tprs, lagtimes):
+    for (spt, tpr, lagtime) in configs:
         args = Container()
         args.n_tpr = tpr
         args.n_spt = spt
