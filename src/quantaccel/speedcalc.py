@@ -255,7 +255,7 @@ class MullerResults(Results):
 
         # Load the results
         base_dir = '/home/harrigan/biox/projects/quant-accel/muller4/'
-        file_list_fn = "{which}-completed.dat".format(which=which)
+        file_list_fn = "{which}-rnew-filelist.dat".format(which=which)
         results = self.load(file_list_fn, base_dir)
 
         log.info("Loaded %d points", len(results))
