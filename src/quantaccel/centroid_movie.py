@@ -8,7 +8,9 @@ Created on Thu Jan 30 14:19:53 2014
 from __future__ import division
 
 import logging
+
 log = logging.getLogger()
+log.addHandler(logging.StreamHandler())
 
 import matplotlib
 
@@ -85,6 +87,7 @@ def walk(walkydir, centroid_regex, tmat_regex):
                 round_i = int(match.group(1))
 
                 # Hacky get params
+                #TODO: Get params from param file
                 cwd = os.path.abspath(dirpath)
                 dnames = cwd.split('/')
                 dname = dnames[-2]
@@ -393,7 +396,7 @@ SETVOL = Volume([-1.5, 1.2], [-0.2, 3.0])
 GRID = get_grid(SETVOL, resolution=200)
 
 
-def make_movie(param_str, results, movie_dirname, movie):
+def make_movie(param_str, results, movie_dirname, movie, how):
     """Make a movie for a given accelerator run.
 
         :results: a dict of frames that has tmat_fn and centroids_fn for us
@@ -421,7 +424,9 @@ def make_movie(param_str, results, movie_dirname, movie):
         log.error("Invalid movie type %s", movie)
         raise ValueError("Invalid movie type %s" % movie)
 
-    pickl_out = 'quant-%s-%s.pickl' % (movie, param_str)
+    pickl_out = "quant-{movie}-{how}-{param_str}.pickl".format(
+        movie=movie, how=how, param_str=param_str
+    )
     if os.path.exists(pickl_out):
         log.warn("Result already exists for %s movie for %s",
                  movie, param_str)
@@ -486,7 +491,7 @@ def make_movie(param_str, results, movie_dirname, movie):
         *(biggest_v.bounds + (biggest_v.volume,)))
 
 
-def make_movies(all_results, movie_dirname, movie_type):
+def make_movies(all_results, movie_dirname, movie_type, how):
     """Iterate through all folders and results in folders,
     make movie in :movie_dirname: of type :movie_type:
     """
@@ -494,7 +499,7 @@ def make_movies(all_results, movie_dirname, movie_type):
     log.debug("Different param configurations: %s", str(all_results.keys()))
 
     for param_str, subresults in all_results.items():
-        make_movie(param_str, subresults, movie_dirname, movie_type)
+        make_movie(param_str, subresults, movie_dirname, movie_type, how)
 
     log.info(
         "The largest volume overall is ((%.2f, %.2f), (%.2f, %.2f)) -> %.3f",
@@ -545,7 +550,7 @@ def main(walkydir, how, version, movietype):
                    centroid_regex=centroid_regex,
                    tmat_regex=tmat_regex)
 
-    make_movies(results, '%s-mk{version}'.format(**fmt), movietype)
+    make_movies(results, '%s-mk{version}'.format(**fmt), movietype, how)
 
 
 if __name__ == "__main__":
