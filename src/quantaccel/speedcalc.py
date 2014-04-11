@@ -117,23 +117,26 @@ class Results(object):
         self.popresults = None
         self.itresults = None
         self.subdivide = None
+
         self.all_results = None
+        self.na_results = None
 
-        self.poplts = None
-        self.itlts = None
+        self.popresults_na = None
 
 
-    def speed_pop(self, tvd_cutoff=0.6):
+
+    def speed_pop(self, tvd_cutoff=0.6, name='pop'):
         """Find speed for population convergence, save results into the object."""
-        for r in self.popresults:
+        for r in self._get_by_name(name):
             r.poptime, r.popind = find_first_acceptable(r, False, tvd_cutoff)
 
     def speed_subdivide_pop(self, tvd_cutoff=0.6):
+        # TODO: Make this into a get by name
         for r in self.subdivide:
             r.spoptime, r.spopind = find_first_acceptable(r, False, tvd_cutoff)
 
         # Iterate through and match up in naive double-for loop
-        for r in self.popresults:
+        for r in self._get_by_name('pop'):
             if r.popind == 0:
                 for s in self.subdivide:
                     if r.params == s.params:
@@ -162,15 +165,21 @@ class Results(object):
         fstring = ["%s-%%s" % pn for pn in param_names]
         fstring = '_'.join(fstring)
 
+        # Tuple generator
+        def tuple_gen(r):
+            return tuple([r.params[pn] for pn in param_names])
+
         # Set
         param_strs = set()
         for r in self._get_by_name(name):
-            pvals = tuple(r.params[pn] for pn in param_names)
+            pvals = tuple_gen(r)
             pstring = fstring % pvals
             param_strs.add((pvals, pstring))
 
         param_strs = sorted(param_strs, key=lambda x: x[0])
-        return param_strs
+
+
+        return fstring, tuple_gen, param_strs
 
 
     def plot_vs(self, name, yaxis, xaxis, label):
@@ -289,6 +298,14 @@ class TmatResults(Results):
                     rr.errors = r.poperrors
                     self.popresults += [rr]
             return self.popresults
+        if name == 'non' or name == 'non-adaptive':
+            if self.popresults_na is None:
+                self.popresults_na = list()
+                for r in self.na_results:
+                    rr = RunResult(r.params)
+                    rr.errors = r.poperrors
+                    self.popresults_na += [rr]
+            return self.popresults_na
 
 
     def load(self, base_dir, letter):
@@ -306,11 +323,17 @@ class TmatResults(Results):
                           key=lambda x: int(re.search('[0-9]+', x).group(0)))
 
         results = list()
+        na_results = list()
         for rd in run_dirs:
-            results += fit_and_lump.load_runresults(os.path.join(base_dir, rd),
-                                                    adaptive=True)
+            results += fit_and_lump.load_runresults(
+                os.path.join(base_dir, rd),
+                adaptive=True)
+            na_results += fit_and_lump.load_runresults(
+                os.path.join(base_dir, rd),
+                adaptive=False)
 
         self.all_results = results
+        self.na_results = na_results
         log.info("Loaded %d points", len(results))
 
 
