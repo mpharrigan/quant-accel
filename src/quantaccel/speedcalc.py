@@ -245,8 +245,11 @@ class MullerResults(Results):
                 with open(os.path.join(base_dir, line)) as pickl_f:
                     result = pickle.load(pickl_f)
                     match = re.search(r"runcopy-([0-9]+)", line)
+
+                    # Try to figure out the runcopy number
                     if match is not None:
                         result.params['runcopy'] = int(match.group(1))
+
                     # Make everything into ints
                     for par in result.params:
                         try:
