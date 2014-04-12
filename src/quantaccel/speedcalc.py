@@ -12,7 +12,7 @@ import pickle
 import re
 import collections
 import scipy
-
+import scipy.stats
 import logging
 
 log = logging.getLogger()
@@ -81,33 +81,72 @@ def _quad(x, a, b, c):
     return a * x * x + b * x + c
 
 
-def histogram(values, n_bins=15, whole_range=True, log=True):
-    """Yield histograms for each "x" """
+def histogram_np(xval, y, hrange, n_bins):
+    """Use np.histogram to yield a normal histogram
+    """
+    hist, bin_edges = np.histogram(y, bins=n_bins, range=hrange)
+    bin_centers = np.diff(bin_edges) / 2.0 + bin_edges[:-1]
+    return (hist, bin_centers, xval)
+
+
+def histogram_ints(xval, y, hrange, n_bins):
+    """Use np.bincount to yield counts for each integer.
+
+    This works because number of rounds is an ostensibly an integer quantity
+    """
+    hist = np.bincount(y)
+    bin_centers = np.arange(np.amax(y) + 1)
+    return (hist, bin_centers, xval)
+
+
+def histogram_kde(xval, y, hrange):
+    """Use a kernel density estimator."""
+    kernel = scipy.stats.gaussian_kde(y)
+    if hrange is not None:
+        xmin, xmax = hrange
+    else:
+        xmin, xmax = (np.min(y), np.max(y))
+    # Note! xvals is the output xaxis. These variable names are not good
+    xvals = np.linspace(xmin, xmax, 100)
+    yvals = kernel.evaluate(xvals)
+    return (yvals, xvals, xval)
+
+
+def histogram(values, n_bins=15, whole_range=True, log=True, htype='np'):
+    """Yield histograms for each 'x' """
+
+    # Optionally take log of data
     if log:
         ally = np.log(values[:, 1])
     else:
         ally = np.array(values[:, 1], dtype=int)
     allx = values[:, 0]
 
-    x_vals = sorted(set(allx))
+    # Set range
+    if whole_range:
+        hrange = ((np.min(ally) - 1, np.max(ally) + 1))
+    else:
+        hrange = None
 
+    # Pick function
+    if htype == 'np':
+        def hfunc(xval, y):
+            return histogram_np(xval, y, hrange, n_bins)
+    elif htype in ['int', 'ints']:
+        def hfunc(xval, y):
+            return histogram_ints(xval, y, hrange, n_bins)
+    elif htype in ['kde']:
+        def hfunc(xval, y):
+            return histogram_kde(xval, y, hrange)
+    else:
+        raise ValueError('Specify a valid histogram type')
+
+    # Do the main loop
+    x_vals = sorted(set(allx))
     for i, xval in enumerate(x_vals):
         selex = np.where(allx == xval)[0]
         y = ally[selex]
-
-        if whole_range:
-            hrange = ((np.min(ally) - 1, np.max(ally) + 1))
-        else:
-            hrange = None
-
-        if log:
-            hist, bin_edges = np.histogram(y, bins=n_bins, range=hrange)
-            bin_centers = np.diff(bin_edges) / 2.0 + bin_edges[:-1]
-        else:
-            hist = np.bincount(y)
-            bin_centers = np.arange(np.amax(y) + 1)
-
-        yield (hist, bin_centers, xval)
+        yield hfunc(xval, y)
 
 
 class Results(object):
@@ -122,7 +161,6 @@ class Results(object):
         self.na_results = None
 
         self.popresults_na = None
-
 
 
     def speed_pop(self, tvd_cutoff=0.6, name='pop'):
@@ -178,7 +216,6 @@ class Results(object):
 
         param_strs = sorted(param_strs, key=lambda x: x[0])
 
-
         return fstring, tuple_gen, param_strs
 
 
@@ -210,9 +247,9 @@ class Results(object):
             else:
                 print "Not supported"
 
-            atlabel[r.params[label]] = np.append(atlabel[r.params[label]],
-                                                 [[int(r.params[xaxis]), yval]],
-                                                 axis=0)
+            atlabel[r.params[label]] = np.append(
+                atlabel[r.params[label]], [[int(r.params[xaxis]), yval]],
+                axis=0)
 
         return atlabel
 
