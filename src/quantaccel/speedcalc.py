@@ -54,7 +54,8 @@ def find_first_acceptable(r, bigger, cutoff):
 def avg_and_errorbar(values):
     """Take average in log space."""
     x_vals = sorted(set(values[:, 0]))
-    avg_vals = np.zeros((len(x_vals), 3))
+    avg_vals = np.zeros((len(x_vals), 4))
+
 
     for i, xval in enumerate(x_vals):
         selex = np.where(values[:, 0] == xval)[0]
@@ -62,7 +63,11 @@ def avg_and_errorbar(values):
         avg_vals[i, 1] = np.exp(np.mean(np.log(values[selex, 1])))
 
         # TODO: deal with logs
-        avg_vals[i, 2] = np.std(values[selex, 1])
+        log_std = np.std(np.log(values[selex, 1]))
+        t_up = avg_vals[i, 1] * (np.exp(log_std) - 1)
+        t_lo = avg_vals[i, 1] * -1 * (np.exp(-log_std) - 1)
+        avg_vals[i, 3] = t_up
+        avg_vals[i, 2] = t_lo
     return avg_vals
 
 
@@ -244,6 +249,8 @@ class Results(object):
                 yval = 1000.0 / time
             elif yaxis == 'rounds':
                 yval = r.popind + 1
+            elif yaxis == 'time':
+                yval = r.poptime
             else:
                 print "Not supported"
 
@@ -406,7 +413,9 @@ class PlotVS(collections.defaultdict):
         return items
 
     def enum_fit(self, norm_one=None, norm_all=None):
-        """Fit each item and yield the result."""
+        """Yield a fit object for each possible fit.
+
+        We defer performing the fit so plotting can happen."""
 
         if self.xaxis in ['spt', 'n_spt']:
             return self.enum_fit_vs_spt()
@@ -416,14 +425,12 @@ class PlotVS(collections.defaultdict):
     def enum_fit_vs_spt(self):
 
         for key, vals in self.items():
-            fit = FitResult(key, vals)
-            fit.fit_vs_spt(self.otf.na_time)
+            fit = TmatFitResult(key, vals)
             yield fit
 
     def enum_fit_vs_tpr(self):
         for key, vals in self.items():
-            fit = FitResult(key, vals)
-            fit.fit_vs_tpr(n_spt=key, one_traj_na_time=self.otf.na_time)
+            fit = MullerFitResult(key, vals)
             yield fit
 
 
@@ -440,10 +447,27 @@ class FitResult(object):
         self.dat_time = None
         self.key = key
 
-    def fit_vs_spt(self, one_traj_na_time, fit_func=_linear):
+    def fit(self, fit_func):
+        """Perform fit, do speedup calc."""
+        x = self.x
+        y = self.y
+
+        # Find fit
+        fitx = np.exp(np.linspace(np.min(np.log(x)), np.max(np.log(x))))
+        popt, pcov = scipy.optimize.curve_fit(fit_func, np.log(x), np.log(y))
+        fity = np.exp(fit_func(np.log(fitx), *popt))
+
+        self.fitx = fitx
+        self.fity = fity
+        self.popt = popt
+        self.pcov = pcov
+
+class TmatFitResult(FitResult):
+
+    def fit(self, one_traj_na_time, fit_func=_linear):
         """Do fits with options specific to vs spt."""
 
-        self.fit(fit_func)
+        super(TmatFitResult, self).fit(fit_func)
         self.dat_time = self.x * self.y
 
         if fit_func == _linear:
@@ -480,30 +504,17 @@ class FitResult(object):
             self.fit_time = np.power(self.fitx, b + 1) * np.exp(
                 a * np.log(self.fitx) * np.log(self.fitx) + c)
 
-        self.speed = one_traj_na_time / self.fit_time
-        self.speedup = self.na_time / self.fit_time
+        if one_traj_na_time is not None:
+            self.speed = one_traj_na_time / self.fit_time
+            self.speedup = self.na_time / self.fit_time
 
-    def fit_vs_tpr(self, n_spt, one_traj_na_time, fit_func=_exp):
+class MullerFitResult(FitResult):
 
-        self.fit(fit_func)
+    def fit(self, n_spt, one_traj_na_time, fit_func=_exp):
+
+        super(MullerFitResult, self).fit(fit_func)
         self.dat_time = n_spt * self.y
         self.fit_time = self.fity * n_spt
 
         self.speed = one_traj_na_time / self.fit_time
         self.speedup = np.zeros(len(self.fity))
-
-
-    def fit(self, fit_func):
-        """Perform fit, do speedup calc."""
-        x = self.x
-        y = self.y
-
-        # Find fit
-        fitx = np.exp(np.linspace(np.min(np.log(x)), np.max(np.log(x))))
-        popt, pcov = scipy.optimize.curve_fit(fit_func, np.log(x), np.log(y))
-        fity = np.exp(fit_func(np.log(fitx), *popt))
-
-        self.fitx = fitx
-        self.fity = fity
-        self.popt = popt
-        self.pcov = pcov
