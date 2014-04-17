@@ -237,9 +237,26 @@ def write_combi_jobs(runcopy, overwrite):
     tprs = [1, 10, 100, 500, 1000]
     lagtimes = [20]
 
+    # Do full matrix
     configs = list(itertools.product(spts, tprs, lagtimes))
+
+    # Add on some for tpr = 1, 10
     configs += list(
-        itertools.product([5052, 10104, 20208, 40416], [1, 10], [20]))
+        itertools.product([5052, 10104, 20208, 40416], [1, 10], [20])
+    )
+
+    # For good measure, do a couple for tpr = 100
+    configs += list(
+        itertools.product([5052, 10104], [100], [20])
+    )
+
+    # And finally:
+    configs += [
+        (80832, 10, 20),
+        (80832, 1, 20),
+        (161664, 1, 20)
+    ]
+
 
     run_dir = 'runcopy-%d' % runcopy
     try:
@@ -257,7 +274,7 @@ def write_combi_jobs(runcopy, overwrite):
         args.n_tpr = tpr
         args.n_spt = spt
         args.lagtime = lagtime
-        args.n_postconverge = 10
+        args.n_postconverge = 10 if spt < 10104 else 2
         args.how = 'rnew'
         args.version = 7
         args.seed_structures = 'seed_structures.h5'

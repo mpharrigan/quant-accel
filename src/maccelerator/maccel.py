@@ -117,9 +117,6 @@ def one_system_newround_func(args):
 
 def one_system_combi_func(args):
     """Entry point for generating jobs with combinatorical parameters."""
-    print args.overwrite
-    return
-
     generate_system.write_combi_jobs(args.runcopy, args.overwrite)
         
 
@@ -242,7 +239,7 @@ def parse():
     one_combi.add_argument('--runcopy', help="Index of the run to generate",
                            required=True, type=int)
     one_combi.add_argument('--overwrite', help="Overwrite previous runcopy",
-                           action='store_true', type=bool)
+                           action='store_true')
     one_combi.set_defaults(func=one_system_combi_func, overwrite=False)
 
 
