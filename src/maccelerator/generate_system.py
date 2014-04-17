@@ -43,7 +43,6 @@ SIMULATE_SUBMIT = """S{traj_i}=`mqsub {dep} jobs/{job_fn}.job`"""
 
 MODEL_SUBMIT = """M{round_i}=`mqsub {dep} jobs/{job_fn}.job`"""
 
-
 ONE_JOB = PBS_HEADER + """
 
 # Number of rounds after convergence
@@ -82,6 +81,7 @@ python -m quantaccel.centroid_movie . {version} -how {how}
 
 ONE_SUBMIT = """cd {proj_dir}; mqsub {job_fn}; cd $OLDPWD"""
 
+
 def create_file_structure(proj_dir, seed_structures):
     """Create folders and files to initialize a directory for a run.
 
@@ -106,7 +106,6 @@ def create_file_structure(proj_dir, seed_structures):
     # Make jobs and trajs dir
     os.mkdir(os.path.join(proj_dir, 'jobs'))
     os.mkdir(os.path.join(proj_dir, 'trajs'))
-
 
 
 def write_dep_jobs(proj_dir, args):
@@ -145,10 +144,12 @@ def write_dep_jobs(proj_dir, args):
             job_fn = 'round-{round_i}_traj-{traj_i}'.format(round_i=round_i,
                                                             traj_i=traj_i)
 
-            with open(os.path.join(proj_dir, 'jobs', "%s.job" % job_fn), 'w') as job_f:
+            with open(os.path.join(proj_dir, 'jobs', "%s.job" % job_fn),
+                      'w') as job_f:
                 job_f.write(SIMULATE_JOB.format(round_i=round_i,
                                                 n_spt=args.n_spt * args.report,
-                                                report=args.report, job_fn=job_fn,
+                                                report=args.report,
+                                                job_fn=job_fn,
                                                 hours=1,
                                                 start_i=traj_i,
                                                 end_i=traj_i + args.n_tpj - 1))
@@ -165,7 +166,8 @@ def write_dep_jobs(proj_dir, args):
 
         # Make model job
         job_fn = 'round-{round_i}_model'.format(round_i=round_i)
-        with open(os.path.join(proj_dir, 'jobs', "%s.job" % job_fn), 'w') as job_f:
+        with open(os.path.join(proj_dir, 'jobs', "%s.job" % job_fn),
+                  'w') as job_f:
             job_f.write(MODEL_JOB.format(round_i=round_i,
                                          lagtime=args.lagtime,
                                          n_tpr=args.n_tpr, hours=3,
@@ -185,7 +187,7 @@ def write_dep_jobs(proj_dir, args):
 def write_one_job(proj_dir, args):
     """Write files where there will only be one job."""
     create_file_structure(proj_dir, args.seed_structures)
-    
+
     job_fn = "%s.job" % os.path.basename(proj_dir)
     with open(os.path.join(proj_dir, job_fn), 'w') as job_f:
         job_f.write(ONE_JOB.format(n_tpr=args.n_tpr,
@@ -196,6 +198,7 @@ def write_one_job(proj_dir, args):
                                    how=args.how,
                                    version=args.version))
     return job_fn
+
 
 def write_new_round(args):
     """Write job files for one round."""
@@ -224,44 +227,52 @@ def write_new_round(args):
                                      job_fn=job_fn))
 
 
-
-def write_combi_jobs(runcopy):
+def write_combi_jobs(runcopy, overwrite):
     """Write jobs at combinatorical of those."""
+
     class Container(object):
         pass
-    
+
     spts = [21, 40, 80, 160, 320, 640, 1280, 2560]
     tprs = [1, 10, 100, 500, 1000]
     lagtimes = [20]
-    
+
     configs = list(itertools.product(spts, tprs, lagtimes))
-    configs += list(itertools.product([5052,10104,20208,40416], [1,10], [20]))
-    
+    configs += list(
+        itertools.product([5052, 10104, 20208, 40416], [1, 10], [20]))
+
     run_dir = 'runcopy-%d' % runcopy
-    os.mkdir(run_dir)
-    
+    try:
+        os.mkdir(run_dir)
+    except OSError:
+        # This runcopy has been previously run
+        if not os.path.exists(os.path.join(run_dir, 'submit.sh.old')):
+            shutil.move(os.path.join(run_dir, 'submit.sh'),
+                        os.path.join(run_dir, 'submit.sh.old'))
+
     submit_lines = []
-    
+
     for (spt, tpr, lagtime) in configs:
         args = Container()
         args.n_tpr = tpr
         args.n_spt = spt
         args.lagtime = lagtime
-        args.n_postconverge=10
-        args.how='rnew'
-        args.version=7
+        args.n_postconverge = 10
+        args.how = 'rnew'
+        args.version = 7
         args.seed_structures = 'seed_structures.h5'
-        
+
         proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
         proj_dir = os.path.join(run_dir, proj_dir)
-        job_fn = write_one_job(proj_dir, args)
-        
-        submit_lines += [ONE_SUBMIT.format(proj_dir=proj_dir,
-                                           job_fn=job_fn)]
-        
+
+        if overwrite or (not os.path.exists(proj_dir)):
+            job_fn = write_one_job(proj_dir, args)
+            submit_lines += [
+                ONE_SUBMIT.format(proj_dir=proj_dir, job_fn=job_fn)]
+
     with open(os.path.join(run_dir, 'submit.sh'), 'w') as sub_f:
         sub_f.write('\n'.join(submit_lines))
-        
+
     # Make executable
     st = os.stat(os.path.join(run_dir, 'submit.sh'))
     os.chmod(os.path.join(run_dir, 'submit.sh'), st.st_mode | stat.S_IEXEC)

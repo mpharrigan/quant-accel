@@ -106,13 +106,19 @@ def histogram_ints(xval, y, hrange, n_bins):
 
 def histogram_kde(xval, y, hrange):
     """Use a kernel density estimator."""
-    kernel = scipy.stats.gaussian_kde(y)
+
     if hrange is not None:
         xmin, xmax = hrange
     else:
         xmin, xmax = (np.min(y), np.max(y))
     # Note! xvals is the output xaxis. These variable names are not good
     xvals = np.linspace(xmin, xmax, 100)
+
+    if len(y) <= 1:
+        log.error("%f only has %d elements", xval, len(y))
+        return (xvals, xvals, xval)
+
+    kernel = scipy.stats.gaussian_kde(y)
     yvals = kernel.evaluate(xvals)
     return (yvals, xvals, xval)
 
@@ -184,6 +190,10 @@ class Results(object):
                 for s in self.subdivide:
                     if r.params == s.params:
                         # Subtract 1 because later we add it on
+                        if s.spopind == 0:
+                            log.warn("Subdivide converged in 0: %s",
+                                     r.params)
+                            s.spopind = 0.1
                         r.popind = (s.spopind / s.errors.shape[0]) - 1
                         break
                 else:
@@ -254,6 +264,7 @@ class Results(object):
             else:
                 print "Not supported"
 
+
             atlabel[r.params[label]] = np.append(
                 atlabel[r.params[label]], [[int(r.params[xaxis]), yval]],
                 axis=0)
@@ -302,30 +313,6 @@ class MullerResults(Results):
                             pass
                     results.append(result)
         return results
-
-    def load_from_biox(self, which):
-        """Load results using defaults for biox.
-
-        :which: what type of results (population, implied timescale)
-        """
-
-        # Load the results
-        base_dir = '/home/harrigan/biox/projects/quant-accel/muller4/'
-        file_list_fn = "{which}-rnew-filelist.dat".format(which=which)
-        results = self.load(file_list_fn, base_dir)
-
-        log.info("Loaded %d points", len(results))
-
-        # Put them in the right place
-        if which == 'projection-pop' or which == 'pop':
-            self.popresults = results
-        elif which == 'centroid-it' or which == 'it':
-            self.itresults = results
-
-    def load_subdivide_from_biox(self, which):
-        """Load additional results and combine them with previously loaded
-        results."""
-        pass
 
 
 class TmatResults(Results):
