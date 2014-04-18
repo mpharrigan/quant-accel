@@ -27,7 +27,6 @@ def find_first_acceptable(r, bigger, cutoff):
     # Sort via time
     r.errors = r.errors[np.lexsort((r.errors[:, 1], r.errors[:, 0]))]
 
-
     # Find indices that match criterion
     if bigger:
         winds = np.where(r.errors[:, 1] > cutoff)[0]
@@ -42,12 +41,6 @@ def find_first_acceptable(r, bigger, cutoff):
         ftime = np.Inf
         wind, _ = r.errors.shape
 
-        # Trim things that jump back
-    #     if bigger:
-    #         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] < cutoff)[0], axis=0)
-    #     else:
-    #         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] > cutoff)[0], axis=0)
-
     return ftime, wind
 
 
@@ -61,7 +54,6 @@ def avg_and_errorbar(values):
         avg_vals[i, 0] = xval
         avg_vals[i, 1] = np.exp(np.mean(np.log(values[selex, 1])))
 
-        # TODO: deal with logs
         log_std = np.std(np.log(values[selex, 1]))
         t_up = avg_vals[i, 1] * (np.exp(log_std) - 1)
         t_lo = avg_vals[i, 1] * -1 * (np.exp(-log_std) - 1)
@@ -116,6 +108,10 @@ def histogram_kde(xval, y, hrange):
     if len(y) <= 1:
         log.error("%f only has %d elements", xval, len(y))
         return (xvals, xvals, xval)
+
+    if np.abs(np.max(y) - np.min(y)) < 1.0e-8:
+        log.warn("%f is too skinny. Using counts", xval)
+        return histogram_np(xval, y, hrange, n_bins=20)
 
     kernel = scipy.stats.gaussian_kde(y)
     yvals = kernel.evaluate(xvals)
@@ -172,16 +168,22 @@ class Results(object):
 
         self.popresults_na = None
 
-
     def speed_pop(self, tvd_cutoff=0.6, name='pop'):
-        """Find speed for population convergence, save results into the object."""
+        """Find speed for population convergence, save results into the object.
+        """
         for r in self._get_by_name(name):
             r.poptime, r.popind = find_first_acceptable(r, False, tvd_cutoff)
 
-    def speed_subdivide_pop(self, tvd_cutoff=0.6):
-        # TODO: Make this into a get by name
-        for r in self.subdivide:
-            r.spoptime, r.spopind = find_first_acceptable(r, False, tvd_cutoff)
+    def speed_subdivide_pop(self, tvd_cutoff=0.6, overwrite=False):
+        """Take results that result from subdividing round 0 of those that
+        converged before an adaptive round
+
+        :param tvd_cutoff:
+        :param overwrite: Whether to overwrite the index with the fractional one
+        :return:
+        """
+        for r in self._get_by_name('sub'):
+            r.poptime, r.popind = find_first_acceptable(r, False, tvd_cutoff)
 
         # Iterate through and match up in naive double-for loop
         for r in self._get_by_name('pop'):
@@ -189,16 +191,16 @@ class Results(object):
                 for s in self.subdivide:
                     if r.params == s.params:
                         # Subtract 1 because later we add it on
-                        if s.spopind == 0:
+                        if s.popind == 0:
                             log.warn("Subdivide converged in 0: %s",
                                      r.params)
-                            s.spopind = 0.1
-                        r.popind = (s.spopind / s.errors.shape[0]) - 1
+                            s.popind = 0.1
+                        r.spopind = (s.popind / s.errors.shape[0]) - 1
+                        if overwrite:
+                            r.popind = r.spopind
                         break
                 else:
-                    log.warn("Couldn't find subdivide (%d): %s", r.popind,
-                             r.params)
-
+                    log.warn("Couldn't find subdivide: %s", r.params)
 
     def speed_it(self, it_cutoff=16605 / 1.5):
         """Find speed for it convergence, save results into the object."""
@@ -248,11 +250,8 @@ class Results(object):
 
         atlabel = PlotVS(name, yaxis, xaxis, label)
 
-        if where is not None:
-            def where_func(r):
-                return r.params[where[0]] == where[1]
-        else:
-            def where_func(r):
+        if where is None:
+            def where(r):
                 return True
 
         for r in self._get_by_name(name):
@@ -270,7 +269,7 @@ class Results(object):
             else:
                 print "Not supported"
 
-            if where_func(r):
+            if where(r):
                 atlabel[r.params[label]] = np.append(
                     atlabel[r.params[label]], [[int(r.params[xaxis]), yval]],
                     axis=0)
@@ -292,6 +291,8 @@ class MullerResults(Results):
                 return self.itlts
             else:
                 return self.itresults
+        elif name == 'sub' or name == 'subdivide':
+            return self.subdivide
 
     def load(self, file_list_fn, base_dir='.'):
         """Load results whose filename is listed in file_list_fn).
