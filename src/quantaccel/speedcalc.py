@@ -56,7 +56,6 @@ def avg_and_errorbar(values):
     x_vals = sorted(set(values[:, 0]))
     avg_vals = np.zeros((len(x_vals), 4))
 
-
     for i, xval in enumerate(x_vals):
         selex = np.where(values[:, 0] == xval)[0]
         avg_vals[i, 0] = xval
@@ -234,7 +233,7 @@ class Results(object):
         return fstring, tuple_gen, param_strs
 
 
-    def plot_vs(self, name, yaxis, xaxis, label):
+    def plot_vs(self, name, yaxis, xaxis, label, where=None):
         """Get data in an (x,y) format for plotting.
 
         :name: type of convergence (pop, it)
@@ -248,6 +247,13 @@ class Results(object):
         """
 
         atlabel = PlotVS(name, yaxis, xaxis, label)
+
+        if where is not None:
+            def where_func(r):
+                return r.params[where[0]] == where[1]
+        else:
+            def where_func(r):
+                return True
 
         for r in self._get_by_name(name):
             if yaxis == 'speedup':
@@ -264,10 +270,10 @@ class Results(object):
             else:
                 print "Not supported"
 
-
-            atlabel[r.params[label]] = np.append(
-                atlabel[r.params[label]], [[int(r.params[xaxis]), yval]],
-                axis=0)
+            if where_func(r):
+                atlabel[r.params[label]] = np.append(
+                    atlabel[r.params[label]], [[int(r.params[xaxis]), yval]],
+                    axis=0)
 
         return atlabel
 
@@ -359,12 +365,10 @@ class TmatResults(Results):
         results = list()
         na_results = list()
         for rd in run_dirs:
-            results += fit_and_lump.load_runresults(
-                os.path.join(base_dir, rd),
-                adaptive=True)
+            results += fit_and_lump.load_runresults(os.path.join(base_dir, rd),
+                                                    adaptive=True)
             na_results += fit_and_lump.load_runresults(
-                os.path.join(base_dir, rd),
-                adaptive=False)
+                os.path.join(base_dir, rd), adaptive=False)
 
         self.all_results = results
         self.na_results = na_results
@@ -449,8 +453,8 @@ class FitResult(object):
         self.popt = popt
         self.pcov = pcov
 
-class TmatFitResult(FitResult):
 
+class TmatFitResult(FitResult):
     def fit(self, one_traj_na_time, fit_func=_linear):
         """Do fits with options specific to vs spt."""
 
@@ -495,10 +499,9 @@ class TmatFitResult(FitResult):
             self.speed = one_traj_na_time / self.fit_time
             self.speedup = self.na_time / self.fit_time
 
+
 class MullerFitResult(FitResult):
-
     def fit(self, n_spt, one_traj_na_time, fit_func=_exp):
-
         super(MullerFitResult, self).fit(fit_func)
         self.dat_time = n_spt * self.y
         self.fit_time = self.fity * n_spt
