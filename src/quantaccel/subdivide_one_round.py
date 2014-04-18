@@ -57,7 +57,7 @@ def subdivide_func(args):
 def set_up_jobs(base_dir, dirlist_fn, submitter_fn='submit.sh'):
     """Write one job per configuration
 
-    Each job will do all NPOINTS points and compile a 'movie'
+    Each job will do all NPOINTS points
     """
     submitter_lines = []
 
