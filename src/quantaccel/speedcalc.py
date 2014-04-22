@@ -27,7 +27,6 @@ def find_first_acceptable(r, bigger, cutoff):
     # Sort via time
     r.errors = r.errors[np.lexsort((r.errors[:, 1], r.errors[:, 0]))]
 
-
     # Find indices that match criterion
     if bigger:
         winds = np.where(r.errors[:, 1] > cutoff)[0]
@@ -42,12 +41,6 @@ def find_first_acceptable(r, bigger, cutoff):
         ftime = np.Inf
         wind, _ = r.errors.shape
 
-        # Trim things that jump back
-    #     if bigger:
-    #         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] < cutoff)[0], axis=0)
-    #     else:
-    #         r.errors = np.delete(r.errors, wind + np.where(r.errors[wind:, 1] > cutoff)[0], axis=0)
-
     return ftime, wind
 
 
@@ -56,13 +49,11 @@ def avg_and_errorbar(values):
     x_vals = sorted(set(values[:, 0]))
     avg_vals = np.zeros((len(x_vals), 4))
 
-
     for i, xval in enumerate(x_vals):
         selex = np.where(values[:, 0] == xval)[0]
         avg_vals[i, 0] = xval
         avg_vals[i, 1] = np.exp(np.mean(np.log(values[selex, 1])))
 
-        # TODO: deal with logs
         log_std = np.std(np.log(values[selex, 1]))
         t_up = avg_vals[i, 1] * (np.exp(log_std) - 1)
         t_lo = avg_vals[i, 1] * -1 * (np.exp(-log_std) - 1)
@@ -114,9 +105,9 @@ def histogram_kde(xval, y, hrange):
     # Note! xvals is the output xaxis. These variable names are not good
     xvals = np.linspace(xmin, xmax, 100)
 
-    if len(y) <= 1:
-        log.error("%f only has %d elements", xval, len(y))
-        return (xvals, xvals, xval)
+    if np.abs(np.max(y) - np.min(y)) < 1.0e-8:
+        log.warn("%f is too skinny. Using counts", xval)
+        return histogram_np(xval, y, hrange, n_bins=20)
 
     kernel = scipy.stats.gaussian_kde(y)
     yvals = kernel.evaluate(xvals)
@@ -173,16 +164,22 @@ class Results(object):
 
         self.popresults_na = None
 
-
     def speed_pop(self, tvd_cutoff=0.6, name='pop'):
-        """Find speed for population convergence, save results into the object."""
+        """Find speed for population convergence, save results into the object.
+        """
         for r in self._get_by_name(name):
             r.poptime, r.popind = find_first_acceptable(r, False, tvd_cutoff)
 
-    def speed_subdivide_pop(self, tvd_cutoff=0.6):
-        # TODO: Make this into a get by name
-        for r in self.subdivide:
-            r.spoptime, r.spopind = find_first_acceptable(r, False, tvd_cutoff)
+    def speed_subdivide_pop(self, tvd_cutoff=0.6, overwrite=False):
+        """Take results that result from subdividing round 0 of those that
+        converged before an adaptive round
+
+        :param tvd_cutoff:
+        :param overwrite: Whether to overwrite the index with the fractional one
+        :return:
+        """
+        for r in self._get_by_name('sub'):
+            r.poptime, r.popind = find_first_acceptable(r, False, tvd_cutoff)
 
         # Iterate through and match up in naive double-for loop
         for r in self._get_by_name('pop'):
@@ -190,16 +187,16 @@ class Results(object):
                 for s in self.subdivide:
                     if r.params == s.params:
                         # Subtract 1 because later we add it on
-                        if s.spopind == 0:
+                        if s.popind == 0:
                             log.warn("Subdivide converged in 0: %s",
                                      r.params)
-                            s.spopind = 0.1
-                        r.popind = (s.spopind / s.errors.shape[0]) - 1
+                            s.popind = 0.1
+                        r.spopind = (s.popind / s.errors.shape[0]) - 1
+                        if overwrite:
+                            r.popind = r.spopind
                         break
                 else:
-                    log.warn("Couldn't find subdivide (%d): %s", r.popind,
-                             r.params)
-
+                    log.warn("Couldn't find subdivide: %s", r.params)
 
     def speed_it(self, it_cutoff=16605 / 1.5):
         """Find speed for it convergence, save results into the object."""
@@ -211,16 +208,19 @@ class Results(object):
         sel_from = self._get_by_name(name)
         return [res for res in sel_from if res.params['runcopy'] == runcopy]
 
-    def get_unique(self, name, param_names):
+    def get_unique(self, name, *param_names):
         """Get unique param configurations."""
 
+        # Apply compatibility
+        param_names = [self.param_compat[pn] for pn in param_names]
+
         # Formatting string
-        fstring = ["%s-%%s" % pn for pn in param_names]
+        fstring = ["%s-%%s" % pn for pn in param_names if pn is not None]
         fstring = '_'.join(fstring)
 
         # Tuple generator
         def tuple_gen(r):
-            return tuple([r.params[pn] for pn in param_names])
+            return tuple([r.params[pn] for pn in param_names if pn is not None])
 
         # Set
         param_strs = set()
@@ -234,7 +234,7 @@ class Results(object):
         return fstring, tuple_gen, param_strs
 
 
-    def plot_vs(self, name, yaxis, xaxis, label):
+    def plot_vs(self, name, yaxis, xaxis, label, where=None):
         """Get data in an (x,y) format for plotting.
 
         :name: type of convergence (pop, it)
@@ -248,6 +248,10 @@ class Results(object):
         """
 
         atlabel = PlotVS(name, yaxis, xaxis, label)
+
+        if where is None:
+            def where(r):
+                return True
 
         for r in self._get_by_name(name):
             if yaxis == 'speedup':
@@ -264,10 +268,10 @@ class Results(object):
             else:
                 print "Not supported"
 
-
-            atlabel[r.params[label]] = np.append(
-                atlabel[r.params[label]], [[int(r.params[xaxis]), yval]],
-                axis=0)
+            if where(r):
+                atlabel[r.params[label]] = np.append(
+                    atlabel[r.params[label]], [[int(r.params[xaxis]), yval]],
+                    axis=0)
 
         return atlabel
 
@@ -286,6 +290,8 @@ class MullerResults(Results):
                 return self.itlts
             else:
                 return self.itresults
+        elif name == 'sub' or name == 'subdivide':
+            return self.subdivide
 
     def load(self, file_list_fn, base_dir='.'):
         """Load results whose filename is listed in file_list_fn).
@@ -313,6 +319,16 @@ class MullerResults(Results):
                             pass
                     results.append(result)
         return results
+
+
+    @property
+    def param_compat(self):
+        return {
+            'lt': 'lt',
+            'tpr': 'tpr',
+            'spt': 'spt',
+            'adaptive': None
+        }
 
 
 class TmatResults(Results):
@@ -359,16 +375,23 @@ class TmatResults(Results):
         results = list()
         na_results = list()
         for rd in run_dirs:
-            results += fit_and_lump.load_runresults(
-                os.path.join(base_dir, rd),
-                adaptive=True)
+            results += fit_and_lump.load_runresults(os.path.join(base_dir, rd),
+                                                    adaptive=True)
             na_results += fit_and_lump.load_runresults(
-                os.path.join(base_dir, rd),
-                adaptive=False)
+                os.path.join(base_dir, rd), adaptive=False)
 
         self.all_results = results
         self.na_results = na_results
         log.info("Loaded %d points", len(results))
+
+    @property
+    def param_compat(self):
+        return {
+            'lt': None,
+            'tpr': 'n_tpr',
+            'spt': 'n_spt',
+            'adaptive': 'adaptive'
+        }
 
 
 class PlotVS(collections.defaultdict):
@@ -382,6 +405,11 @@ class PlotVS(collections.defaultdict):
         super(PlotVS, self).__init__(lambda: np.zeros((0, 2)))
         self.fit_results = dict()
         self.xaxis = xaxis
+
+        # TODO: Make these pretty names
+        self.xlabel = xaxis
+        self.ylabel = yaxis
+        self.labellabel = label
 
         if xaxis in ['spt', 'n_spt']:
             self.fit_func = _linear
@@ -410,9 +438,8 @@ class PlotVS(collections.defaultdict):
             return self.enum_fit_vs_tpr()
 
     def enum_fit_vs_spt(self):
-
         for key, vals in self.items():
-            fit = TmatFitResult(key, vals)
+            fit = MullerFitResult(key, vals)
             yield fit
 
     def enum_fit_vs_tpr(self):
@@ -449,8 +476,8 @@ class FitResult(object):
         self.popt = popt
         self.pcov = pcov
 
-class TmatFitResult(FitResult):
 
+class TmatFitResult(FitResult):
     def fit(self, one_traj_na_time, fit_func=_linear):
         """Do fits with options specific to vs spt."""
 
@@ -495,10 +522,9 @@ class TmatFitResult(FitResult):
             self.speed = one_traj_na_time / self.fit_time
             self.speedup = self.na_time / self.fit_time
 
+
 class MullerFitResult(FitResult):
-
     def fit(self, n_spt, one_traj_na_time, fit_func=_exp):
-
         super(MullerFitResult, self).fit(fit_func)
         self.dat_time = n_spt * self.y
         self.fit_time = self.fity * n_spt
