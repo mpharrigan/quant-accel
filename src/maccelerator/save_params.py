@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import glob
 
 log = logging.getLogger()
 log.addHandler(logging.StreamHandler())
@@ -54,7 +55,8 @@ class MullerParamParser(ParamParser):
     def get_params_from_list(self, filelist_fn, json_outfn):
         """Run something like `find` to get a list of run dirs."""
 
-        #TODO: implement this in a subprocess (with formatting)
+        # The following is a valid command
+        # However, globbing seems to be sufficient
         command = r"find -maxdetpth 3 -type d -name msms -exec dirname {} \; > rundirs.dat"
 
         with open(filelist_fn) as filelist_f:
@@ -70,28 +72,25 @@ class MullerParamParser(ParamParser):
     def get_params_from_fs(self, json_outfn):
         """From the filesystem, get params and save them as json.
 
-        We expect a path ../../runcopy-00/lt-20_spt-000_tpr-000/
-        with subdirectories msms, sstates, and trajs.
+        We expect a path {basedir}/runcopy-00/lt-20_spt-000_tpr-000/
+        containing folder or file named msm
 
         This should be able to parse additional params if they are included
         in the folder name in a key-value_key2-value2 scheme.
         """
 
-        for dirpath, dirnames, filenames in os.walk(self.base_dir):
-            log.debug("Looking in %s", dirpath)
+        dirglob = os.path.join(self.base_dir, "runcopy-*/*/msms")
+        for dirpath in glob.iglob(dirglob):
+            # Get rid of the trailing "msm"
+            dirpath = os.path.dirname(dirpath)
 
-            # Check to see if this is a run directory by checking subfolders.
-            # For performance reasons (maybe?) we check for one folder first,
-            # before doing a more expensive set operation.
-            if 'msms' in dirnames and {'msms', 'sstates', 'trajs'} <= set(
-                    dirnames):
-                log.info("Found a run directory %s", dirpath)
+            log.info("Found a run directory %s", dirpath)
 
-                params = self.get_params_from_folder(dirpath)
-                out_fn = os.path.abspath(os.path.join(dirpath, json_outfn))
-                with open(out_fn, 'w') as json_f:
-                    json.dump(params, json_f)
-                self.param_locs += [out_fn]
+            params = self.get_params_from_folder(dirpath)
+            out_fn = os.path.abspath(os.path.join(dirpath, json_outfn))
+            with open(out_fn, 'w') as json_f:
+                json.dump(params, json_f)
+            self.param_locs += [out_fn]
 
 
     def get_params_from_folder(self, dirpath):
@@ -126,6 +125,7 @@ class MullerParamParser(ParamParser):
 
         log.info("Params: %s", str(params))
         return params
+
 
 def muller4_f(args):
     """Entry point for argparse for doing muller work."""
