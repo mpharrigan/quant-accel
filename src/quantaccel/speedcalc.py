@@ -105,10 +105,6 @@ def histogram_kde(xval, y, hrange):
     # Note! xvals is the output xaxis. These variable names are not good
     xvals = np.linspace(xmin, xmax, 100)
 
-    if len(y) <= 1:
-        log.error("%f only has %d elements", xval, len(y))
-        return (xvals, xvals, xval)
-
     if np.abs(np.max(y) - np.min(y)) < 1.0e-8:
         log.warn("%f is too skinny. Using counts", xval)
         return histogram_np(xval, y, hrange, n_bins=20)
@@ -212,16 +208,19 @@ class Results(object):
         sel_from = self._get_by_name(name)
         return [res for res in sel_from if res.params['runcopy'] == runcopy]
 
-    def get_unique(self, name, param_names):
+    def get_unique(self, name, *param_names):
         """Get unique param configurations."""
 
+        # Apply compatibility
+        param_names = [self.param_compat[pn] for pn in param_names]
+
         # Formatting string
-        fstring = ["%s-%%s" % pn for pn in param_names]
+        fstring = ["%s-%%s" % pn for pn in param_names if pn is not None]
         fstring = '_'.join(fstring)
 
         # Tuple generator
         def tuple_gen(r):
-            return tuple([r.params[pn] for pn in param_names])
+            return tuple([r.params[pn] for pn in param_names if pn is not None])
 
         # Set
         param_strs = set()
@@ -322,6 +321,16 @@ class MullerResults(Results):
         return results
 
 
+    @property
+    def param_compat(self):
+        return {
+            'lt': 'lt',
+            'tpr': 'tpr',
+            'spt': 'spt',
+            'adaptive': None
+        }
+
+
 class TmatResults(Results):
     """A subclass for tmat results."""
 
@@ -375,6 +384,15 @@ class TmatResults(Results):
         self.na_results = na_results
         log.info("Loaded %d points", len(results))
 
+    @property
+    def param_compat(self):
+        return {
+            'lt': None,
+            'tpr': 'n_tpr',
+            'spt': 'n_spt',
+            'adaptive': 'adaptive'
+        }
+
 
 class PlotVS(collections.defaultdict):
     """Subclass of dictionary to contain many plot lines where
@@ -387,6 +405,11 @@ class PlotVS(collections.defaultdict):
         super(PlotVS, self).__init__(lambda: np.zeros((0, 2)))
         self.fit_results = dict()
         self.xaxis = xaxis
+
+        # TODO: Make these pretty names
+        self.xlabel = xaxis
+        self.ylabel = yaxis
+        self.labellabel = label
 
         if xaxis in ['spt', 'n_spt']:
             self.fit_func = _linear
@@ -415,9 +438,8 @@ class PlotVS(collections.defaultdict):
             return self.enum_fit_vs_tpr()
 
     def enum_fit_vs_spt(self):
-
         for key, vals in self.items():
-            fit = TmatFitResult(key, vals)
+            fit = MullerFitResult(key, vals)
             yield fit
 
     def enum_fit_vs_tpr(self):
