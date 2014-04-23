@@ -77,10 +77,10 @@ def _quad(x, a, b, c):
     return a * x * x + b * x + c
 
 
-def histogram_np(xval, y, hrange, n_bins):
+def histogram_np(xval, y, hrange, n_bins, norm=False):
     """Use np.histogram to yield a normal histogram
     """
-    hist, bin_edges = np.histogram(y, bins=n_bins, range=hrange)
+    hist, bin_edges = np.histogram(y, bins=n_bins, range=hrange, density=norm)
     bin_centers = np.diff(bin_edges) / 2.0 + bin_edges[:-1]
     return (hist, bin_centers, xval)
 
@@ -107,7 +107,7 @@ def histogram_kde(xval, y, hrange):
 
     if np.abs(np.max(y) - np.min(y)) < 1.0e-8:
         log.warn("%f is too skinny. Using counts", xval)
-        return histogram_np(xval, y, hrange, n_bins=20)
+        return histogram_np(xval, y, hrange, n_bins=20, norm=True)
 
     kernel = scipy.stats.gaussian_kde(y)
     yvals = kernel.evaluate(xvals)
@@ -418,8 +418,6 @@ class PlotVS(collections.defaultdict):
         else:
             raise ValueError()
 
-        self.otf = None
-
 
     def items(self):
         """Return items sorted by key."""
@@ -438,18 +436,26 @@ class PlotVS(collections.defaultdict):
             return self.enum_fit_vs_tpr()
 
     def enum_fit_vs_spt(self):
+        def dat_time_calc(x, y):
+            return x * y
+
         for key, vals in self.items():
-            fit = MullerFitResult(key, vals)
+            fit = MullerFitResult(key, vals, dat_time_calc)
             yield fit
 
     def enum_fit_vs_tpr(self):
         for key, vals in self.items():
-            fit = MullerFitResult(key, vals)
+            fit = MullerFitResult(key, vals, lambda x, y: key * y)
             yield fit
 
 
 class FitResult(object):
-    def __init__(self, key, vals):
+    """
+    :param dat_time_calc: Take in x, y arrays and return array of time
+
+    """
+
+    def __init__(self, key, vals, dat_time_calc):
         """An object for a fit."""
         self.popt = None
         self.pcov = None
@@ -458,76 +464,14 @@ class FitResult(object):
         self.fitx = None
         self.fity = None
         self.fit_time = None
-        self.dat_time = None
+        self.dat_time = dat_time_calc(self.x, self.y)
         self.key = key
 
-    def fit(self, fit_func):
-        """Perform fit, do speedup calc."""
-        x = self.x
-        y = self.y
-
-        # Find fit
-        fitx = np.exp(np.linspace(np.min(np.log(x)), np.max(np.log(x))))
-        popt, pcov = scipy.optimize.curve_fit(fit_func, np.log(x), np.log(y))
-        fity = np.exp(fit_func(np.log(fitx), *popt))
-
-        self.fitx = fitx
-        self.fity = fity
-        self.popt = popt
-        self.pcov = pcov
 
 
 class TmatFitResult(FitResult):
-    def fit(self, one_traj_na_time, fit_func=_linear):
-        """Do fits with options specific to vs spt."""
-
-        super(TmatFitResult, self).fit(fit_func)
-        self.dat_time = self.x * self.y
-
-        if fit_func == _linear:
-            m, b = self.popt
-
-            # Make line for non-adaptive scaling (m = 1.0)
-            self.na_scale = np.exp(_linear(np.log(self.fitx), 1.0, b / m))
-
-            # Calculate speedup
-            self.na_time = np.exp(b / m)
-            log.info(self.na_time)
-            self.fit_time = np.power(self.fitx, 1.0 - m) * np.exp(b)
-        elif fit_func == _exp:
-            tau, c, b = self.popt
-            log.info(b)
-
-            self.na_time = 1000
-            self.na_scale = np.exp(
-                _linear(np.log(self.fitx), 1.0, np.log(self.na_time)))
-
-            self.fit_time = self.fitx * np.exp(
-                c * np.power(self.fitx, -1.0 / tau) + b)
-        elif fit_func == _quad:
-            a, b, c = self.popt
-
-            lowx = -b / (2.0 * a)
-            lowy = _quad(lowx, a, b, c)
-            log.info(lowy)
-
-            self.na_time = 1000
-            self.na_scale = np.exp(
-                _linear(np.log(self.fitx), 1.0, np.log(self.na_time)))
-
-            self.fit_time = np.power(self.fitx, b + 1) * np.exp(
-                a * np.log(self.fitx) * np.log(self.fitx) + c)
-
-        if one_traj_na_time is not None:
-            self.speed = one_traj_na_time / self.fit_time
-            self.speedup = self.na_time / self.fit_time
+    pass
 
 
 class MullerFitResult(FitResult):
-    def fit(self, n_spt, one_traj_na_time, fit_func=_exp):
-        super(MullerFitResult, self).fit(fit_func)
-        self.dat_time = n_spt * self.y
-        self.fit_time = self.fity * n_spt
-
-        self.speed = one_traj_na_time / self.fit_time
-        self.speedup = np.zeros(len(self.fity))
+    pass
