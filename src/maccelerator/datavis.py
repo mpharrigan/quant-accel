@@ -53,7 +53,7 @@ def _col_size(n_col, min_width=1, max_width=24, tau=4):
     return max_width - (delta * np.exp(-n_col / tau))
 
 
-def histograms(plotvs, whole_range, log, htype='kde', shoop=False):
+def histograms(plotvs, whole_range, log_plot, htype='kde', shoop=False):
     """Plot histograms. Creates a grid of plots based on the structure of
     plotvs.
 
@@ -73,7 +73,8 @@ def histograms(plotvs, whole_range, log, htype='kde', shoop=False):
     fig, axes = plt.subplots(n_row, n_col, figsize=(col_size, row_size))
     for i, (k, v) in enumerate(plotvs.items()):
         for j, (hist, bin_centers, xval) in enumerate(
-                sc.histogram(v, htype=htype, whole_range=whole_range, log=log)):
+                sc.histogram(v, htype=htype, whole_range=whole_range,
+                             log=log_plot)):
 
             # Subplots doesn't return a consistently sized array
             if n_row == n_col == 1:
@@ -94,7 +95,10 @@ def histograms(plotvs, whole_range, log, htype='kde', shoop=False):
             # Make histogram
             fmt = '-' if htype == 'kde' else 'o-'
             ax.plot(bin_centers, hist, fmt, label=xval)
-            ax.set_xlabel(plotvs.ylabel)
+            hist_xlabel = plotvs.ylabel
+            if log_plot:
+                hist_xlabel = "log({})".format(hist_xlabel)
+            ax.set_xlabel(hist_xlabel)
 
             if shoop:
                 # Add legend and abbreviated title

@@ -394,6 +394,19 @@ class TmatResults(Results):
         }
 
 
+PRETTY_NAMES = {
+    'spt': 'Trajectory length',
+    'tpr': 'Parallelization',
+    'lt': 'Lagtime',
+    'adaptive': 'Adaptive',
+    'rounds': '# Adaptive Rounds',
+    None: 'Missing label'
+}
+
+PRETTY_NAMES['n_spt'] = PRETTY_NAMES['spt']
+PRETTY_NAMES['n_tpr'] = PRETTY_NAMES['tpr']
+
+
 class PlotVS(collections.defaultdict):
     """Subclass of dictionary to contain many plot lines where
     the label of the line is the key in the dictionary.
@@ -406,18 +419,9 @@ class PlotVS(collections.defaultdict):
         self.fit_results = dict()
         self.xaxis = xaxis
 
-        # TODO: Make these pretty names
-        self.xlabel = xaxis
-        self.ylabel = yaxis
-        self.labellabel = label
-
-        if xaxis in ['spt', 'n_spt']:
-            self.fit_func = _linear
-        elif xaxis in ['tpr', 'n_tpr']:
-            self.fit_func = _exp
-        else:
-            raise ValueError()
-
+        self.xlabel = PRETTY_NAMES[xaxis]
+        self.ylabel = PRETTY_NAMES[yaxis]
+        self.labellabel = PRETTY_NAMES[label]
 
     def items(self):
         """Return items sorted by key."""
