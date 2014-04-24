@@ -1,3 +1,5 @@
+"""Make jobs for making movies."""
+
 __author__ = 'harrigan'
 
 import logging as log
@@ -41,6 +43,7 @@ SUB_LINE = """mqsub {job_fn}"""
 import collections
 import os
 import stat
+import argparse
 
 
 def make_jobs(param_locs_fn='../param_locs.dat',
@@ -85,6 +88,18 @@ def make_jobs(param_locs_fn='../param_locs.dat',
     # Make executable
     st = os.stat(os.path.join('.', 'submit.sh'))
     os.chmod(os.path.join('.', 'submit.sh'), st.st_mode | stat.S_IEXEC)
+
+
+def parse():
+    """Use argparse for command line parsing."""
+    parser = argparse.ArgumentParser(description="Make jobs for making movies",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('movie_type',
+                        help="""What type of movie to make: [projection-pop,
+                        centroid-it, num-states]""")
+
+    args = parser.parse_args()
+    make_jobs(movie_type=args.movie_type)
 
 
 if __name__ == "__main__":
