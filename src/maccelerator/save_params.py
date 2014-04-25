@@ -52,6 +52,8 @@ class MullerParamParser(ParamParser):
     """Parse based on the directory structure used for the muller runs,
     specifically muller4."""
 
+
+    # Deprecated
     def get_params_from_list(self, filelist_fn, json_outfn):
         """Run something like `find` to get a list of run dirs."""
 
@@ -130,8 +132,7 @@ class MullerParamParser(ParamParser):
 def muller4_f(args):
     """Entry point for argparse for doing muller work."""
     pp = MullerParamParser(args.base_dir)
-    #pp.get_params_from_fs('params.json')
-    pp.get_params_from_list('rundirs.dat', 'params.json')
+    pp.get_params_from_fs('params.json')
     pp.write_locations('param_locs.dat')
 
 
@@ -140,8 +141,7 @@ def parse():
     parser = argparse.ArgumentParser(description="Save params as json",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('base_dir',
-                        help='Directory to start looking from',
-                        default='.')
+                        help='Directory to start looking from')
     parser.add_argument('--debug', action='store_true')
     parser.set_defaults(debug=False)
 

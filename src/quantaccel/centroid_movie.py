@@ -7,11 +7,6 @@ Created on Thu Jan 30 14:19:53 2014
 
 from __future__ import division
 
-import logging
-
-log = logging.getLogger()
-log.addHandler(logging.StreamHandler())
-
 import matplotlib
 
 matplotlib.use('Agg')
@@ -31,11 +26,20 @@ import re
 import scipy.interpolate
 import scipy.io
 import scipy.sparse.linalg
+import json
+
+import logging
+
+log = logging.getLogger()
+log.addHandler(logging.StreamHandler())
 
 TEMP = 750
 # Boltzmann constant in md units
 KB = 0.0083145
 LAGTIME = 20
+
+# Note: this is one directory up from msms/
+PARAM_JSON = '../params.json'
 
 
 class CentroidResult(object):
@@ -86,20 +90,14 @@ def walk(walkydir, centroid_regex, tmat_regex):
                 # Get the round index
                 round_i = int(match.group(1))
 
-                # Hacky get params
-                #TODO: Get params from param file
+                json_fn = os.path.join(dirpath, PARAM_JSON)
+                with open(json_fn) as json_f:
+                    params = json.load(json_f)
+
+                # TODO: Better key than directory name
                 cwd = os.path.abspath(dirpath)
                 dnames = cwd.split('/')
                 dname = dnames[-2]
-                param_strs = dname.split('_')
-                params = dict()
-                for param_str in param_strs:
-                    splits = param_str.split('-')
-                    try:
-                        params[splits[0]] = splits[1]
-                    except IndexError:
-                        params[param_str] = param_str
-
 
                 # Debug statement
                 log.debug("Found %s %d\tFilename: %s\tParams: %s",
@@ -396,48 +394,52 @@ SETVOL = Volume([-1.5, 1.2], [-0.2, 3.0])
 GRID = get_grid(SETVOL, resolution=200)
 
 
-def make_movie(param_str, results, movie_dirname, movie, how):
+def make_movie(param_str, results, movie_dirname, movie_type, how):
     """Make a movie for a given accelerator run.
 
-        :results: a dict of frames that has tmat_fn and centroids_fn for us
-                 to load
-        :param_str: This goes in the title
-        :movie_dirname: output folder name
-        :movie: ['centroid-pop', 'projection-pop',
-            'centroid-it', 'projection-it']: Whether to make a movie from
+        :param results: a dict of frames that has tmat_fn and centroids_fn for
+                 us to load
+        :param param_str: This goes in the title
+        :param movie_dirname: output folder name % format string
+        :param movie_type: ['centroid-pop', 'projection-pop',
+            'centroid-it']: Whether to make a movie from
             the centroids or project on to a grid
     """
 
-    if movie == 'centroid-pop':
+    if movie_type == 'centroid-pop':
         load_helper = load_centroid_eqdistr
         scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=True)
-    elif movie == 'projection-pop':
+    elif movie_type == 'projection-pop':
         load_helper = load_project_eqdistr
-    elif movie == 'centroid-it':
+    elif movie_type == 'centroid-it':
         load_helper = load_centroid_eigen
         scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=False)
-    elif movie == 'projection-it':
-        load_helper = None  # TODO
-    elif movie == 'num-states':
+    elif movie_type == 'num-states':
         load_helper = load_numstates
     else:
-        log.error("Invalid movie type %s", movie)
-        raise ValueError("Invalid movie type %s" % movie)
+        log.error("Invalid movie type %s", movie_type)
+        raise ValueError("Invalid movie type %s" % movie_type)
 
+    # Set up pickl filename
     pickl_out = "quant-{movie}-{how}-{param_str}.pickl".format(
-        movie=movie, how=how, param_str=param_str
+        movie=movie_type, how=how, param_str=param_str
     )
+
+    # If the pickl exists, don't make a movie
     if os.path.exists(pickl_out):
         log.warn("Result already exists for %s movie for %s",
-                 movie, param_str)
+                 movie_type, param_str)
+        log.warn("Not making a movie.")
         return
 
-    abs_movie_dirname = os.path.join(
-        results.items()[0][1].abspath,
-        movie_dirname % movie)
+    # Get the path of the first item. They should all be the same
+    base_dir = results.values()[0].abspath
+    # Set up movie directory name
+    abs_movie_dirname = os.path.abspath(
+        os.path.join(base_dir, movie_dirname.format(movie_type, how)))
     log.info(
         "Making %s movie for %s in directory %s",
-        movie, param_str, abs_movie_dirname)
+        movie_type, param_str, abs_movie_dirname)
 
     # Make the directory
     try:
@@ -458,12 +460,12 @@ def make_movie(param_str, results, movie_dirname, movie, how):
         biggest_v.union(Volume(centroids[:, 0], centroids[:, 1]))
 
         save_fig = True
-        if 'centroid' in movie:
+        if 'centroid' in movie_type:
             scatter_helper(est_distr, theory_distr, param_str)
-        elif 'projection' in movie:
+        elif 'projection' in movie_type:
             project(est_distr, theory_distr, param_str)
         else:
-            log.warn("Not making a movie for %s", movie)
+            log.warn("Not making a movie for %s", movie_type)
             save_fig = False
 
         # Save and clear
@@ -550,7 +552,7 @@ def main(walkydir, how, version, movietype):
                    centroid_regex=centroid_regex,
                    tmat_regex=tmat_regex)
 
-    make_movies(results, '%s-mk{version}'.format(**fmt), movietype, how)
+    make_movies(results, '{{}}-{{}}-mk{version}'.format(**fmt), movietype, how)
 
 
 if __name__ == "__main__":
