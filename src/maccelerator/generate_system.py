@@ -70,7 +70,7 @@ do
         ((roundsleft -= 1))
     else
         # check convergence
-        python -m maccelerator.check_convergence $round_i {how} {version}
+        python -m maccelerator.check_convergence {system_type} $round_i {how} {version}
     fi
 
     ((round_i += 1))

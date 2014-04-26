@@ -48,6 +48,7 @@ class CentroidResult(object):
     def __init__(self):
         self.centroids_fn = None
         self.tmat_fn = None
+        self.mapping_fn = None
         self.params = None
         self.round_i = None
         self.abspath = None
@@ -123,10 +124,20 @@ def walk(walkydir, centroid_regex, tmat_regex):
 def load(result, helper):
     """Load the actual data given an object that has their filenames.
     """
+
+    # Load mapping
+    mapping = None
+    if result.mapping_fn is not None:
+        mapping = np.loadtxt(result.mapping_fn, dtype=int)
+
     # Load centroids
     centroids = np.loadtxt(result.centroids_fn)
     if len(centroids.shape) == 1:
         centroids = centroids[np.newaxis, :]
+
+    if mapping is not None:
+        centroids = centroids[mapping, :]
+
 
     # Load transition matrix
     with open(result.tmat_fn) as tmat_f:
@@ -141,16 +152,17 @@ def load(result, helper):
         except ValueError:
             wallsteps = -1
     log.debug("Number of wallsteps: %d", wallsteps)
-    est_distr, theory_distr, errorval = helper(centroids, tmat)
+
+    est_distr, theory_distr, errorval = helper(centroids, tmat, mapping)
     return centroids, tmat, wallsteps, est_distr, theory_distr, errorval
 
 
-def load_numstates(centroids, tmat):
+def load_numstates(centroids, tmat, mapping):
     """Just put the number of states in the errorval."""
     return None, None, len(centroids)
 
 
-def load_centroid_eigen(centroids, tmat):
+def load_centroid_eigen(centroids, tmat, mapping):
     """Plot first eigenvalue on centroids and return errorval = 1st IT."""
     # Get the eigenvectors
     try:
@@ -175,7 +187,7 @@ def load_centroid_eigen(centroids, tmat):
     return est_plot, theory_plot, errorval
 
 
-def load_project_eqdistr(centroids, tmat):
+def load_project_eqdistr(centroids, tmat, mapping):
     """Compute equilibrium density."""
     xx, yy = GRID
     n_states = tmat.shape[0]
@@ -223,8 +235,45 @@ def load_project_eqdistr(centroids, tmat):
     return est, calc_eq, errorval
 
 
-def load_centroid_eqdistr(centroids, tmat):
+def load_centroid_eqdistr_tmat(centroids, tmat, mapping, precomputed_eigen_fn):
     """Compute equilibrium density for centroids."""
+
+
+    # Get the eigenvectors
+    tmat = tmat.transpose()
+    try:
+        vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
+                                              maxiter=100000, tol=1e-30)
+        vecs = np.real_if_close(vecs)
+
+        if np.abs(np.real(vals) - 1) > 1e-8:
+            raise ValueError('Eigenvalue is not 1')
+
+        eq_distr = vecs[:, 0]
+    except (ArpackNoConvergence, ValueError) as e:
+        log.warn("No eigenv convergence %s", str(e))
+        eq_distr = np.ones(tmat.shape[0])
+
+    # Compute a normalized equilibrium distribution
+    # eq_distr = eq_distr.clip(min=0.0)
+    eq_distr /= np.sum(eq_distr)
+
+    calc_eq = np.loadtxt(precomputed_eigen_fn)
+    calc_eq = calc_eq[mapping]
+    calc_eq /= np.sum(calc_eq)
+    errorval = distribution_norm(calc_eq, eq_distr)
+
+    est_plot = [centroids[:, 0], centroids[:, 1], eq_distr]
+    theory_plot = [centroids[:, 0], centroids[:, 1], calc_eq]
+
+    return est_plot, theory_plot, errorval
+
+
+def load_centroid_eqdistr(centroids, tmat, mapping):
+    """Compute equilibrium density for centroids.
+
+    Note! This is specifically for the muller potential.
+    """
 
     # Get the eigenvectors
     tmat = tmat.transpose()
@@ -257,7 +306,7 @@ def load_centroid_eqdistr(centroids, tmat):
     return est_plot, theory_plot, errorval
 
 
-def load_it_distr(centroids, tmat):
+def load_it_distr(centroids, tmat, mapping):
     """Compute IT error and plot first eigen."""
     # TODO: Implement
     pass

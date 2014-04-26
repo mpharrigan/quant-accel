@@ -50,6 +50,7 @@ class TMatSimulator(object):
         if get_eigen:
             self.p, actual_lam = _get_eigenvec(t_matrix, eigenval=True)
             self.actual_it = -1.0 / np.log(actual_lam)
+            self.p /= np.sum(self.p)
 
         log.info('Loaded transition matrix of shape %s',
                  self.t_matrix.shape)
@@ -168,7 +169,6 @@ def _invert_mapping(mapping):
 
 
 class MSM(object):
-
     """Hold all the trajectories and build and sample from msm."""
 
     def __init__(self, lag_time=1, beta=0):
@@ -344,7 +344,8 @@ class MSM(object):
             n_copy = n_new // len(states_to_sample)
             n_add = n_new % len(states_to_sample)
             states_to_sample = np.repeat(states_to_sample, n_copy)
-            states_to_sample = np.append(states_to_sample, states_to_sample[:n_add])
+            states_to_sample = np.append(states_to_sample,
+                                         states_to_sample[:n_add])
         if len(states_to_sample) != n_new:
             log.error("Incorrect number of new states")
         return states_to_sample
@@ -407,7 +408,6 @@ class MSM(object):
 
 
 class Accelerator(object):
-
     """Runs rounds of adaptive sampling and keeps the convergence."""
 
     def __init__(self, simulator, msm):
@@ -480,7 +480,6 @@ class Accelerator(object):
 
 
 class RunResult(object):
-
     """Hold the results of an adaptive run for pickling."""
 
     def __init__(self, params, accelerator=None):
@@ -494,7 +493,6 @@ class RunResult(object):
 def simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr, adapt_func):
     """Run one simulation given the params
      """
-
 
     log.info("Setting beta = %f spt = %d tpr = %d", set_beta, set_spt, set_tpr)
     log.info("Using %s as adapt method", adapt_func.func_name)
@@ -527,26 +525,30 @@ def get_params_adaptive(beta):
     log.info("Number of permutations = %d", len(beta) * len(spt) * len(tpr))
     return itertools.product(beta, spt, tpr)
 
+
 def get_params_adapt_weights():
     beta = [-1, 1, 3]
     return get_params_adaptive(beta)
 
+
 def get_params_adapt_sort():
     beta = [0]  # Can be anything
     return get_params_adaptive(beta)
+
 
 def get_params_control():
     beta = 0  # Can be anything
 
     # (beta, n_spt, n_tpr)
     params = [
-              (beta, 100, 1),
-              (beta, 10, 10),
-              (beta, 10, 100),
-              (beta, 4, 500),
-              (beta, 4, 1000)
-              ]
+        (beta, 100, 1),
+        (beta, 10, 10),
+        (beta, 10, 100),
+        (beta, 4, 500),
+        (beta, 4, 1000)
+    ]
     return params
+
 
 def main(run_i=-1, runcopy=0, adapt_func_str='weights'):
     """Define our parameter sets and run the simulations.
@@ -574,7 +576,6 @@ def main(run_i=-1, runcopy=0, adapt_func_str='weights'):
     else:
         log.error("Unrecognized adapt func: %s", adapt_func_str)
 
-
     for i, (set_beta, set_spt, set_tpr) in enumerate(params):
         if run_i < 0 or run_i == i:
             rr = simulate(tmat_sim, defaults, set_beta, set_spt, set_tpr,
@@ -584,11 +585,11 @@ def main(run_i=-1, runcopy=0, adapt_func_str='weights'):
                 pickle.dump(rr, f, protocol=2)
 
 
-
 def parse():
     """Parse command line args."""
-    parser = argparse.ArgumentParser(description='Perform accelerated sampling on transition matrix',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description='Perform accelerated sampling on transition matrix',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('run_i', type=int,
                         help="Which permute to run")
     parser.add_argument('--runcopy', type=int,
@@ -598,9 +599,7 @@ def parse():
                         default='weights')
     args = parser.parse_args()
 
-
     main(args.run_i, runcopy=args.runcopy, adapt_func_str=args.adapt)
-
 
 
 if __name__ == "__main__":

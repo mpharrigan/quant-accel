@@ -52,11 +52,17 @@ def do(round_i, how):
         log.debug('Folder exists %s', str(e))
 
     # Filenames
+    mapping_fn = os.path.join('msms',
+                              'mapping-%s-mk7-%d.npy' % (how, round_i))
     tmat_fn = os.path.join('msms',
                            'tmatfromclus-%s-mk7-%d.mtx' % (how, round_i))
 
     with open(tmat_fn, 'w') as f:
         scipy.io.mmwrite(f, t_matrix, comment='Wallsteps: %d' % wall_steps)
+
+    # Save the results of trimming
+    mapping = np.where(mapping != -1)[0]
+    np.savetxt(mapping_fn, mapping, fmt="%d")
 
 
 if __name__ == "__main__":

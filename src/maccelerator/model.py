@@ -65,10 +65,12 @@ def tmat_model(trajs, lagtime):
     return counts, found_states
 
 
-def adapt(counts, n_tpr):
+def adapt(counts, n_tpr, found_states=None):
     """From a counts matrix, pick the best states from which to start."""
 
     counts_per_state = np.asarray(counts.sum(axis=1)).flatten()
+    if found_states is not None:
+        counts_per_state = counts_per_state[found_states]
     states_to_sample = np.argsort(counts_per_state)
     if len(states_to_sample) > n_tpr:
         states_to_sample = states_to_sample[:n_tpr]
@@ -152,7 +154,7 @@ def model_and_adapt_tmat(args):
     """
     _, trajs = load_trajectories(args.round, load_tmat)
     counts, found_states = tmat_model(trajs, args.lagtime)
-    sstates_sub = adapt(counts, args.n_tpr)
+    sstates_sub = adapt(counts, args.n_tpr, found_states)
     # Translate indices from found_states into absolute indices
     sstates = found_states[sstates_sub]
     save_starting_states(sstates, args.round, save_tmat)
