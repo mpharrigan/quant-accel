@@ -4,52 +4,67 @@ Created on Nov 18, 2013
 @author: harrigan
 '''
 from __future__ import division
-from quantaccel import toy
-from msmbuilder.metrics import rmsd
 import sys
 import numpy as np
-import mdtraj
 import scipy.io
+from maccelerator import model
+from msmbuilder import MSMLib as msml
+import os
+import logging as log
 
-MULLER_GENS = '../../gens.npy'
-TMAT_GENS = '../../Gens.h5'
-NPOINTS = 20
+NPOINTS = 50
 PERCENTS = np.linspace(0.05, 1.0, NPOINTS)
 
-def do(round_i, which, how):
 
-    if how == 'round':
-        rounds = toy._get_trajs_fns(".")
-        wall_steps, trajs = toy.load_trajs_by_round(rounds, round_i)
-    elif how == 'percent':
-        wall_steps, trajs = toy.load_trajs_by_percent(".", PERCENTS[round_i])
+def do(round_i, how):
+    """Build an msm from assignments.
 
-    if which == 'muller':
-        metric = toy.Euclidean2d()
-        lag_time = 20
-        gens = np.loadtxt(MULLER_GENS)
-        generators = toy.ShimTrajectory(gens[:, np.newaxis, :])
-    elif which == 'tmat':
-        metric = rmsd.RMSD()
-        lag_time = 1
-        gens = mdtraj.load(TMAT_GENS)
-        generators = toy.ShimTrajectory(gens.xyz)
+    :param round_i: The round (used for loading trajectories)
+    :param how: Whether to do by percent or round.
+    """
 
+    if how == 'rnew':
+        wall_steps, trajs = model.load_trajectories(round_i,
+                                                    load_func=model.load_tmat)
+    elif how == 'pnew':
+        wall_steps, trajs = model.load_trajectories_percent(PERCENTS[round_i],
+                                                            load_func=model.load_tmat)
 
+    lag_time = 1
 
-    t_matrix = toy.build_msm(trajs, generators, lag_time, metric)
-    with open('tmatfromass-%s-%d.mtx' % (how, round_i), 'w') as f:
+    # Get counts
+    counts = msml.get_count_matrix_from_assignments(np.array(trajs),
+                                                    lag_time=lag_time)
+
+    # Make the transition matrix
+    try:
+        _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
+                                                 symmetrize='mle')
+    except:
+        # If mle doesn't work, fall back on transpose
+        _, t_matrix, _, mapping = msml.build_msm(counts, ergodic_trimming=True,
+                                                 symmetrize='transpose')
+
+    # Make a folder for msm's
+    try:
+        os.mkdir('msms')
+    except OSError as e:
+        log.debug('Folder exists %s', str(e))
+
+    # Filenames
+    tmat_fn = os.path.join('msms',
+                           'tmatfromclus-%s-mk7-%d.mtx' % (how, round_i))
+
+    with open(tmat_fn, 'w') as f:
         scipy.io.mmwrite(f, t_matrix, comment='Wallsteps: %d' % wall_steps)
 
 
-
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print """Usage: xxx.py round_i which how.
-                    which = {muller, tmat}"""
+    if len(sys.argv) != 3:
+        print """Usage: xxx.py round_i how.
+                    how = [rnew, pnew]"""
 
     round_i = int(sys.argv[1])
-    which = sys.argv[2]
-    how = sys.argv[3]
+    how = sys.argv[2]
 
-    do(round_i, which, how)
+    do(round_i, how)

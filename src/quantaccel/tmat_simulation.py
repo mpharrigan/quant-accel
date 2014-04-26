@@ -11,7 +11,6 @@ import numpy as np
 import logging as log
 import pickle
 import itertools
-import sys
 import argparse
 import scipy.optimize
 
@@ -19,6 +18,7 @@ import scipy.sparse.csgraph
 import scipy.sparse
 
 from msmbuilder import MSMLib as msmlib
+from mdtraj import io
 
 from scipy.sparse.linalg.eigen.arpack import ArpackNoConvergence, ArpackError
 
@@ -29,22 +29,27 @@ NADAPTIVE = 90
 
 
 class TMatSimulator(object):
+    """Hold the transition matrix and run dynamics.
 
-    """Hold the transition matrix and run dynamics."""
+
+    :param get_eigen: Whether to precompute eigensystem. Defaults to true
+                to maintain compatibility with previous system.
+    """
 
     @property
     def n_states(self):
         """Number of states in the model."""
         return self.t_matrix.shape[0]
 
-    def __init__(self, tmat_fn='../ntl9.mtx'):
+    def __init__(self, tmat_fn='../ntl9.mtx', get_eigen=True):
         # Load transition matrix
         t_matrix = scipy.io.mmread(tmat_fn)
         t_matrix = t_matrix.tocsr()
         self.t_matrix = t_matrix
 
-        self.p, actual_lam = _get_eigenvec(t_matrix, eigenval=True)
-        self.actual_it = -1.0 / np.log(actual_lam)
+        if get_eigen:
+            self.p, actual_lam = _get_eigenvec(t_matrix, eigenval=True)
+            self.actual_it = -1.0 / np.log(actual_lam)
 
         log.info('Loaded transition matrix of shape %s',
                  self.t_matrix.shape)
@@ -55,14 +60,19 @@ class TMatSimulator(object):
     def simulate(self, state_i, number_of_steps, out_fn=None):
         """We run some KMC dynamics, and then send back the results.
 
-            state_i - initial state
-
+        :param state_i: Initial state index
+        :param number_of_steps: Length of trajectory to return. Note:
+                        We actually take one fewer *step* because we include
+                        the initial state in our trajectory
+        :param out_fn: Optionally write out a trajectory in HDF5 format
         """
         log.debug('Starting TMat simulation...')
 
         t_matrix = self.t_matrix
 
         state_out = np.zeros(number_of_steps, dtype=int)
+
+        # Set first state to initial state!
         state_out[0] = state_i
 
         for i in xrange(1, number_of_steps):
@@ -86,9 +96,8 @@ class TMatSimulator(object):
 
         # Write
         if out_fn is not None:
-            np.savetxt(out_fn, state_out)
+            io.saveh(out_fn, state_out)
         log.debug('Finished TMat simulation.')
-
         return state_out
 
 
