@@ -41,6 +41,9 @@ LAGTIME = 20
 # Note: this is one directory up from msms/
 PARAM_JSON = '../params.json'
 
+TMAT_CENTROIDS = "../../../spring_layout_centroids.npy"
+PRECOMPUTED_EIGEN = "../../../calc_eq.npy"
+
 
 class CentroidResult(object):
     """Container for filenames and params."""
@@ -59,7 +62,7 @@ def _defaultdict_CentroidResult():
     return defaultdict(CentroidResult)
 
 
-def walk(walkydir, centroid_regex, tmat_regex):
+def walk(walkydir, centroid_regex, tmat_regex, map_regex):
     """Walk over the directory structure looking for centroid and tmat files.
     """
     # Two level defaltdict
@@ -71,6 +74,8 @@ def walk(walkydir, centroid_regex, tmat_regex):
             # Regular expression to find files of interest
             centroid_match = re.match(centroid_regex, fn)
             tmat_match = re.match(tmat_regex, fn)
+            map_match = re.match(map_regex, fn)
+
             complete_fn = os.path.join(dirpath, fn)
 
             # Whether there is any match
@@ -85,6 +90,10 @@ def walk(walkydir, centroid_regex, tmat_regex):
             if tmat_match:
                 match = tmat_match
                 mtype = 'tmat    '
+
+            if map_match:
+                match = map_match
+                mtype = 'mapping '
 
             # If there is any match
             if match:
@@ -112,6 +121,9 @@ def walk(walkydir, centroid_regex, tmat_regex):
                 elif tmat_match:
                     # Load transition matrix with scipy
                     result.tmat_fn = complete_fn
+                elif map_match:
+                    # Mapping fn
+                    result.mapping_fn = complete_fn
 
                 # In any event, save the params and round information
                 result.params = params
@@ -131,12 +143,11 @@ def load(result, helper):
         mapping = np.loadtxt(result.mapping_fn, dtype=int)
 
     # Load centroids
+    if result.centroids_fn is None:
+        result.centroids_fn = os.path.join(result.abspath, TMAT_CENTROIDS)
     centroids = np.loadtxt(result.centroids_fn)
     if len(centroids.shape) == 1:
         centroids = centroids[np.newaxis, :]
-
-    if mapping is not None:
-        centroids = centroids[mapping, :]
 
 
     # Load transition matrix
@@ -254,16 +265,21 @@ def load_centroid_eqdistr_tmat(centroids, tmat, mapping, precomputed_eigen_fn):
         log.warn("No eigenv convergence %s", str(e))
         eq_distr = np.ones(tmat.shape[0])
 
-    # Compute a normalized equilibrium distribution
-    # eq_distr = eq_distr.clip(min=0.0)
-    eq_distr /= np.sum(eq_distr)
+    # Need to back-map
 
+    # Load actual values
     calc_eq = np.loadtxt(precomputed_eigen_fn)
-    calc_eq = calc_eq[mapping]
     calc_eq /= np.sum(calc_eq)
-    errorval = distribution_norm(calc_eq, eq_distr)
 
-    est_plot = [centroids[:, 0], centroids[:, 1], eq_distr]
+    # Set undiscovered populations to zero
+    eq_distr_full = np.zeros(len(calc_eq))
+    eq_distr_full[mapping] = eq_distr
+    eq_distr_full /= np.sum(eq_distr_full)
+
+
+    errorval = distribution_norm(calc_eq, eq_distr_full)
+
+    est_plot = [centroids[:, 0], centroids[:, 1], eq_distr_full]
     theory_plot = [centroids[:, 0], centroids[:, 1], calc_eq]
 
     return est_plot, theory_plot, errorval
@@ -465,6 +481,11 @@ def make_movie(param_str, results, movie_dirname, movie_type, how):
         scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=False)
     elif movie_type == 'num-states':
         load_helper = load_numstates
+    elif movie_type == 'tmat-pop':
+        eig_fn = os.path.join(results.values()[0].abspath, PRECOMPUTED_EIGEN)
+        load_helper = lambda c, t, m: load_centroid_eqdistr_tmat(c, t, m,
+                                                                 eig_fn)
+        scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=True)
     else:
         log.error("Invalid movie type %s", movie_type)
         raise ValueError("Invalid movie type %s" % movie_type)
@@ -509,7 +530,7 @@ def make_movie(param_str, results, movie_dirname, movie_type, how):
         biggest_v.union(Volume(centroids[:, 0], centroids[:, 1]))
 
         save_fig = True
-        if 'centroid' in movie_type:
+        if 'centroid' in movie_type or 'tmat' in movie_type:
             scatter_helper(est_distr, theory_distr, param_str)
         elif 'projection' in movie_type:
             project(est_distr, theory_distr, param_str)
@@ -575,7 +596,7 @@ def parse():
     parser.set_defaults(debug=False)
     parser.add_argument('--movietype', '-mt', choices=
     ['centroid-pop', 'projection-pop', 'centroid-it',
-     'projection-it', 'num-states'],
+     'projection-it', 'num-states', 'tmat-pop'],
                         help='''Type of movie''',
                         default='projection-pop')
 
@@ -596,10 +617,12 @@ def main(walkydir, how, version, movietype):
     fmt = {'how': how, 'version': version}
     centroid_regex = 'centroids-{how}-mk{version}-([0-9]+).npy'.format(**fmt)
     tmat_regex = 'tmatfromclus-{how}-mk{version}-([0-9]+).mtx'.format(**fmt)
+    map_regex = 'mapping-{how}-mk{version}-([0-9]+).npy'.format(**fmt)
 
     results = walk(walkydir=walkydir,
                    centroid_regex=centroid_regex,
-                   tmat_regex=tmat_regex)
+                   tmat_regex=tmat_regex,
+                   map_regex=map_regex)
 
     make_movies(results, '{{}}-{{}}-mk{version}'.format(**fmt), movietype, how)
 

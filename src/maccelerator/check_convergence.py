@@ -79,7 +79,7 @@ def check_convergence_tmat(round_i, centroids_fn, tmat_fn, mapping_fn,
 
     # TODO: Increase tolerance for ntl9
     # Use TVD of 0.4 for tmat
-    if errorval < 0.1:
+    if errorval < 0.2:
         write_convergence(round_i)
 
 

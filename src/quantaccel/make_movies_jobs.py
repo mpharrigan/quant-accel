@@ -67,6 +67,7 @@ def make_jobs(param_locs_fn='../param_locs.dat',
     # Assign to data structure
     with open(param_locs_fn) as param_locs_f:
         for i, line in enumerate(param_locs_f):
+            line = line.strip()
             job_i = i // movies_per_job
             divvy_dat[job_i].append(line)
 
@@ -77,11 +78,13 @@ def make_jobs(param_locs_fn='../param_locs.dat',
         with open(cur_job_fn, 'w') as job_f:
             job_f.write(MOVIE_JOB.format(movie_type=movie_type, job_i=i))
 
+        dat_lines += ['']
         with open(param_locs_out_fn.format(job_i=i), 'w') as dat_f:
-            dat_f.writelines(dat_lines)
+            dat_f.write('\n'.join(dat_lines))
 
         submit_lines += [SUB_LINE.format(job_fn=cur_job_fn)]
 
+    submit_lines += ['']
     with open('submit.sh', 'w') as sub_f:
         sub_f.write('\n'.join(submit_lines))
 
@@ -103,6 +106,6 @@ def parse():
 
 
 if __name__ == "__main__":
-    make_jobs()
+    parse()
 
 

@@ -262,6 +262,7 @@ def create_configs_tmat():
     # TODO: What about beta?
 
     spts = [2 ** i for i in range(1, 5)]
+
     tprs = [1, 10, 100, 500, 1000]
     lagtimes = [1]
     configs = list(itertools.product(spts, tprs, lagtimes))
