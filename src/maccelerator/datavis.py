@@ -1,12 +1,13 @@
 """Helper functions for plotting and visualization from ipython notebook.
 """
 
-__author__ = 'harrigan'
 
+from __future__ import division
 from matplotlib import pyplot as plt
 import numpy as np
 from quantaccel import speedcalc as sc
 
+import math
 import logging
 
 log = logging.getLogger()
@@ -27,7 +28,9 @@ def convergence_plots(resobj, runcopy, name='pop', y_label='Pop TVD'):
     # Figure out number of plots
     n_configs = len(uniques)
     n_cols = 3
-    n_rows = (n_configs + 1) // n_cols
+    n_rows = int(math.ceil(n_configs / n_cols))
+
+    log.info("Making %d in %d rows of %d cols", n_configs, n_rows, n_cols)
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 4 * n_rows))
     for r in resobj.get_runcopy(runcopy, name):
