@@ -267,6 +267,16 @@ def create_configs_tmat():
     lagtimes = [1]
     configs = list(itertools.product(spts, tprs, lagtimes))
 
+    # Add some for tpr = 10
+    configs += [
+        (2**6, 10, 1),
+        (2**7, 10, 1),
+        (2**6, 1, 1),
+        (2**7, 1, 1),
+        (2**8, 1, 1),
+        (2**9, 1, 1)
+    ]
+
     return configs
 
 
