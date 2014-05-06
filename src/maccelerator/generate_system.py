@@ -95,12 +95,8 @@ def create_file_structure(proj_dir, seed_structures):
 
     # Make starting structures
     os.mkdir(os.path.join(proj_dir, 'sstates'))
-    shutil.copy(
-        seed_structures,
-        os.path.join(
-            proj_dir,
-            'sstates',
-            'round-0.h5'))
+    shutil.copy(seed_structures,
+                os.path.join(proj_dir, 'sstates', 'round-0.h5'))
 
     # Make jobs and trajs dir
     os.mkdir(os.path.join(proj_dir, 'jobs'))
@@ -269,12 +265,12 @@ def create_configs_tmat():
 
     # Add some for tpr = 10
     configs += [
-        (2**6, 10, 1),
-        (2**7, 10, 1),
-        (2**6, 1, 1),
-        (2**7, 1, 1),
-        (2**8, 1, 1),
-        (2**9, 1, 1)
+        (2 ** 6, 10, 1),
+        (2 ** 7, 10, 1),
+        (2 ** 6, 1, 1),
+        (2 ** 7, 1, 1),
+        (2 ** 8, 1, 1),
+        (2 ** 9, 1, 1)
     ]
 
     return configs
@@ -315,7 +311,14 @@ def write_combi_jobs(runcopy, configs, system_type, overwrite=False):
         args.n_postconverge = 10 if spt < 10104 else 2
         args.how = 'rnew'
         args.version = 7
-        args.seed_structures = 'seed_structures.h5'
+
+        # TODO: A hack to do the right seed structures for tmat
+        if os.path.exists('seed_structures/'):
+            args.seed_structures = 'seed_structures/seed_structures-%d.h5' % runcopy
+        else:
+            args.seed_structures = 'seed_structures.h5'
+
+
         args.system_type = system_type
 
         proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))
