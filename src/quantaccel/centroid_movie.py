@@ -386,16 +386,23 @@ def scatter(est_plot, theory_plot, param_str, do_size):
     """Scatter plot centroids where size and color are based on population.
     """
     if do_size:
-        est_s = 2000 * est_plot[2]
-        theory_s = 2000 * theory_plot[2]
-        norm = Normalize(vmin=0)
+        # Color by energies
+        est_plot[2] = -np.log(est_plot[2])
+        theory_plot[2] = -np.log(theory_plot[2])
+
+        # Scale by inverse energies and adjust scale by log(number of points)
+        inv_scale = np.log(len(est_plot[0])) * 1e-3
+        est_s = 1.0 / (inv_scale * est_plot[2])
+        theory_s = 1.0 / (inv_scale * theory_plot[2])
+
+        # Somehow, matplotlib doesn't care about the negative infinities
+        # in the colors
+        norm = None
     else:
         est_s = 100
         theory_s = 100
         extent = max(np.max(est_plot[2]), -np.min(est_plot[2]))
         norm = Normalize(vmin=-extent, vmax=extent)
-
-    # import pdb; pdb.set_trace()
 
     # Make a scatter
     pp.subplot(121)

@@ -112,7 +112,7 @@ def simulate_tmat(args):
     sstate_fn, traj_out_fn = get_filenames(args)
 
     # Load stuff
-    sim = tmat_simulation.TMatSimulator(args.tmat_fn)
+    sim = tmat_simulation.TMatSimulator(args.tmat_fn, get_eigen=False)
     sstate_traj = io.loadh(sstate_fn, 'arr_0')
 
     # Pick out the nth frame, loop around

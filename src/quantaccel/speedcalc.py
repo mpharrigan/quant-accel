@@ -400,6 +400,7 @@ PRETTY_NAMES = {
     'lt': 'Lagtime',
     'adaptive': 'Adaptive',
     'rounds': '# Adaptive Rounds',
+    'time': 'Time',
     None: 'Missing label'
 }
 
@@ -470,7 +471,6 @@ class FitResult(object):
         self.fit_time = None
         self.dat_time = dat_time_calc(self.x, self.y)
         self.key = key
-
 
 
 class TmatFitResult(FitResult):
