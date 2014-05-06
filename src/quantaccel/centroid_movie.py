@@ -374,8 +374,8 @@ def scatter(est_plot, theory_plot, param_str, do_size):
         est_plot[2] = -np.log(est_plot[2])
         theory_plot[2] = -np.log(theory_plot[2])
 
-        # Scale by inverse energies
-        inv_scale = 0.05
+        # Scale by inverse energies and adjust scale by log(number of points)
+        inv_scale = np.log(len(est_plot[0])) * 1e-3
         est_s = 1.0 / (inv_scale * est_plot[2])
         theory_s = 1.0 / (inv_scale * theory_plot[2])
 
