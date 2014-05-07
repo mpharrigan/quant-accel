@@ -32,6 +32,10 @@ def do(round_i, how):
 
     lag_time = 1
 
+    for traj in trajs:
+        if len(traj) <= 0:
+            return
+
     # Get counts
     counts = msml.get_count_matrix_from_assignments(np.array(trajs),
                                                     lag_time=lag_time)
