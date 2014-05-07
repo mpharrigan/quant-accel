@@ -97,7 +97,7 @@ def parse():
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--basedir',
                              help="Directory is relative to this",
-                             default="../")
+                             default="./")
 
     sp = parser.add_subparsers()
     setup_p = sp.add_parser('setup',
