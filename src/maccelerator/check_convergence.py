@@ -13,6 +13,17 @@ import os
 TMAT_CENTROIDS = "../../spring_layout_centroids.npy"
 PRECOMPUTED_EIGEN = "../../calc_eq.npy"
 
+class ConvergenceChecker(object):
+    pass
+
+class PopulationProjectionTVD(ConvergenceChecker):
+    pass
+
+
+class PopulationCentroidTVD(ConvergenceChecker):
+    pass
+
+
 
 def main(args):
     """Take argparse args and call the function."""
@@ -83,24 +94,3 @@ def check_convergence_tmat(round_i, centroids_fn, tmat_fn, mapping_fn,
         write_convergence(round_i)
 
 
-def parse():
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Check the convergence of an msm.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-    parser.add_argument('system_type', choices=['muller', 'tmat'])
-
-    parser.add_argument('round_i', type=int,
-                        help="""The round to check convergence.""")
-    parser.add_argument('how',
-                        choices=['rnew'])
-    parser.add_argument('version',
-                        help="""Look for mk{version}""", type=int)
-
-    args = parser.parse_args()
-    main(args)
-
-
-if __name__ == "__main__":
-    parse()

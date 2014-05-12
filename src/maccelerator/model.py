@@ -14,68 +14,73 @@ import numpy as np
 import os
 
 
-def cluster_model(trajs, lagtime, distance_cutoff):
-    """Get counts from euclidean kmeans clustering
+class Modeller(object):
+    def adapt(self, counts, n_tpr, found_states=None):
+        """From a counts matrix, pick the best states from which to start."""
 
-    """
-
-    metric = toy.Euclidean2d()
-
-    log.info("Starting cluster")
-    hkm = clustering.KMeans(metric, trajs, distance_cutoff=distance_cutoff)
-    assignments = clustering.split(hkm._assignments, hkm._traj_lengths)
-    assignments = np.array(assignments)
-
-    counts = msml.get_count_matrix_from_assignments(
-        assignments,
-        lag_time=lagtime)
-
-    centroids = hkm._centroids
-    centroids_t = md.Trajectory(centroids[:, np.newaxis, :], trajs[0].topology)
-
-    return counts, centroids_t
+        counts_per_state = np.asarray(counts.sum(axis=1)).flatten()
+        if found_states is not None:
+            counts_per_state = counts_per_state[found_states]
+        states_to_sample = np.argsort(counts_per_state)
+        if len(states_to_sample) > n_tpr:
+            states_to_sample = states_to_sample[:n_tpr]
+        log.info('Generating %d new starting structures.',
+                 len(states_to_sample))
+        return states_to_sample
 
 
-def tmat_model(trajs, lagtime):
-    """Get counts from a tmat simulation
+class ClusterModeller(Modeller):
+    def cluster_model(self, trajs, lagtime, distance_cutoff):
+        """Get counts from euclidean kmeans clustering
 
-    We take care of only returning states which we have 'discovered'
+        """
 
-    :param trajs: List of ndarray
-    :param lagtime: Lagtime
-    :return: counts: counts of states we have discovered.
-             found_states: actual indices of the states, used for translating
-             back into absolute state indices
-    """
+        metric = toy.Euclidean2d()
 
-    # Don't need n_states, we won't be sampling from anything higher than
-    # that anyways
-    counts = msml.get_count_matrix_from_assignments(np.array(trajs),
-                                                    lag_time=lagtime,
-                                                    sliding_window=True)
+        log.info("Starting cluster")
+        hkm = clustering.KMeans(metric, trajs, distance_cutoff=distance_cutoff)
+        assignments = clustering.split(hkm._assignments, hkm._traj_lengths)
+        assignments = np.array(assignments)
 
-    # Get found states
-    # Those which have at least one transition to or from
-    # Note: We can't just sample from states with zero 'from' counts
-    # This would neglect states visited at the ends of trajectories.
-    # These are probably pretty important for adaptive sampling
-    countscoo = counts.tocoo()
-    found_states = np.hstack((countscoo.row, countscoo.col))
-    found_states = np.unique(found_states)
-    return counts, found_states
+        counts = msml.get_count_matrix_from_assignments(
+            assignments,
+            lag_time=lagtime)
+
+        centroids = hkm._centroids
+        centroids_t = md.Trajectory(centroids[:, np.newaxis, :],
+                                    trajs[0].topology)
+
+        return counts, centroids_t
 
 
-def adapt(counts, n_tpr, found_states=None):
-    """From a counts matrix, pick the best states from which to start."""
+class TMatModeller(Modeller):
+    def tmat_model(self, trajs, lagtime):
+        """Get counts from a tmat simulation
 
-    counts_per_state = np.asarray(counts.sum(axis=1)).flatten()
-    if found_states is not None:
-        counts_per_state = counts_per_state[found_states]
-    states_to_sample = np.argsort(counts_per_state)
-    if len(states_to_sample) > n_tpr:
-        states_to_sample = states_to_sample[:n_tpr]
-    log.info('Generating %d new starting structures.', len(states_to_sample))
-    return states_to_sample
+        We take care of only returning states which we have 'discovered'
+
+        :param trajs: List of ndarray
+        :param lagtime: Lagtime
+        :return: counts: counts of states we have discovered.
+                 found_states: actual indices of the states, used for translating
+                 back into absolute state indices
+        """
+
+        # Don't need n_states, we won't be sampling from anything higher than
+        # that anyways
+        counts = msml.get_count_matrix_from_assignments(np.array(trajs),
+                                                        lag_time=lagtime,
+                                                        sliding_window=True)
+
+        # Get found states
+        # Those which have at least one transition to or from
+        # Note: We can't just sample from states with zero 'from' counts
+        # This would neglect states visited at the ends of trajectories.
+        # These are probably pretty important for adaptive sampling
+        countscoo = counts.tocoo()
+        found_states = np.hstack((countscoo.row, countscoo.col))
+        found_states = np.unique(found_states)
+        return counts, found_states
 
 
 def load_muller(in_fn):
