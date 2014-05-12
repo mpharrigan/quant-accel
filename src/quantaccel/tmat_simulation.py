@@ -445,8 +445,8 @@ class Accelerator(object):
 
             # Simulate
             for traj_i in range(n_tpr):
-                traj = self.sim.simulate(number_of_steps=n_spt,
-                                         state_i=starting_states[traj_i])
+                traj = self.sim.simulate(n_steps=n_spt,
+                                         sstate=starting_states[traj_i])
                 self.msm.add(traj)
 
             # Build MSM

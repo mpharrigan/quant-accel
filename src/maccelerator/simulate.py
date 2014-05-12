@@ -26,20 +26,18 @@ class Simulator(object):
     def __init__(self):
         pass
 
-    def simulate(self, n_steps, traj_out_fn):
+    def simulate(self, sstate, n_steps):
         raise NotImplementedError
 
-class OpenMMSimulator(Simulator):
 
-    def __init__(self, sstate, report_stride):
+class OpenMMSimulator(Simulator):
+    def __init__(self, report_stride):
         super(OpenMMSimulator, self).__init__()
 
-        self.sstate = sstate
         self.report_stride = report_stride
 
         self.system = None
         self.integrator = None
-
 
 
     def deserialize(self, system_xml, integrator_xml):
@@ -69,9 +67,8 @@ class OpenMMSimulator(Simulator):
         self.integrator = integrator
 
 
-
-
-    def simulate(self, n_steps, traj_out_fn, minimize, random_initial_velocities):
+    def simulate(self, sstate, n_steps, minimize,
+                 random_initial_velocities):
         """Simulate."""
 
         log.debug('Setting up simulation...')
@@ -126,29 +123,28 @@ class OpenMMSimulator(Simulator):
 
 
 class TMatSimulator(Simulator):
-
     @property
     def n_states(self):
         """Number of states in the model."""
         return self.t_matrix.shape[0]
 
-    def __init__(self, tmat_fn):
+    def __init__(self, t_matrix):
         # Load transition matrix
-        t_matrix = scipy.io.mmread(tmat_fn)
-        t_matrix = t_matrix.tocsr()
-        self.t_matrix = t_matrix
+        #        t_matrix = scipy.io.mmread(tmat_fn)
+        #        t_matrix = t_matrix.tocsr()
 
+        self.t_matrix = t_matrix
         self.p = None
         self.actual_it = None
 
-        log.info('Loaded transition matrix of shape %s', self.t_matrix.shape)
+        log.info('Using transition matrix of shape %s', self.t_matrix.shape)
 
 
-    def simulate(self, state_i, number_of_steps, out_fn=None):
+    def simulate(self, sstate, n_steps, out_fn=None):
         """We run some KMC dynamics, and then send back the results.
 
-        :param state_i: Initial state index
-        :param number_of_steps: Length of trajectory to return. Note:
+        :param sstate: Initial state index
+        :param n_steps: Length of trajectory to return. Note:
                         We actually take one fewer *step* because we include
                         the initial state in our trajectory
         :param out_fn: Optionally write out a trajectory in HDF5 format
@@ -156,25 +152,25 @@ class TMatSimulator(Simulator):
         log.debug('Starting TMat simulation...')
 
         t_matrix = self.t_matrix
-        state_out = np.zeros(number_of_steps, dtype=int)
+        state_out = np.zeros(n_steps, dtype=int)
 
         # Set first state to initial state
-        state_out[0] = state_i
+        state_out[0] = sstate
 
-        for i in xrange(1, number_of_steps):
+        for i in xrange(1, n_steps):
             # Get stuff from our sparse matrix
 
             csr_slicer = slice(
-                t_matrix.indptr[state_i],
-                t_matrix.indptr[state_i + 1])
+                t_matrix.indptr[sstate],
+                t_matrix.indptr[sstate + 1])
             probs = t_matrix.data[csr_slicer]
             colinds = t_matrix.indices[csr_slicer]
 
             # Find our new state and translate to actual indices
             prob_i = np.sum(np.cumsum(probs) < np.random.rand())
-            state_i = colinds[prob_i]
+            sstate = colinds[prob_i]
 
-            state_out[i] = state_i
+            state_out[i] = sstate
 
         # Write
         if out_fn is not None:
@@ -182,8 +178,8 @@ class TMatSimulator(Simulator):
         log.debug('Finished TMat simulation.')
         return state_out
 
-class TMatSimulator(Simulator):
 
+class OtherTMatSimulator(Simulator):
     def simulate_tmat(self, args):
         """Load up relevant files and simulate tmat using quantaccel.TMatSimulator.
         """
@@ -199,7 +195,8 @@ class TMatSimulator(Simulator):
         sstate = sstate_traj[args.traj % len(sstate_traj)]
 
         # Do it
-        sim.simulate(state_i=sstate, number_of_steps=args.n_spt, out_fn=traj_out_fn)
+        sim.simulate(sstate=sstate, n_steps=args.n_spt,
+                     out_fn=traj_out_fn)
 
 
 def get_filenames(args):
@@ -207,7 +204,6 @@ def get_filenames(args):
     traj_out_fn = os.path.join('trajs', 'round-%d' % args.round,
                                'traj%d.h5' % args.traj)
     return sstate_fn, traj_out_fn
-
 
 
 def sanity_check(simulation):

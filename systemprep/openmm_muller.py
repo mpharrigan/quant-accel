@@ -37,6 +37,9 @@ def generate(sys_fn, int_fn):
         f.write(openmm.XmlSerializer.serialize(integrator))
 
 
+    # TODO: Build starting state
+
+
 def parse():
     parser = argparse.ArgumentParser(description='Perform accelerated sampling',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
