@@ -5,7 +5,6 @@ Created on Mar 5, 2014
 """
 
 from msmbuilder import MSMLib as msml, clustering
-from quantaccel import toy
 
 import logging as log
 import mdtraj as md
@@ -27,6 +26,20 @@ class Modeller(object):
         log.info('Generating %d new starting structures.',
                  len(states_to_sample))
         return states_to_sample
+
+
+    def model(self):
+        #TODO: Implement
+        pass
+
+    def seed_state(self):
+        """Get an initial state."""
+        #TODO: Implement
+        pass
+
+    def check_convergence(self):
+        pass
+
 
 
 class ClusterModeller(Modeller):

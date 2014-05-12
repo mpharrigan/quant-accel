@@ -74,8 +74,8 @@ class OpenMMSimulator(Simulator):
         log.debug('Setting up simulation...')
 
         platform = None
-        simulation = Simulation(sstate.topology.to_openmm(), system, integrator,
-                                platform)
+        simulation = Simulation(sstate.topology.to_openmm(), self.system,
+                                self.integrator, platform)
         simulation.context.setPositions(sstate.openmm_positions(0))
         sanity_check(simulation)
 
@@ -88,8 +88,7 @@ class OpenMMSimulator(Simulator):
                 temp = simulation.integrator.getTemperature()
                 simulation.context.setVelocitiesToTemperature(temp)
             except AttributeError:
-                print "I don't know what temperature to use!!"
-                raise
+                raise ValueError("I don't know what temperature to use")
 
         log.debug('adding reporters...')
         add_reporters(simulation, traj_out_fn, report_stride, n_spt)
@@ -157,7 +156,7 @@ class TMatSimulator(Simulator):
         # Set first state to initial state
         state_out[0] = sstate
 
-        for i in xrange(1, n_steps):
+        for i in range(1, n_steps):
             # Get stuff from our sparse matrix
 
             csr_slicer = slice(
@@ -295,9 +294,8 @@ def random_seed():
     import hashlib
 
     plt = ''.join(platform.uname())
-    seed = int(
-        hashlib.md5(
-            '%s%s%s' %
-            (plt, os.getpid(), time.time())).hexdigest(), 16)
+    seed_str = '%s%s%s' % (plt, os.getpid(), time.time())
+    seed_str = seed_str.encode('utf-8')
+    seed = int(hashlib.md5(seed_str).hexdigest(), 16)
 
     return seed % np.iinfo(np.int32).max

@@ -1,6 +1,8 @@
 
-from simulate import TMatSimulator, OpenMMSimulator
-import configuration
+from .simulate import TMatSimulator, OpenMMSimulator
+from .model import ClusterModeller, TMatModeller
+from . import configuration
 
-
-__all__=['TMatSimulator', 'OpenMMSimulator', 'configuration']
+__all__=['TMatSimulator', 'OpenMMSimulator',
+         'ClusterModeller', 'TMatModeller',
+         'configuration']

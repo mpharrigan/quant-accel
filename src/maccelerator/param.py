@@ -7,5 +7,6 @@ class AdaptiveParams(object):
         self.spt
         self.adapt_lt
         self.build_lt
+        self.post_converge
 
         self.run_id
