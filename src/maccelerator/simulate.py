@@ -14,6 +14,7 @@ from mdtraj.reporters import HDF5Reporter
 from simtk.openmm import XmlSerializer, Platform
 from simtk.openmm.app import Simulation
 from simtk.openmm.app import StateDataReporter
+from simtk import openmm
 
 import logging as log
 import numpy as np
@@ -39,6 +40,19 @@ class OpenMMSimulator(Simulator):
         self.system = None
         self.integrator = None
 
+        self.system, self.integrator = self.generate_sysint()
+
+
+    def generate_sysint(self, mass, temperature, friction, timestep):
+        """Template for generating openmm files."""
+
+        # Prepare the system
+        system = openmm.System()
+
+        # And integrator
+        integrator = openmm.LangevinIntegrator(temperature, friction, timestep)
+
+        return system, integrator
 
     def deserialize(self, system_xml, integrator_xml):
         """Deserialize system and integrators.
@@ -91,11 +105,15 @@ class OpenMMSimulator(Simulator):
                 raise ValueError("I don't know what temperature to use")
 
         log.debug('adding reporters...')
-        add_reporters(simulation, traj_out_fn, report_stride, n_spt)
+        #TODO: Deal with out filenames
+        import tempfile
+
+        traj_out_fn = os.path.join(tempfile.mkdtemp(), 'traj.h5')
+        add_reporters(simulation, traj_out_fn, self.report_stride, n_steps)
 
         # run dynamics!
         log.debug('Starting dynamics')
-        simulation.step(self.n_spt)
+        simulation.step(n_steps * self.report_stride)
 
         for reporter in simulation.reporters:
             # explicitly delete the reporters to close file handles
@@ -225,14 +243,11 @@ def sanity_check(simulation):
 class CallbackReporter(StateDataReporter):
     """An openmmm reporter subclass to send report to a callback function."""
 
-    def __init__(
-            self, reportCallback, reportInterval, total_steps=None, **kwargs):
-        super(
-            CallbackReporter,
-            self).__init__(
-            os.devnull,
-            reportInterval,
-            **kwargs)
+    def __init__(self, reportCallback, reportInterval, total_steps=None,
+                 **kwargs):
+
+        f = open(os.devnull, 'wb')
+        super().__init__(f, reportInterval, **kwargs)
 
         self.total_steps = total_steps
         self.reportCallback = reportCallback
@@ -270,7 +285,7 @@ def add_reporters(simulation, outfn, report_stride, n_spt):
                                          report_stride, step=True,
                                          potentialEnergy=True,
                                          temperature=True, time=True,
-                                         total_steps=n_spt)
+                                         total_steps=n_spt * report_stride)
 
     h5_reporter = HDF5Reporter(outfn, report_stride, coordinates=True,
                                time=True, cell=True, potentialEnergy=True,

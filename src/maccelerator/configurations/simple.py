@@ -11,12 +11,21 @@ class SimpleSimulator(Simulator):
     def __init__(self):
         super().__init__()
 
+    def simulate(self, sstate, n_steps):
+        return range(sstate, n_steps)
+
 
 class SimpleModeller(Modeller):
     def __init__(self):
         super().__init__()
 
+    def seed_state(self):
+        return 0
+
 
 class SimpleConfiguration(bc.Configuration):
     def __init__(self):
         super().__init__()
+
+        self.modeller = SimpleModeller()
+        self.simulator = SimpleSimulator()

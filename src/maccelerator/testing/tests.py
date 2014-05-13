@@ -12,11 +12,11 @@ class TestMullerSampling(unittest.TestCase):
         self.config = maccel.configuration.muller.MullerConfiguration()
 
     def test_sstate(self):
-        sstate = self.config.modeler.seed_state()
+        sstate = self.config.modeller.seed_state()
         np.testing.assert_array_equal(sstate.xyz, [[[0.5, 0.0, 0.0]]])
 
     def test_sampling_length(self):
-        sstate = self.config.modeler.seed_state()
+        sstate = self.config.modeller.seed_state()
 
         # TODO: This has to write to disk
         traj = self.config.simulator.simulate(sstate, 100)
@@ -26,11 +26,17 @@ class TestMullerSampling(unittest.TestCase):
 
 class TestSimple(unittest.TestCase):
     def setUp(self):
-        pass
+        self.config = maccel.configuration.simple.SimpleConfiguration()
+
+
+    def test_sstate(self):
+        sstate = self.config.modeller.seed_state()
+        self.assertEqual(sstate, 0)
 
 
     def test_sample(self):
-        pass
+        sstate = self.config.modeller.seed_state()
+        seq = self.config.simulator.simulate(sstate, 10)
 
 
 class TestTMatSampling(unittest.TestCase):
@@ -48,6 +54,5 @@ class TestTMatSampling(unittest.TestCase):
     def test_states(self):
         seq = self.simulator.simulate(sstate=0, n_steps=6)
         np.testing.assert_array_equal(seq, range(6))
-
 
 
