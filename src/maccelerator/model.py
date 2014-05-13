@@ -39,17 +39,14 @@ class SortCountsAdapter(Adapter):
 
 
 class Modeller(object):
-    def model(self):
-        #TODO: Implement
-        pass
+    def model(self, trajs):
+        raise NotImplementedError
 
     def seed_state(self):
-        """Get an initial state."""
-        #TODO: Implement
-        pass
+        raise NotImplementedError
 
     def check_convergence(self):
-        pass
+        raise NotImplementedError
 
 
 class ClusterModeller(Modeller):

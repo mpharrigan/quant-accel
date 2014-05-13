@@ -21,6 +21,13 @@ class SimpleSimulator(Simulator):
 class SimpleModeller(Modeller):
     def __init__(self):
         super().__init__()
+        self.trajs = []
+
+    def model(self, trajs):
+        self.trajs = trajs
+
+    def check_convergence(self):
+        return len(self.trajs) > 40
 
     def seed_state(self):
         return 0
@@ -32,8 +39,9 @@ class SimpleAdapter(Adapter):
         self.modeller = modeller
 
     def adapt(self, n_tpr):
-        counts = self.modeller.counts
-        return np.array([np.argmin(counts)] * n_tpr)
+        ret = np.array([np.max(t) for t in self.modeller.trajs])
+        assert len(ret) == n_tpr
+        return ret
 
 
 class SimpleParams(AdaptiveParams):
