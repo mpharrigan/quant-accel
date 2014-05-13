@@ -2,11 +2,20 @@
 
 
 class AdaptiveParams(object):
-    def __init__(self):
-        self.tpr
-        self.spt
-        self.adapt_lt
-        self.build_lt
-        self.post_converge
+    def __init__(self, spt, tpr, run_id):
+        self.tpr = tpr
+        self.spt = spt
+        self.run_id = run_id
 
-        self.run_id
+    @property
+    def post_converge(self):
+        raise NotImplementedError
+
+    @property
+    def adapt_lt(self):
+        raise NotImplementedError
+
+    @property
+    def build_lt(self):
+        raise NotImplementedError
+

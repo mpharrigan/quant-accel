@@ -5,6 +5,7 @@ but can be used for testing.
 from ..simulate import Simulator
 from ..model import Modeller
 from ..configuration import Configuration
+from ..param import AdaptiveParams
 
 
 class SimpleSimulator(Simulator):
@@ -21,6 +22,15 @@ class SimpleModeller(Modeller):
 
     def seed_state(self):
         return 0
+
+
+class SimpleParams(AdaptiveParams):
+    def __init__(self, spt, tpr):
+        super().__init__(spt, tpr, run_id=0)
+
+    @property
+    def post_converge(self):
+        return 5
 
 
 class SimpleConfiguration(Configuration):

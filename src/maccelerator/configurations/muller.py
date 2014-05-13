@@ -8,6 +8,7 @@ import numpy as np
 from ..simulate import OpenMMSimulator
 from ..model import ClusterModeller
 from ..configuration import OpenMMConfiguration
+from ..param import AdaptiveParams
 
 
 class MullerSimulator(OpenMMSimulator):
@@ -54,6 +55,10 @@ class MullerModeller(ClusterModeller):
 
         seed_state = md.Trajectory(xyz, top)
         return seed_state
+
+
+class MullerParams(AdaptiveParams):
+    pass
 
 
 class MullerConfiguration(OpenMMConfiguration):

@@ -9,7 +9,7 @@ import scipy.sparse
 
 class TestMullerSampling(unittest.TestCase):
     def setUp(self):
-        self.config = maccel.configuration.muller.MullerConfiguration()
+        self.config = maccel.MullerConfiguration()
 
     def test_sstate(self):
         sstate = self.config.modeller.seed_state()
@@ -26,7 +26,7 @@ class TestMullerSampling(unittest.TestCase):
 
 class TestSimple(unittest.TestCase):
     def setUp(self):
-        self.config = maccel.configuration.simple.SimpleConfiguration()
+        self.config = maccel.SimpleConfiguration()
 
 
     def test_sstate(self):
@@ -45,6 +45,7 @@ class TestTMatSampling(unittest.TestCase):
             np.diag(np.ones(5), 1)  # 6 state linear transition model
         )
 
+        # TODO: Don't test like this
         self.simulator = maccel.TMatSimulator(tmat)
 
     def test_length(self):
@@ -56,3 +57,11 @@ class TestTMatSampling(unittest.TestCase):
         np.testing.assert_array_equal(seq, range(6))
 
 
+class TestRun(unittest.TestCase):
+    def setUp(self):
+        self.configuration = maccel.SimpleConfiguration()
+        self.param = maccel.SimpleParams(spt=10, tpr=10)
+        self.run = maccel.MAccelRun(self.configuration, self.param)
+
+    def test_run(self):
+        self.run.run()
