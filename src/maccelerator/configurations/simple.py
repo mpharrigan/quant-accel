@@ -14,8 +14,11 @@ class SimpleSimulator(Simulator):
     def __init__(self):
         super().__init__()
 
-    def simulate(self, sstate, n_steps):
-        return range(sstate, n_steps)
+    def simulate(self, sstate, n_steps, traj_out_fn):
+        traj = range(sstate, n_steps)
+        with open(traj_out_fn, 'w') as f:
+            np.save(f, traj)
+        return traj
 
 
 class SimpleModeller(Modeller):
@@ -23,8 +26,11 @@ class SimpleModeller(Modeller):
         super().__init__()
         self.trajs = []
 
-    def model(self, trajs):
-        self.trajs = trajs
+    def model(self, traj_fns):
+        self.trajs = []
+        for tfn in traj_fns:
+            with open(tfn) as f:
+                self.trajs += [np.load(f)]
 
     def check_convergence(self):
         return len(self.trajs) > 40

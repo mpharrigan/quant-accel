@@ -26,7 +26,7 @@ class Simulator(object):
     def __init__(self):
         pass
 
-    def simulate(self, sstate, n_steps):
+    def simulate(self, sstate, n_steps, traj_out_fn):
         raise NotImplementedError
 
 
@@ -80,7 +80,7 @@ class OpenMMSimulator(Simulator):
         self.integrator = integrator
 
 
-    def simulate(self, sstate, n_steps, minimize,
+    def simulate(self, sstate, n_steps, traj_out_fn, minimize,
                  random_initial_velocities):
         """Simulate."""
 
@@ -104,10 +104,6 @@ class OpenMMSimulator(Simulator):
                 raise ValueError("I don't know what temperature to use")
 
         log.debug('adding reporters...')
-        #TODO: Deal with out filenames
-        import tempfile
-
-        traj_out_fn = os.path.join(tempfile.mkdtemp(), 'traj.h5')
         add_reporters(simulation, traj_out_fn, self.report_stride, n_steps)
 
         # run dynamics!
@@ -120,6 +116,7 @@ class OpenMMSimulator(Simulator):
 
 
     def simulate_muller(self, args):
+        #TODO: This code should probably be used somewhere
         """Load up relevant files and simulate muller using openmm."""
 
         # Prepare filenames
@@ -156,14 +153,14 @@ class TMatSimulator(Simulator):
         log.info('Using transition matrix of shape %s', self.t_matrix.shape)
 
 
-    def simulate(self, sstate, n_steps, out_fn=None):
+    def simulate(self, sstate, n_steps, traj_out_fn):
         """We run some KMC dynamics, and then send back the results.
 
         :param sstate: Initial state index
         :param n_steps: Length of trajectory to return. Note:
                         We actually take one fewer *step* because we include
                         the initial state in our trajectory
-        :param out_fn: Optionally write out a trajectory in HDF5 format
+        :param traj_out_fn: Optionally write out a trajectory in HDF5 format
         """
         log.debug('Starting TMat simulation...')
 
@@ -189,13 +186,14 @@ class TMatSimulator(Simulator):
             state_out[i] = sstate
 
         # Write
-        if out_fn is not None:
-            io.saveh(out_fn, state_out)
+        if traj_out_fn is not None:
+            io.saveh(traj_out_fn, state_out)
         log.debug('Finished TMat simulation.')
         return state_out
 
 
 class OtherTMatSimulator(Simulator):
+    #TODO Remove
     def simulate_tmat(self, args):
         """Load up relevant files and simulate tmat using quantaccel.TMatSimulator.
         """
@@ -212,7 +210,7 @@ class OtherTMatSimulator(Simulator):
 
         # Do it
         sim.simulate(sstate=sstate, n_steps=args.n_spt,
-                     out_fn=traj_out_fn)
+                     traj_out_fn=traj_out_fn)
 
 
 def get_filenames(args):

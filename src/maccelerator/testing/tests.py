@@ -5,6 +5,7 @@ import unittest
 import maccelerator as maccel
 import numpy as np
 import scipy.sparse
+import tempfile
 
 
 class TestMullerSampling(unittest.TestCase):
@@ -59,9 +60,11 @@ class TestTMatSampling(unittest.TestCase):
 
 class TestRun(unittest.TestCase):
     def setUp(self):
-        self.configuration = maccel.SimpleConfiguration()
-        self.param = maccel.SimpleParams(spt=10, tpr=10)
-        self.run = maccel.MAccelRun(self.configuration, self.param)
+        configuration = maccel.SimpleConfiguration()
+        param = maccel.SimpleParams(spt=10, tpr=10)
+        rundir = tempfile.mkdtemp()
+
+        self.run = maccel.MAccelRun(configuration, param, rundir)
 
     def test_run(self):
         self.run.run()

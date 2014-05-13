@@ -39,7 +39,7 @@ class SortCountsAdapter(Adapter):
 
 
 class Modeller(object):
-    def model(self, trajs):
+    def model(self, traj_fns):
         raise NotImplementedError
 
     def seed_state(self):

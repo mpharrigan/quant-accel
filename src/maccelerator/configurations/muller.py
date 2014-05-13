@@ -15,8 +15,8 @@ class MullerSimulator(OpenMMSimulator):
     def __init__(self):
         super().__init__(report_stride=10)
 
-    def simulate(self, sstate, n_steps):
-        super().simulate(sstate, n_steps, minimize=False,
+    def simulate(self, sstate, n_steps, traj_out_fn):
+        super().simulate(sstate, n_steps, traj_out_fn, minimize=False,
                          random_initial_velocities=True)
 
     def generate_sysint(self):
