@@ -1,5 +1,5 @@
 from ..simulate import TMatSimulator
-from .base_classes import TMatConfiguration
+from ..configuration import TMatConfiguration
 
 
 class AlanineSimulator(TMatSimulator):

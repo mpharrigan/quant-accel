@@ -1,7 +1,6 @@
 """Configure types of runs."""
 
-from simtk import openmm, unit
-import logging as log
+from simtk import openmm
 
 
 class Configuration(object):
@@ -15,7 +14,6 @@ class Configuration(object):
 
 
 class OpenMMConfiguration(Configuration):
-
     def serialize(self, system, integrator, out_sys_fn, out_int_fn):
         #TODO: This code should probably go elsewhere
 

@@ -4,13 +4,14 @@ Created on Mar 5, 2014
 @author: harrigan
 """
 
-from msmbuilder import MSMLib as msml, clustering
-
 import logging as log
-import mdtraj as md
-from mdtraj import io
-import numpy as np
 import os
+
+from msmbuilder import MSMLib as msml, clustering
+import mdtraj as md
+import numpy as np
+
+from mdtraj import io
 
 
 class Modeller(object):
@@ -39,7 +40,6 @@ class Modeller(object):
 
     def check_convergence(self):
         pass
-
 
 
 class ClusterModeller(Modeller):

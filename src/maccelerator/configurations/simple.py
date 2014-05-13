@@ -2,9 +2,9 @@
 but can be used for testing.
 """
 
-from . import base_classes as bc
 from ..simulate import Simulator
 from ..model import Modeller
+from ..configuration import Configuration
 
 
 class SimpleSimulator(Simulator):
@@ -23,7 +23,7 @@ class SimpleModeller(Modeller):
         return 0
 
 
-class SimpleConfiguration(bc.Configuration):
+class SimpleConfiguration(Configuration):
     def __init__(self):
         super().__init__()
 

@@ -1,7 +1,7 @@
 __author__ = 'harrigan'
 
-
 from .run import MAccelRun
+
 
 class MAccelGrid(object):
     """Run many parameter configurations."""

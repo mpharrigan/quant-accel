@@ -1,8 +1,8 @@
 __author__ = 'harrigan'
 
 import unittest
+
 import maccelerator as maccel
-from maccelerator.testing.utils import get_fn
 import numpy as np
 import scipy.sparse
 

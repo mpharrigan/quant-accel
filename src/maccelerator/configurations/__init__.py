@@ -1,4 +1,4 @@
-from . import base_classes, alanine, muller, simple
+from . import alanine, muller, simple
 
 
-__all__ = ['base_classes', 'alanine', 'muller', 'simple']
+__all__ = ['alanine', 'muller', 'simple']

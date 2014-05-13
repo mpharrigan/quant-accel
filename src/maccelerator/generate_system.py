@@ -318,7 +318,6 @@ def write_combi_jobs(runcopy, configs, system_type, overwrite=False):
         else:
             args.seed_structures = 'seed_structures.h5'
 
-
         args.system_type = system_type
 
         proj_dir = 'lt-{lagtime}_spt-{n_spt}_tpr-{n_tpr}'.format(**vars(args))

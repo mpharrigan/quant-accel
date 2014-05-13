@@ -9,18 +9,17 @@ Code copied from rmcgibbo
 '''
 
 import os
+import logging as log
 
 from mdtraj.reporters import HDF5Reporter
-from simtk.openmm import XmlSerializer, Platform
+from simtk.openmm import XmlSerializer
 from simtk.openmm.app import Simulation
 from simtk.openmm.app import StateDataReporter
 from simtk import openmm
-
-import logging as log
 import numpy as np
 import mdtraj as md
+
 from mdtraj import io
-import scipy.io
 
 
 class Simulator(object):

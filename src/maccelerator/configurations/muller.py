@@ -7,7 +7,7 @@ import numpy as np
 
 from ..simulate import OpenMMSimulator
 from ..model import ClusterModeller
-from .base_classes import OpenMMConfiguration
+from ..configuration import OpenMMConfiguration
 
 
 class MullerSimulator(OpenMMSimulator):
@@ -25,8 +25,9 @@ class MullerSimulator(OpenMMSimulator):
         temperature = 750 * unit.kelvin
         friction = 100 / unit.picosecond
         timestep = 10.0 * unit.femtosecond
-        system, integrator = super().generate_sysint(mass, temperature, friction,
-                                              timestep)
+        system, integrator = super().generate_sysint(mass, temperature,
+                                                     friction,
+                                                     timestep)
 
         # Prepare the system
         mullerforce = muller.MullerForce()
@@ -35,6 +36,7 @@ class MullerSimulator(OpenMMSimulator):
         system.addForce(mullerforce)
 
         return system, integrator
+
 
 class MullerModeller(ClusterModeller):
     def __init__(self):

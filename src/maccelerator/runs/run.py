@@ -1,5 +1,3 @@
-
-
 class MAccelRun(object):
     """Object for performing an accelerated run
 
@@ -7,6 +5,7 @@ class MAccelRun(object):
     :param params: The parameters (which are being varied across runs)
         for this specific run.
     """
+
     def __init__(self, configuration, params):
         self.config = configuration
         self.params = params
