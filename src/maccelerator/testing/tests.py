@@ -1,11 +1,12 @@
 __author__ = 'harrigan'
 
 import unittest
+import tempfile
 
-import maccelerator as maccel
 import numpy as np
 import scipy.sparse
-import tempfile
+
+import maccelerator as maccel
 
 
 class TestMullerSampling(unittest.TestCase):
@@ -14,7 +15,8 @@ class TestMullerSampling(unittest.TestCase):
 
     def test_sstate(self):
         sstate = self.config.modeller.seed_state()
-        np.testing.assert_array_equal(sstate.xyz, [[[0.5, 0.0, 0.0]]])
+        for ss in sstate:
+            np.testing.assert_array_equal(ss.xyz, [[[0.5, 0.0, 0.0]]])
 
     def test_sampling_length(self):
         sstate = self.config.modeller.seed_state()
@@ -31,13 +33,18 @@ class TestSimple(unittest.TestCase):
 
 
     def test_sstate(self):
-        sstate = self.config.modeller.seed_state()
-        self.assertEqual(sstate, 0)
+        sstate = self.config.modeller.seed_state(8)
+
+        self.assertEqual(len(sstate), 8)
+
+        for ss in sstate:
+            self.assertEqual(ss, 0)
 
 
     def test_sample(self):
-        sstate = self.config.modeller.seed_state()
-        seq = self.config.simulator.simulate(sstate, 10)
+        sstate = self.config.modeller.seed_state(1)
+        seq = self.config.simulator.simulate(sstate[0], 10, traj_out_fn=None)
+        np.testing.assert_array_equal(seq, range(10))
 
 
 class TestTMatSampling(unittest.TestCase):
@@ -68,3 +75,5 @@ class TestRun(unittest.TestCase):
 
     def test_run(self):
         self.run.run()
+
+        self.assertEqual(len(self.run.trajs), 9)

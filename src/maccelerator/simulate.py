@@ -29,6 +29,10 @@ class Simulator(object):
     def simulate(self, sstate, n_steps, traj_out_fn):
         raise NotImplementedError
 
+    @property
+    def trajfn(self):
+        return "traj-{traj_i}"
+
 
 class OpenMMSimulator(Simulator):
     def __init__(self, report_stride):

@@ -7,7 +7,6 @@ TRAJ = 'trajs'
 SSTATE = 'sstates'
 MSMS = 'msms'
 TRAJROUND = 'round-{round_i}'
-TRAJFN = 'traj-{traj_i}'
 
 
 class MAccelRun(object):
@@ -24,6 +23,9 @@ class MAccelRun(object):
         self.rundir = rundir
         self.trajs = defaultdict(list)
 
+        # Template for trajectory names
+        self.trajfn = configuration.simulator.trajfn
+
     def run(self):
 
         # Set up directories
@@ -32,19 +34,18 @@ class MAccelRun(object):
         sstate_dir = pjoin(rundir, SSTATE)
         msms_dir = pjoin(rundir, MSMS)
         try:
-            os.mkdir(rundir)
             os.mkdir(traj_dir)
             os.mkdir(sstate_dir)
             os.mkdir(msms_dir)
-        except OSError:
-            log.warning('Skipping %s', rundir)
+        except OSError as e:
+            log.warning('Skipping %s (%s)', rundir, e)
             return False
 
         # Initialize variables for the loop
         converged = False
         round_i = 0
         rounds_left = self.params.post_converge
-        sstate = self.config.modeller.seed_state()
+        sstate = self.config.modeller.seed_state(self.params.tpr)
 
         while True:
             # Make directory for trajectories for this round
@@ -52,9 +53,9 @@ class MAccelRun(object):
             os.mkdir(trajround_dir)
 
             for i in range(self.params.tpr):
-                traj_out_fn = pjoin(trajround_dir, TRAJFN.format(traj_i=i))
-                self.trajsj[round_i].append(traj_out_fn)
-                self.config.simulator.simulate(sstate, self.params.spt,
+                traj_out_fn = pjoin(trajround_dir, self.trajfn.format(traj_i=i))
+                self.trajs[round_i].append(traj_out_fn)
+                self.config.simulator.simulate(sstate[i], self.params.spt,
                                                traj_out_fn)
 
             # Model with all trajctories from this round and previous

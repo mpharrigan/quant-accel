@@ -16,9 +16,14 @@ class SimpleSimulator(Simulator):
 
     def simulate(self, sstate, n_steps, traj_out_fn):
         traj = range(sstate, n_steps)
-        with open(traj_out_fn, 'w') as f:
-            np.save(f, traj)
+
+        if traj_out_fn is not None:
+            np.save(traj_out_fn, traj)
         return traj
+
+    @property
+    def trajfn(self):
+        return "traj-{traj_i}.npy"
 
 
 class SimpleModeller(Modeller):
@@ -27,16 +32,13 @@ class SimpleModeller(Modeller):
         self.trajs = []
 
     def model(self, traj_fns):
-        self.trajs = []
-        for tfn in traj_fns:
-            with open(tfn) as f:
-                self.trajs += [np.load(f)]
+        self.trajs = [np.load(tfn) for tfn in traj_fns]
 
     def check_convergence(self):
         return len(self.trajs) > 40
 
-    def seed_state(self):
-        return 0
+    def seed_state(self, tpr):
+        return [0] * tpr
 
 
 class SimpleAdapter(Adapter):
@@ -45,7 +47,7 @@ class SimpleAdapter(Adapter):
         self.modeller = modeller
 
     def adapt(self, n_tpr):
-        ret = np.array([np.max(t) for t in self.modeller.trajs])
+        ret = np.array([np.max(t) for t in self.modeller.trajs[-n_tpr:]])
         assert len(ret) == n_tpr
         return ret
 
