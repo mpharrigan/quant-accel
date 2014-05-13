@@ -5,13 +5,17 @@ import tempfile
 
 import numpy as np
 import scipy.sparse
+import os
+from os.path import join as pjoin
 
 import maccelerator as maccel
+import mdtraj as md
 
 
 class TestMullerSampling(unittest.TestCase):
     def setUp(self):
         self.config = maccel.MullerConfiguration()
+        self.tmpdir = tempfile.mkdtemp()
 
     def test_sstate(self):
         sstate = self.config.modeller.seed_state()
@@ -21,9 +25,12 @@ class TestMullerSampling(unittest.TestCase):
     def test_sampling_length(self):
         sstate = self.config.modeller.seed_state()
 
-        # TODO: This has to write to disk
-        traj = self.config.simulator.simulate(sstate, 100)
+        success = self.config.simulator.simulate(sstate, 100,
+                                                 pjoin(self.tmpdir, 'trj1.h5'))
 
+        self.assertTrue(success)
+
+        traj = md.load(pjoin(self.tmpdir, 'trj1.h5'))
         self.assertEqual(traj.n_frames, 100)
 
 
@@ -53,16 +60,20 @@ class TestTMatSampling(unittest.TestCase):
             np.diag(np.ones(5), 1)  # 6 state linear transition model
         )
 
-        # TODO: Don't test like this
-        self.simulator = maccel.TMatSimulator(tmat)
+        self.simulator = maccel.simulate.TMatSimulator(tmat)
+        self.tmpdir = tempfile.mkdtemp()
+
+    def test_fn(self):
+        self.assertEqual(self.simulator.trajfn.format(traj_i=59), 'traj-59.h5')
 
     def test_length(self):
-        seq = self.simulator.simulate(sstate=0, n_steps=6)
-        self.assertEqual(len(seq), 6)
+        seq = self.simulator.simulate(sstate=0, n_steps=6,
+                                      traj_out_fn=pjoin(self.tmpdir, 'trj1.h5'))
 
-    def test_states(self):
-        seq = self.simulator.simulate(sstate=0, n_steps=6)
+        self.assertEqual(len(seq), 6)
         np.testing.assert_array_equal(seq, range(6))
+
+        self.assertTrue(os.path.exists(pjoin(self.tmpdir, 'trj1.h5')))
 
 
 class TestRun(unittest.TestCase):

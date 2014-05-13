@@ -118,6 +118,8 @@ class OpenMMSimulator(Simulator):
             # explicitly delete the reporters to close file handles
             del reporter
 
+        return True
+
 
     def simulate_muller(self, args):
         #TODO: This code should probably be used somewhere
@@ -144,6 +146,10 @@ class TMatSimulator(Simulator):
     def n_states(self):
         """Number of states in the model."""
         return self.t_matrix.shape[0]
+
+    @property
+    def trajfn(self):
+        return "traj-{traj_i}.h5"
 
     def __init__(self, t_matrix):
         # Load transition matrix
