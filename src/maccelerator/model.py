@@ -14,8 +14,17 @@ import numpy as np
 from mdtraj import io
 
 
-class Modeller(object):
-    def adapt(self, counts, n_tpr, found_states=None):
+class Adapter(object):
+    def __init__(self):
+        pass
+
+
+    def adapt(self, n_tpr):
+        raise NotImplementedError
+
+
+class SortCountsAdapter(Adapter):
+    def adapt(self, n_tpr, counts, found_states=None):
         """From a counts matrix, pick the best states from which to start."""
 
         counts_per_state = np.asarray(counts.sum(axis=1)).flatten()
@@ -29,6 +38,7 @@ class Modeller(object):
         return states_to_sample
 
 
+class Modeller(object):
     def model(self):
         #TODO: Implement
         pass
@@ -96,96 +106,99 @@ class TMatModeller(Modeller):
         return counts, found_states
 
 
-def load_muller(in_fn):
-    """Use mdtraj for loading these trajectories."""
-    return md.load(in_fn)
+# TODO: Move these
+class MoveTheseElsewhere(object):
+    def load_muller(in_fn):
+        """Use mdtraj for loading these trajectories."""
+        return md.load(in_fn)
 
 
-def save_muller(out_fn, traj):
-    """Save a trajectory of centroids."""
-    traj.save(out_fn)
+    def save_muller(out_fn, traj):
+        """Save a trajectory of centroids."""
+        traj.save(out_fn)
 
 
-def load_tmat(in_fn):
-    """Use io.loadh to load tmat state indices."""
-    return io.loadh(in_fn, 'arr_0')
+    def load_tmat(in_fn):
+        """Use io.loadh to load tmat state indices."""
+        return io.loadh(in_fn, 'arr_0')
 
 
-def save_tmat(out_fn, state_is):
-    """Save a matrix."""
-    io.saveh(out_fn, state_is)
+    def save_tmat(out_fn, state_is):
+        """Save a matrix."""
+        io.saveh(out_fn, state_is)
 
 
-def save_starting_states(state_is, round_i, save_func):
-    """Save to a consistent filename.
+    def save_starting_states(state_is, round_i, save_func):
+        """Save to a consistent filename.
 
-    :param save_func: Use this function to actually save.
-    """
-    out_fn = os.path.join('sstates', 'round-%d.h5' % (round_i + 1))
-    save_func(out_fn, state_is)
+        :param save_func: Use this function to actually save.
+        """
+        out_fn = os.path.join('sstates', 'round-%d.h5' % (round_i + 1))
+        save_func(out_fn, state_is)
 
 
-def load_trajectories(round_i, load_func):
-    """Load trajectories up to and including :round_i:
+    def load_trajectories(round_i, load_func):
+        """Load trajectories up to and including :round_i:
 
-    Helper function for model building.
-    """
+        Helper function for model building.
+        """
 
-    trajs = []
-    for cround in range(round_i + 1):
-        tdir = os.path.join('trajs', 'round-%d' % cround)
+        trajs = []
+        for cround in range(round_i + 1):
+            tdir = os.path.join('trajs', 'round-%d' % cround)
+            trajs += [load_func(os.path.join(tdir, s))
+                      for s in os.listdir(tdir) if s.endswith('.h5')]
+
+        # Stats
+        # Note: Use len(), which works on mdtraj trajectories and ndarrays
+        traj_len = len(trajs[0])
+        wall_steps = traj_len * (round_i + 1)
+        return wall_steps, trajs
+
+
+    def load_trajectories_percent(percent, load_func):
+        """Load trajectories up to a certain percent.
+
+        Helper function for model building, esp. for dealing with long
+        trajectory (non-adaptive) runs against which we wish to compare.
+        """
+
+        trajs = []
+        tdir = os.path.join('trajs', 'round-0')
         trajs += [load_func(os.path.join(tdir, s))
                   for s in os.listdir(tdir) if s.endswith('.h5')]
 
-    # Stats
-    # Note: Use len(), which works on mdtraj trajectories and ndarrays
-    traj_len = len(trajs[0])
-    wall_steps = traj_len * (round_i + 1)
-    return wall_steps, trajs
+        # Find ending index
+        # Note: Use len(), which works on md.Trajectories and ndarrays
+        traj_len = len(trajs[0])
+        endstep = int(percent * traj_len)
+
+        trajs = [traj[:endstep] for traj in trajs]
+        return endstep, trajs
 
 
-def load_trajectories_percent(percent, load_func):
-    """Load trajectories up to a certain percent.
+    def model_and_adapt_tmat(args):
+        """Load trajectories, model, and select starting states for tmat.
 
-    Helper function for model building, esp. for dealing with long
-    trajectory (non-adaptive) runs against which we wish to compare.
-    """
-
-    trajs = []
-    tdir = os.path.join('trajs', 'round-0')
-    trajs += [load_func(os.path.join(tdir, s))
-              for s in os.listdir(tdir) if s.endswith('.h5')]
-
-    # Find ending index
-    # Note: Use len(), which works on md.Trajectories and ndarrays
-    traj_len = len(trajs[0])
-    endstep = int(percent * traj_len)
-
-    trajs = [traj[:endstep] for traj in trajs]
-    return endstep, trajs
+        :param args: Arguments from argparse.
+        """
+        _, trajs = load_trajectories(args.round, load_tmat)
+        counts, found_states = tmat_model(trajs, args.lagtime)
+        sstates_sub = adapt(counts, args.n_tpr, found_states)
+        # Translate indices from found_states into absolute indices
+        sstates = found_states[sstates_sub]
+        save_starting_states(sstates, args.round, save_tmat)
 
 
-def model_and_adapt_tmat(args):
-    """Load trajectories, model, and select starting states for tmat.
+    def model_and_adapt_muller(args):
+        """Load trajectories, model, and select starting states for muller.
 
-    :param args: Arguments from argparse.
-    """
-    _, trajs = load_trajectories(args.round, load_tmat)
-    counts, found_states = tmat_model(trajs, args.lagtime)
-    sstates_sub = adapt(counts, args.n_tpr, found_states)
-    # Translate indices from found_states into absolute indices
-    sstates = found_states[sstates_sub]
-    save_starting_states(sstates, args.round, save_tmat)
-
-
-def model_and_adapt_muller(args):
-    """Load trajectories, model, and select starting states for muller.
-
-    :param args: Arguments from argparse
-    """
-    _, trajs = load_trajectories(args.round, load_muller)
-    counts, centroids = cluster_model(trajs, args.lagtime, args.distance_cutoff)
-    sstates = adapt(counts, args.n_tpr)
-    # Translate state indices to centroids
-    traj = centroids[sstates]
-    save_starting_states(traj, args.round, save_muller)
+        :param args: Arguments from argparse
+        """
+        _, trajs = load_trajectories(args.round, load_muller)
+        counts, centroids = cluster_model(trajs, args.lagtime,
+                                          args.distance_cutoff)
+        sstates = adapt(counts, args.n_tpr)
+        # Translate state indices to centroids
+        traj = centroids[sstates]
+        save_starting_states(traj, args.round, save_muller)

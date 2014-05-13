@@ -32,5 +32,5 @@ class MAccelRun(object):
             if rounds_left <= 0:
                 break
 
-            sstate = self.config.modeller.adapt()
+            sstate = self.config.adapter.adapt(self.params.tpr)
 
