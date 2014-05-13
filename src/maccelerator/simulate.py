@@ -253,8 +253,8 @@ class CallbackReporter(StateDataReporter):
     def __init__(self, reportCallback, reportInterval, total_steps=None,
                  **kwargs):
 
-        f = open(os.devnull, 'wb')
-        super().__init__(f, reportInterval, **kwargs)
+        self.f = open(os.devnull, 'wb')
+        super().__init__(self.f, reportInterval, **kwargs)
 
         self.total_steps = total_steps
         self.reportCallback = reportCallback
@@ -279,6 +279,9 @@ class CallbackReporter(StateDataReporter):
             content['Progress (%s)'] = '%.1f%%' % progress
 
         self.reportCallback(content)
+
+    def __del__(self):
+        self.f.close()
 
 
 def add_reporters(simulation, outfn, report_stride, n_spt):
