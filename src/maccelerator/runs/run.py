@@ -3,6 +3,9 @@ import logging as log
 from os.path import join as pjoin
 from collections import defaultdict
 
+from IPython.parallel import Client
+
+
 TRAJ = 'trajs'
 SSTATE = 'sstates'
 MSMS = 'msms'
@@ -26,6 +29,10 @@ class MAccelRun(object):
 
         # Template for trajectory names
         self.trajfn = configuration.simulator.trajfn
+
+        c = Client()
+        self.lbv = c.load_balanced_view()
+        self.lbv.block = True
 
     def run(self):
 
@@ -51,13 +58,15 @@ class MAccelRun(object):
         while True:
             # Make directory for trajectories for this round
             trajround_dir = pjoin(traj_dir, TRAJROUND.format(round_i=round_i))
+            trajround_dir = os.path.abspath(trajround_dir)
             os.mkdir(trajround_dir)
 
-            for i in range(self.params.tpr):
-                traj_out_fn = pjoin(trajround_dir, self.trajfn.format(traj_i=i))
-                self.trajs[round_i].append(traj_out_fn)
-                self.config.simulator.simulate(sstate[i], self.params.spt,
-                                               traj_out_fn)
+            # Do fancy IPython.parallel stuff to parallelize simulation
+            traj_outs = [pjoin(trajround_dir, self.trajfn.format(traj_i=i)) for
+                         i in range(self.params.tpr)]
+            self.lbv.map(self.config.simulator.simulate, sstate,
+                         [self.params.spt] * self.params.tpr, traj_outs)
+            self.trajs[round_i] = traj_outs
 
             # Model with all trajctories from this round and previous
             trajs_till_now = le_than(self.trajs, round_i)

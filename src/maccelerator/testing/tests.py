@@ -81,12 +81,16 @@ class TestRun(unittest.TestCase):
         configuration = maccel.SimpleConfiguration()
         param = maccel.SimpleParams(spt=10, tpr=10)
         rundir = tempfile.mkdtemp()
+        self.rundir = rundir
 
         self.run = maccel.MAccelRun(configuration, param, rundir)
 
     def test_run(self):
         self.run.run()
         self.assertEqual(len(self.run.trajs), 9)
+
+        self.assertTrue(
+            os.path.exists(pjoin(self.rundir, 'trajs/round-8/traj-9.npy')))
 
 
 class TestGrid(unittest.TestCase):
@@ -101,7 +105,6 @@ class TestGrid(unittest.TestCase):
         self.grid.grid()
 
         outdirs = [os.path.basename(d) for d in os.listdir(self.grid.griddir)]
-        print(outdirs)
 
         self.assertTrue('blt-1_alt-1_spt-10_tpr-10' in outdirs)
         self.assertTrue('blt-1_alt-1_spt-20_tpr-10' in outdirs)
