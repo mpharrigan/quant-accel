@@ -6,7 +6,7 @@ import mdtraj as md
 import numpy as np
 
 from ..simulate import OpenMMSimulator
-from ..model import ClusterModeller
+from ..model import ClusterModeller, SortCountsAdapter
 from ..configuration import OpenMMConfiguration
 from ..param import AdaptiveParams
 
@@ -16,8 +16,8 @@ class MullerSimulator(OpenMMSimulator):
         super().__init__(report_stride=10)
 
     def simulate(self, sstate, n_steps, traj_out_fn):
-        return super().simulate(sstate, n_steps, traj_out_fn, minimize=False,
-                                random_initial_velocities=True)
+        return super()._simulate(sstate, n_steps, traj_out_fn, minimize=False,
+                                 random_initial_velocities=True)
 
     def generate_sysint(self):
         """Set up muller potential."""
@@ -26,9 +26,8 @@ class MullerSimulator(OpenMMSimulator):
         temperature = 750 * unit.kelvin
         friction = 100 / unit.picosecond
         timestep = 10.0 * unit.femtosecond
-        system, integrator = super().generate_sysint(mass, temperature,
-                                                     friction,
-                                                     timestep)
+        system, integrator = super()._generate_sysint(mass, temperature,
+                                                      friction, timestep)
 
         # Prepare the system
         mullerforce = muller.MullerForce()
@@ -43,8 +42,11 @@ class MullerModeller(ClusterModeller):
     def __init__(self):
         super().__init__()
 
-    def seed_state(self):
-        """Start from the bottom right well."""
+    def seed_state(self, tpr):
+        """Start from the bottom right well.
+
+        :param tpr: Make this many seed states. They will all be the same
+        """
 
         top = md.Topology()
         chain = top.add_chain()
@@ -54,11 +56,25 @@ class MullerModeller(ClusterModeller):
         xyz = np.array([[[0.5, 0.0, 0.0]]])
 
         seed_state = md.Trajectory(xyz, top)
-        return seed_state
+        return [seed_state for i in range(tpr)]
+
+
+class MullerAdapter(SortCountsAdapter):
+    pass
 
 
 class MullerParams(AdaptiveParams):
-    pass
+    @property
+    def post_converge(self):
+        return 10
+
+    @property
+    def adapt_lt(self):
+        return 20
+
+    @property
+    def build_lt(self):
+        return 20
 
 
 class MullerConfiguration(OpenMMConfiguration):
@@ -67,5 +83,6 @@ class MullerConfiguration(OpenMMConfiguration):
 
         self.simulator = MullerSimulator()
         self.modeller = MullerModeller()
+        self.adapter = MullerAdapter(self.modeller)
 
 

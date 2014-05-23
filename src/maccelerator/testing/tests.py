@@ -2,14 +2,15 @@ __author__ = 'harrigan'
 
 import unittest
 import tempfile
-
-import numpy as np
-import scipy.sparse
+import pickle
 import os
 from os.path import join as pjoin
 
-import maccelerator as maccel
+import numpy as np
+import scipy.sparse
 import mdtraj as md
+
+import maccelerator as maccel
 
 
 class TestMullerSampling(unittest.TestCase):
@@ -18,20 +19,49 @@ class TestMullerSampling(unittest.TestCase):
         self.tmpdir = tempfile.mkdtemp()
 
     def test_sstate(self):
-        sstate = self.config.modeller.seed_state()
+        sstate = self.config.modeller.seed_state(20)
         for ss in sstate:
             np.testing.assert_array_equal(ss.xyz, [[[0.5, 0.0, 0.0]]])
 
     def test_sampling_length(self):
-        sstate = self.config.modeller.seed_state()
+        sstate = self.config.modeller.seed_state(1)
 
-        success = self.config.simulator.simulate(sstate, 100,
+        success = self.config.simulator.simulate(sstate[0], 100,
                                                  pjoin(self.tmpdir, 'trj1.h5'))
 
         self.assertTrue(success)
 
         traj = md.load(pjoin(self.tmpdir, 'trj1.h5'))
         self.assertEqual(traj.n_frames, 100)
+
+
+class TestMullerRun(unittest.TestCase):
+
+    def setUp(self):
+        configuration = maccel.MullerConfiguration()
+        param = maccel.SimpleParams(spt=10, tpr=10)
+        rundir = pjoin(tempfile.mkdtemp(), 'runz')
+        self.rundir = rundir
+        self.run = maccel.MAccelRun(configuration, param, rundir)
+
+    def test_pickle(self):
+        with open(os.devnull, 'wb') as f:
+            pickle.dump(self.run.run, f)
+
+    def test_pickle2(self):
+        with open(os.devnull, 'wb') as f:
+            pickle.dump(self.run.config.simulator, f)
+
+    def test_pickle3(self):
+        with open(os.devnull, 'wb') as f:
+            pickle.dump(self.run.config.modeller, f)
+
+    def test_run(self):
+        self.run.run()
+        self.assertEqual(len(self.run.trajs), 9)
+
+        self.assertTrue(
+            os.path.exists(pjoin(self.rundir, 'trajs/round-8/traj-9.npy')))
 
 
 class TestSimple(unittest.TestCase):

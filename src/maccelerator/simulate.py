@@ -27,6 +27,12 @@ class Simulator(object):
         pass
 
     def simulate(self, sstate, n_steps, traj_out_fn):
+        """Run a simulation
+
+        :param sstate: Starting state
+        :param n_steps: Number of steps to take
+        :param traj_out_fn: Where to save the trajectory
+        """
         raise NotImplementedError
 
     @property
@@ -45,8 +51,11 @@ class OpenMMSimulator(Simulator):
 
         self.system, self.integrator = self.generate_sysint()
 
+    def generate_sysint(self):
+        raise NotImplementedError
 
-    def generate_sysint(self, mass, temperature, friction, timestep):
+
+    def _generate_sysint(self, mass, temperature, friction, timestep):
         """Template for generating openmm files."""
 
         # Prepare the system
@@ -84,8 +93,8 @@ class OpenMMSimulator(Simulator):
         self.integrator = integrator
 
 
-    def simulate(self, sstate, n_steps, traj_out_fn, minimize,
-                 random_initial_velocities):
+    def _simulate(self, sstate, n_steps, traj_out_fn, minimize,
+                  random_initial_velocities):
         """Simulate."""
 
         log.debug('Setting up simulation...')

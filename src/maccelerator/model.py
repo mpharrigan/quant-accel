@@ -15,17 +15,20 @@ from mdtraj import io
 
 
 class Adapter(object):
-    def __init__(self):
-        pass
-
-
     def adapt(self, n_tpr):
         raise NotImplementedError
 
 
 class SortCountsAdapter(Adapter):
-    def adapt(self, n_tpr, counts, found_states=None):
+    def __init__(self, modeller):
+        super().__init__()
+        self.modeller = modeller
+
+
+    def adapt(self, n_tpr):
         """From a counts matrix, pick the best states from which to start."""
+        counts = self.modeller.counts
+        found_states = None  #TODO
 
         counts_per_state = np.asarray(counts.sum(axis=1)).flatten()
         if found_states is not None:
@@ -54,9 +57,12 @@ class Modeller(object):
 
 
 class ClusterModeller(Modeller):
+    def __init__(self):
+        super().__init__()
+        self._counts = None
+
     def cluster_model(self, trajs, lagtime, distance_cutoff):
         """Get counts from euclidean kmeans clustering
-
         """
 
         metric = toy.Euclidean2d()
@@ -74,7 +80,12 @@ class ClusterModeller(Modeller):
         centroids_t = md.Trajectory(centroids[:, np.newaxis, :],
                                     trajs[0].topology)
 
+        self._counts = counts
         return counts, centroids_t
+
+    @property
+    def counts(self):
+        return self._counts
 
 
 class TMatModeller(Modeller):

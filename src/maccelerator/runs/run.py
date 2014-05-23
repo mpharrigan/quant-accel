@@ -1,3 +1,5 @@
+"""Code to handle the adaptive loop."""
+
 import os
 import logging as log
 from os.path import join as pjoin
@@ -77,7 +79,7 @@ class MAccelRun(object):
                          [self.params.spt] * self.params.tpr, traj_outs)
             self.trajs[round_i] = traj_outs
 
-            # Model with all trajctories from this round and previous
+            # Model with all trajectories from this round and previous
             trajs_till_now = le_than(self.trajs, round_i)
             self.config.modeller.model(trajs_till_now)
 
@@ -99,11 +101,14 @@ class MAccelRun(object):
 
 
 def le_than(traj_dict, round_i):
-    """Pick trajectories whose round is less than or equal to round_i."""
+    """Pick trajectories whose round is less than or equal to round_i.
+
+    :param traj_dict: key: round index (int); value: list of file names
+    :param round_i: Index of round to get less than or equal to
+    """
 
     all_trajs = []
     for ri in traj_dict.keys():
         if ri <= round_i:
             all_trajs += traj_dict[ri]
     return all_trajs
-
