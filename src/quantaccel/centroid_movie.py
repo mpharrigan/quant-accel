@@ -41,6 +41,9 @@ LAGTIME = 20
 # Note: this is one directory up from msms/
 PARAM_JSON = '../params.json'
 
+TMAT_CENTROIDS = "../../../spring_layout_centroids.npy"
+PRECOMPUTED_EIGEN = "../../../calc_eq.npy"
+
 
 class CentroidResult(object):
     """Container for filenames and params."""
@@ -48,6 +51,7 @@ class CentroidResult(object):
     def __init__(self):
         self.centroids_fn = None
         self.tmat_fn = None
+        self.mapping_fn = None
         self.params = None
         self.round_i = None
         self.abspath = None
@@ -58,7 +62,7 @@ def _defaultdict_CentroidResult():
     return defaultdict(CentroidResult)
 
 
-def walk(walkydir, centroid_regex, tmat_regex):
+def walk(walkydir, centroid_regex, tmat_regex, map_regex):
     """Walk over the directory structure looking for centroid and tmat files.
     """
     # Two level defaltdict
@@ -70,6 +74,8 @@ def walk(walkydir, centroid_regex, tmat_regex):
             # Regular expression to find files of interest
             centroid_match = re.match(centroid_regex, fn)
             tmat_match = re.match(tmat_regex, fn)
+            map_match = re.match(map_regex, fn)
+
             complete_fn = os.path.join(dirpath, fn)
 
             # Whether there is any match
@@ -84,6 +90,10 @@ def walk(walkydir, centroid_regex, tmat_regex):
             if tmat_match:
                 match = tmat_match
                 mtype = 'tmat    '
+
+            if map_match:
+                match = map_match
+                mtype = 'mapping '
 
             # If there is any match
             if match:
@@ -111,6 +121,9 @@ def walk(walkydir, centroid_regex, tmat_regex):
                 elif tmat_match:
                     # Load transition matrix with scipy
                     result.tmat_fn = complete_fn
+                elif map_match:
+                    # Mapping fn
+                    result.mapping_fn = complete_fn
 
                 # In any event, save the params and round information
                 result.params = params
@@ -123,10 +136,19 @@ def walk(walkydir, centroid_regex, tmat_regex):
 def load(result, helper):
     """Load the actual data given an object that has their filenames.
     """
+
+    # Load mapping
+    mapping = None
+    if result.mapping_fn is not None:
+        mapping = np.loadtxt(result.mapping_fn, dtype=int)
+
     # Load centroids
+    if result.centroids_fn is None:
+        result.centroids_fn = os.path.join(result.abspath, TMAT_CENTROIDS)
     centroids = np.loadtxt(result.centroids_fn)
     if len(centroids.shape) == 1:
         centroids = centroids[np.newaxis, :]
+
 
     # Load transition matrix
     with open(result.tmat_fn) as tmat_f:
@@ -141,16 +163,17 @@ def load(result, helper):
         except ValueError:
             wallsteps = -1
     log.debug("Number of wallsteps: %d", wallsteps)
-    est_distr, theory_distr, errorval = helper(centroids, tmat)
+
+    est_distr, theory_distr, errorval = helper(centroids, tmat, mapping)
     return centroids, tmat, wallsteps, est_distr, theory_distr, errorval
 
 
-def load_numstates(centroids, tmat):
+def load_numstates(centroids, tmat, mapping):
     """Just put the number of states in the errorval."""
     return None, None, len(centroids)
 
 
-def load_centroid_eigen(centroids, tmat):
+def load_centroid_eigen(centroids, tmat, mapping):
     """Plot first eigenvalue on centroids and return errorval = 1st IT."""
     # Get the eigenvectors
     try:
@@ -175,7 +198,7 @@ def load_centroid_eigen(centroids, tmat):
     return est_plot, theory_plot, errorval
 
 
-def load_project_eqdistr(centroids, tmat):
+def load_project_eqdistr(centroids, tmat, mapping):
     """Compute equilibrium density."""
     xx, yy = GRID
     n_states = tmat.shape[0]
@@ -223,8 +246,50 @@ def load_project_eqdistr(centroids, tmat):
     return est, calc_eq, errorval
 
 
-def load_centroid_eqdistr(centroids, tmat):
+def load_centroid_eqdistr_tmat(centroids, tmat, mapping, precomputed_eigen_fn):
     """Compute equilibrium density for centroids."""
+
+
+    # Get the eigenvectors
+    tmat = tmat.transpose()
+    try:
+        vals, vecs = scipy.sparse.linalg.eigs(tmat, k=1, which="LR",
+                                              maxiter=100000, tol=1e-30)
+        vecs = np.real_if_close(vecs)
+
+        if np.abs(np.real(vals) - 1) > 1e-8:
+            raise ValueError('Eigenvalue is not 1')
+
+        eq_distr = vecs[:, 0]
+    except (ArpackNoConvergence, ValueError) as e:
+        log.warn("No eigenv convergence %s", str(e))
+        eq_distr = np.ones(tmat.shape[0])
+
+    # Need to back-map
+
+    # Load actual values
+    calc_eq = np.loadtxt(precomputed_eigen_fn)
+    calc_eq /= np.sum(calc_eq)
+
+    # Set undiscovered populations to zero
+    eq_distr_full = np.zeros(len(calc_eq))
+    eq_distr_full[mapping] = eq_distr
+    eq_distr_full /= np.sum(eq_distr_full)
+
+
+    errorval = distribution_norm(calc_eq, eq_distr_full)
+
+    est_plot = [centroids[:, 0], centroids[:, 1], eq_distr_full]
+    theory_plot = [centroids[:, 0], centroids[:, 1], calc_eq]
+
+    return est_plot, theory_plot, errorval
+
+
+def load_centroid_eqdistr(centroids, tmat, mapping):
+    """Compute equilibrium density for centroids.
+
+    Note! This is specifically for the muller potential.
+    """
 
     # Get the eigenvectors
     tmat = tmat.transpose()
@@ -257,7 +322,7 @@ def load_centroid_eqdistr(centroids, tmat):
     return est_plot, theory_plot, errorval
 
 
-def load_it_distr(centroids, tmat):
+def load_it_distr(centroids, tmat, mapping):
     """Compute IT error and plot first eigen."""
     # TODO: Implement
     pass
@@ -321,16 +386,23 @@ def scatter(est_plot, theory_plot, param_str, do_size):
     """Scatter plot centroids where size and color are based on population.
     """
     if do_size:
-        est_s = 2000 * est_plot[2]
-        theory_s = 2000 * theory_plot[2]
-        norm = Normalize(vmin=0)
+        # Color by energies
+        est_plot[2] = -np.log(est_plot[2])
+        theory_plot[2] = -np.log(theory_plot[2])
+
+        # Scale by inverse energies and adjust scale by log(number of points)
+        inv_scale = np.log(len(est_plot[0])) * 1e-3
+        est_s = 1.0 / (inv_scale * est_plot[2])
+        theory_s = 1.0 / (inv_scale * theory_plot[2])
+
+        # Somehow, matplotlib doesn't care about the negative infinities
+        # in the colors
+        norm = None
     else:
         est_s = 100
         theory_s = 100
         extent = max(np.max(est_plot[2]), -np.min(est_plot[2]))
         norm = Normalize(vmin=-extent, vmax=extent)
-
-    # import pdb; pdb.set_trace()
 
     # Make a scatter
     pp.subplot(121)
@@ -416,6 +488,11 @@ def make_movie(param_str, results, movie_dirname, movie_type, how):
         scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=False)
     elif movie_type == 'num-states':
         load_helper = load_numstates
+    elif movie_type == 'tmat-pop':
+        eig_fn = os.path.join(results.values()[0].abspath, PRECOMPUTED_EIGEN)
+        load_helper = lambda c, t, m: load_centroid_eqdistr_tmat(c, t, m,
+                                                                 eig_fn)
+        scatter_helper = lambda e, t, p: scatter(e, t, p, do_size=True)
     else:
         log.error("Invalid movie type %s", movie_type)
         raise ValueError("Invalid movie type %s" % movie_type)
@@ -460,7 +537,7 @@ def make_movie(param_str, results, movie_dirname, movie_type, how):
         biggest_v.union(Volume(centroids[:, 0], centroids[:, 1]))
 
         save_fig = True
-        if 'centroid' in movie_type:
+        if 'centroid' in movie_type or 'tmat' in movie_type:
             scatter_helper(est_distr, theory_distr, param_str)
         elif 'projection' in movie_type:
             project(est_distr, theory_distr, param_str)
@@ -526,7 +603,7 @@ def parse():
     parser.set_defaults(debug=False)
     parser.add_argument('--movietype', '-mt', choices=
     ['centroid-pop', 'projection-pop', 'centroid-it',
-     'projection-it', 'num-states'],
+     'projection-it', 'num-states', 'tmat-pop'],
                         help='''Type of movie''',
                         default='projection-pop')
 
@@ -547,10 +624,12 @@ def main(walkydir, how, version, movietype):
     fmt = {'how': how, 'version': version}
     centroid_regex = 'centroids-{how}-mk{version}-([0-9]+).npy'.format(**fmt)
     tmat_regex = 'tmatfromclus-{how}-mk{version}-([0-9]+).mtx'.format(**fmt)
+    map_regex = 'mapping-{how}-mk{version}-([0-9]+).npy'.format(**fmt)
 
     results = walk(walkydir=walkydir,
                    centroid_regex=centroid_regex,
-                   tmat_regex=tmat_regex)
+                   tmat_regex=tmat_regex,
+                   map_regex=map_regex)
 
     make_movies(results, '{{}}-{{}}-mk{version}'.format(**fmt), movietype, how)
 

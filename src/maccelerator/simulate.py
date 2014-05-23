@@ -8,16 +8,19 @@ Code for running rounds of simulation
 Code copied from rmcgibbo
 '''
 
-
 import os
 
 from mdtraj.reporters import HDF5Reporter
 from simtk.openmm import XmlSerializer, Platform
-from simtk.openmm.app import Simulation 
+from simtk.openmm.app import Simulation
 from simtk.openmm.app import StateDataReporter
 
 import logging as log
 import numpy as np
+import mdtraj as md
+from mdtraj import io
+
+from quantaccel import tmat_simulation
 
 
 # My imports
@@ -42,8 +45,9 @@ def deserialize(system_xml, integrator_xml):
     return system, integrator
 
 
-def simulate(sstate, system, integrator, n_spt, report_stride, traj_out_fn,
-             minimize=False, random_initial_velocities=True):
+def simulate_openmm(sstate, system, integrator, n_spt, report_stride,
+                    traj_out_fn,
+                    minimize=False, random_initial_velocities=True):
     """Simulate."""
 
     log.debug('Setting up simulation...')
@@ -81,27 +85,68 @@ def simulate(sstate, system, integrator, n_spt, report_stride, traj_out_fn,
         del reporter
 
 
+def simulate_muller(args):
+    """Load up relevant files and simulate muller using openmm."""
+
+    # Prepare filenames
+    sstate_fn, traj_out_fn = get_filenames(args)
+
+    # Load stuff
+    system, integrator = deserialize(args.sys_fn, args.int_fn)
+    sstate_traj = md.load(sstate_fn)
+
+    # Pick out the nth frame, loop around
+    sstate = sstate_traj[args.traj % sstate_traj.n_frames]
+
+    # Do it
+    simulate_openmm(sstate=sstate, system=system, integrator=integrator,
+                    n_spt=args.n_spt, report_stride=args.report,
+                    traj_out_fn=traj_out_fn)
+
+
+def simulate_tmat(args):
+    """Load up relevant files and simulate tmat using quantaccel.TMatSimulator.
+    """
+
+    # Prepare filenames
+    sstate_fn, traj_out_fn = get_filenames(args)
+
+    # Load stuff
+    sim = tmat_simulation.TMatSimulator(args.tmat_fn, get_eigen=False)
+    sstate_traj = io.loadh(sstate_fn, 'arr_0')
+
+    # Pick out the nth frame, loop around
+    sstate = sstate_traj[args.traj % len(sstate_traj)]
+
+    # Do it
+    sim.simulate(state_i=sstate, number_of_steps=args.n_spt, out_fn=traj_out_fn)
+
+
+def get_filenames(args):
+    sstate_fn = os.path.join('sstates', 'round-%d.h5' % args.round)
+    traj_out_fn = os.path.join('trajs', 'round-%d' % args.round,
+                               'traj%d.h5' % args.traj)
+    return sstate_fn, traj_out_fn
+
+
 def sanity_check(simulation):
+    """Lovingly ripped from @rmcgibbo
+    """
     positions = simulation.context.getState(
         getPositions=True).getPositions(
         asNumpy=True)
     for atom1, atom2 in simulation.topology.bonds():
         d = np.linalg.norm(
-            positions[
-                atom1.index,
-                :] - 
-            positions[
-                atom2.index,
-                :])
+            positions[atom1.index, :] - positions[atom2.index, :])
         if not d < 0.3:
             log.error(positions[atom1.index, :])
             log.error(positions[atom2.index, :])
-            raise ValueError('atoms are bonded according to topology but not close by '
-                             'in space: %s. %s' % (d, positions))
+            raise ValueError(
+                'atoms are bonded according to topology but not close by '
+                'in space: %s. %s' % (d, positions))
 
 
 class CallbackReporter(StateDataReporter):
-
     """An openmmm reporter subclass to send report to a callback function."""
 
     def __init__(
@@ -140,13 +185,16 @@ class CallbackReporter(StateDataReporter):
 
 def add_reporters(simulation, outfn, report_stride, n_spt):
     "Add reporters to a simulation"
+
     def reporter_callback(report):
         """Callback for processing reporter output"""
         log.debug(report)
 
     callback_reporter = CallbackReporter(reporter_callback,
-                                         report_stride, step=True, potentialEnergy=True,
-                                         temperature=True, time=True, total_steps=n_spt)
+                                         report_stride, step=True,
+                                         potentialEnergy=True,
+                                         temperature=True, time=True,
+                                         total_steps=n_spt)
 
     h5_reporter = HDF5Reporter(outfn, report_stride, coordinates=True,
                                time=True, cell=True, potentialEnergy=True,
@@ -168,10 +216,11 @@ def random_seed():
     import platform
     import time
     import hashlib
+
     plt = ''.join(platform.uname())
     seed = int(
         hashlib.md5(
-            '%s%s%s' % 
+            '%s%s%s' %
             (plt, os.getpid(), time.time())).hexdigest(), 16)
 
     return seed % np.iinfo(np.int32).max

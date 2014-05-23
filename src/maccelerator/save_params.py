@@ -33,7 +33,7 @@ class ParamParser(object):
 
         if len(self.param_locs) == 0:
             self.find_all()
-
+        self.param_locs += ['']
         with open(loc_fn, 'w') as loc_f:
             loc_f.write('\n'.join(self.param_locs))
 
