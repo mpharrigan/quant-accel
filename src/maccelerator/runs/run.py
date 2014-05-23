@@ -15,6 +15,7 @@ class MAccelRun(object):
     :param configuration: All the system-specific configuration
     :param params: The parameters (which are being varied across runs)
         for this specific run.
+    :param rundir: Directory for this specific run.
     """
 
     def __init__(self, configuration, params, rundir):

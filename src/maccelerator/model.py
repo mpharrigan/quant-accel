@@ -42,7 +42,11 @@ class Modeller(object):
     def model(self, traj_fns):
         raise NotImplementedError
 
-    def seed_state(self):
+    def seed_state(self, tpr):
+        """Get seed states to start the run.
+
+        :param tpr: Number of seed states to generate
+        """
         raise NotImplementedError
 
     def check_convergence(self):

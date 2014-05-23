@@ -8,8 +8,7 @@ class Configuration(object):
         self.simulator = None
         self.modeller = None
 
-    @staticmethod
-    def get_param_grid():
+    def get_param_grid(self):
         raise NotImplementedError
 
 

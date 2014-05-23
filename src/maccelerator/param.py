@@ -19,3 +19,10 @@ class AdaptiveParams(object):
     def build_lt(self):
         raise NotImplementedError
 
+    @property
+    def dirname(self):
+        return "blt-{build_lt}_alt-{adapt_lt}_spt-{spt}_tpr-{tpr}".format(
+            build_lt=self.build_lt, adapt_lt=self.adapt_lt, spt=self.spt,
+            tpr=self.tpr
+        )
+

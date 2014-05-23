@@ -86,5 +86,25 @@ class TestRun(unittest.TestCase):
 
     def test_run(self):
         self.run.run()
-
         self.assertEqual(len(self.run.trajs), 9)
+
+
+class TestGrid(unittest.TestCase):
+    def setUp(self):
+        configuration = maccel.SimpleConfiguration()
+        griddir = tempfile.mkdtemp()
+
+        self.grid = maccel.MAccelGrid(configuration, griddir)
+
+
+    def test_grid(self):
+        self.grid.grid()
+
+        outdirs = [os.path.basename(d) for d in os.listdir(self.grid.griddir)]
+        print(outdirs)
+
+        self.assertTrue('blt-1_alt-1_spt-10_tpr-10' in outdirs)
+        self.assertTrue('blt-1_alt-1_spt-20_tpr-10' in outdirs)
+        self.assertEqual(len(os.listdir(self.grid.griddir)), 2)
+
+
