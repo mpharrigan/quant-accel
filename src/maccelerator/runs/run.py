@@ -50,6 +50,7 @@ class MAccelRun(object):
         sstate_dir = pjoin(rundir, SSTATE)
         msms_dir = pjoin(rundir, MSMS)
         try:
+            os.mkdir(rundir)
             os.mkdir(traj_dir)
             os.mkdir(sstate_dir)
             os.mkdir(msms_dir)

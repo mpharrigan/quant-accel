@@ -80,7 +80,7 @@ class TestRun(unittest.TestCase):
     def setUp(self):
         configuration = maccel.SimpleConfiguration()
         param = maccel.SimpleParams(spt=10, tpr=10)
-        rundir = tempfile.mkdtemp()
+        rundir = pjoin(tempfile.mkdtemp(), 'runz')
         self.rundir = rundir
 
         self.run = maccel.MAccelRun(configuration, param, rundir)

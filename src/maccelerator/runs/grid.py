@@ -4,7 +4,10 @@ import os
 from os.path import join as pjoin
 import logging as log
 
+from IPython.parallel import Client
+
 from .run import MAccelRun
+import itertools
 
 
 class MAccelGrid(object):
@@ -14,16 +17,28 @@ class MAccelGrid(object):
         self.config = configuration
         self.griddir = griddir
 
+        try:
+            c = Client()
+            self.lbv = c.load_balanced_view()
+            self.lbv.block = True
+        except FileNotFoundError as e:
+            log.error("Could not connect to parallel engine: %s", e)
+            self.lbv = None
+
     def grid(self):
         """Launch several runs over a grid of parameters."""
 
-        for params in self.config.get_param_grid():
-            rundir = pjoin(self.griddir, params.dirname)
-            try:
-                os.mkdir(rundir)
-            except OSError as e:
-                log.warning("Skipping %s (%s)", rundir, e)
-                continue
+        if self.lbv is None:
+            return False
 
-            run = MAccelRun(self.config, params, rundir)
-            run.run()
+        self.lbv.map(_launch, zip(itertools.repeat(self.config),
+                                  itertools.repeat(self.griddir),
+                                  self.config.get_param_grid()))
+
+
+def _launch(arg_tuple):
+    """Helper function for map."""
+    config, griddir, params = arg_tuple
+    rundir = pjoin(griddir, params.dirname)
+    run = MAccelRun(config, params, rundir)
+    run.run()
