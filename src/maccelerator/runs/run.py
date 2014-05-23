@@ -30,11 +30,19 @@ class MAccelRun(object):
         # Template for trajectory names
         self.trajfn = configuration.simulator.trajfn
 
-        c = Client()
-        self.lbv = c.load_balanced_view()
-        self.lbv.block = True
+        try:
+            c = Client()
+            self.lbv = c.load_balanced_view()
+            self.lbv.block = True
+        except FileNotFoundError as e:
+            log.error("Could not connect to parallel engine: %s", e)
+            self.lbv = None
 
     def run(self):
+        """Execute adaptive loop until convergence."""
+
+        if self.lbv is None:
+            return False
 
         # Set up directories
         rundir = self.rundir
