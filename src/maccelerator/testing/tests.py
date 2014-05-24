@@ -11,11 +11,46 @@ import scipy.sparse
 import mdtraj as md
 
 import maccelerator as maccel
+from maccelerator.testing.utils import get_fn
+from simtk import unit
+
+
+class TestMullerPrep(unittest.TestCase):
+    def setUp(self):
+        self.tdir = tempfile.mkdtemp()
+
+    def test_make(self):
+        from maccelerator.configurations.muller import generate_muller_sysint
+        from maccelerator.simulate import serialize_openmm
+
+        system, integrator = generate_muller_sysint()
+
+        self.assertFalse(system is None)
+        self.assertFalse(integrator is None)
+        self.assertEqual(len(system.getForces()), 1)
+        self.assertEqual(integrator.getTemperature().value_in_unit(unit.kelvin),
+                         750.0)
+
+        sysfn = pjoin(self.tdir, 'muller_sys.xml')
+        intfn = pjoin(self.tdir, 'muller_int.xml')
+
+        serialize_openmm(system, integrator, sysfn, intfn)
+
+        self.assertTrue(os.path.exists(pjoin(self.tdir, 'muller_sys.xml')))
+
+        config = maccel.MullerConfiguration(sysfn, intfn)
+        config.simulator.deserialize(config.simulator.system_xml,
+                                     config.simulator.integrator_xml)
+        self.assertEqual(len(config.simulator.system.getForces()), 1)
+        self.assertEqual(
+            config.simulator.integrator.getTemperature().value_in_unit(
+                unit.kelvin), 750.0)
 
 
 class TestMullerSampling(unittest.TestCase):
     def setUp(self):
-        self.config = maccel.MullerConfiguration()
+        self.config = maccel.MullerConfiguration(
+            get_fn('muller_sys.xml'), get_fn('muller_int.xml'))
         self.tmpdir = tempfile.mkdtemp()
 
     def test_sstate(self):
@@ -36,17 +71,14 @@ class TestMullerSampling(unittest.TestCase):
 
 
 class TestMullerRun(unittest.TestCase):
-
     def setUp(self):
-        configuration = maccel.MullerConfiguration()
+        configuration = maccel.MullerConfiguration(
+            get_fn('muller_sys.xml'), get_fn('muller_int.xml'))
         param = maccel.SimpleParams(spt=10, tpr=10)
         rundir = pjoin(tempfile.mkdtemp(), 'runz')
         self.rundir = rundir
         self.run = maccel.MAccelRun(configuration, param, rundir)
 
-    def test_pickle(self):
-        with open(os.devnull, 'wb') as f:
-            pickle.dump(self.run.run, f)
 
     def test_pickle2(self):
         with open(os.devnull, 'wb') as f:

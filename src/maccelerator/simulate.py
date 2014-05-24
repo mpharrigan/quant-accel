@@ -22,10 +22,31 @@ import mdtraj as md
 from mdtraj import io
 
 
-class Simulator(object):
-    def __init__(self):
-        pass
+def generate_openmm_sysint(mass, temperature, friction, timestep):
+    """Template for generating openmm files.
 
+    Run this outside of the loop. It is not pickleable so IPython.parallel
+    complains
+    """
+
+    # Prepare the system
+    system = openmm.System()
+
+    # And integrator
+    integrator = openmm.LangevinIntegrator(temperature, friction, timestep)
+
+    return system, integrator
+
+
+def serialize_openmm(system, integrator, sys_fn, int_fn):
+    with open(sys_fn, 'w') as sys_f:
+        sys_f.write(XmlSerializer.serialize(system))
+
+    with open(int_fn, 'w') as int_f:
+        int_f.write(XmlSerializer.serialize(integrator))
+
+
+class Simulator(object):
     def simulate(self, sstate, n_steps, traj_out_fn):
         """Run a simulation
 
@@ -41,30 +62,15 @@ class Simulator(object):
 
 
 class OpenMMSimulator(Simulator):
-    def __init__(self, report_stride):
+    def __init__(self, system_xml, integrator_xml, report_stride):
         super(OpenMMSimulator, self).__init__()
 
         self.report_stride = report_stride
-
+        self.system_xml = system_xml
+        self.integrator_xml = integrator_xml
         self.system = None
         self.integrator = None
 
-        self.system, self.integrator = self.generate_sysint()
-
-    def generate_sysint(self):
-        raise NotImplementedError
-
-
-    def _generate_sysint(self, mass, temperature, friction, timestep):
-        """Template for generating openmm files."""
-
-        # Prepare the system
-        system = openmm.System()
-
-        # And integrator
-        integrator = openmm.LangevinIntegrator(temperature, friction, timestep)
-
-        return system, integrator
 
     def deserialize(self, system_xml, integrator_xml):
         """Deserialize system and integrators.
@@ -97,7 +103,12 @@ class OpenMMSimulator(Simulator):
                   random_initial_velocities):
         """Simulate."""
 
-        log.debug('Setting up simulation...')
+        if self.system is None or self.integrator is None:
+            log.debug('Loading system and integrator xmls')
+            self.deserialize(self.system_xml, self.integrator_xml)
+            log.debug('Xml files loaded. Setting up simulation')
+        else:
+            log.debug('Xml files were already loaded. Setting up simulation')
 
         platform = None
         simulation = Simulation(sstate.topology.to_openmm(), self.system,
@@ -130,24 +141,24 @@ class OpenMMSimulator(Simulator):
         return True
 
 
-    def simulate_muller(self, args):
-        #TODO: This code should probably be used somewhere
-        """Load up relevant files and simulate muller using openmm."""
-
-        # Prepare filenames
-        sstate_fn, traj_out_fn = get_filenames(args)
-
-        # Load stuff
-        system, integrator = deserialize(args.sys_fn, args.int_fn)
-        sstate_traj = md.load(sstate_fn)
-
-        # Pick out the nth frame, loop around
-        sstate = sstate_traj[args.traj % sstate_traj.n_frames]
-
-        # Do it
-        simulate_openmm(sstate=sstate, system=system, integrator=integrator,
-                        n_spt=args.n_spt, report_stride=args.report,
-                        traj_out_fn=traj_out_fn)
+#    def simulate_muller(self, args):
+#        #TODO: This code should probably be used somewhere
+#        """Load up relevant files and simulate muller using openmm."""
+#
+#        # Prepare filenames
+#        sstate_fn, traj_out_fn = get_filenames(args)
+#
+#        # Load stuff
+#        system, integrator = deserialize(args.sys_fn, args.int_fn)
+#        sstate_traj = md.load(sstate_fn)
+#
+#        # Pick out the nth frame, loop around
+#        sstate = sstate_traj[args.traj % sstate_traj.n_frames]
+#
+#        # Do it
+#        simulate_openmm(sstate=sstate, system=system, integrator=integrator,
+#                        n_spt=args.n_spt, report_stride=args.report,
+#                        traj_out_fn=traj_out_fn)
 
 
 class TMatSimulator(Simulator):

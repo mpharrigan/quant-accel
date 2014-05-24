@@ -1,41 +1,44 @@
 __author__ = 'harrigan'
 
+import os
+
 from simtk import unit
 from msmtoys import muller
 import mdtraj as md
 import numpy as np
 
-from ..simulate import OpenMMSimulator
+from ..simulate import OpenMMSimulator, generate_openmm_sysint
 from ..model import ClusterModeller, SortCountsAdapter
 from ..configuration import OpenMMConfiguration
 from ..param import AdaptiveParams
 
 
+def generate_muller_sysint():
+    """Set up muller potential."""
+
+    mass = 12.0 * unit.dalton
+    temperature = 750 * unit.kelvin
+    friction = 100 / unit.picosecond
+    timestep = 10.0 * unit.femtosecond
+    system, integrator = generate_openmm_sysint(mass, temperature,
+                                                friction, timestep)
+
+    # Prepare the system
+    mullerforce = muller.MullerForce()
+    system.addParticle(mass)
+    mullerforce.addParticle(0, [])
+    system.addForce(mullerforce)
+
+    return system, integrator
+
+
 class MullerSimulator(OpenMMSimulator):
-    def __init__(self):
-        super().__init__(report_stride=10)
+    def __init__(self, system_xml, integrator_xml):
+        super().__init__(system_xml, integrator_xml, report_stride=10)
 
     def simulate(self, sstate, n_steps, traj_out_fn):
         return super()._simulate(sstate, n_steps, traj_out_fn, minimize=False,
                                  random_initial_velocities=True)
-
-    def generate_sysint(self):
-        """Set up muller potential."""
-
-        mass = 12.0 * unit.dalton
-        temperature = 750 * unit.kelvin
-        friction = 100 / unit.picosecond
-        timestep = 10.0 * unit.femtosecond
-        system, integrator = super()._generate_sysint(mass, temperature,
-                                                      friction, timestep)
-
-        # Prepare the system
-        mullerforce = muller.MullerForce()
-        system.addParticle(mass)
-        mullerforce.addParticle(0, [])
-        system.addForce(mullerforce)
-
-        return system, integrator
 
 
 class MullerModeller(ClusterModeller):
@@ -78,10 +81,13 @@ class MullerParams(AdaptiveParams):
 
 
 class MullerConfiguration(OpenMMConfiguration):
-    def __init__(self):
+    def __init__(self, system_xml, integrator_xml):
         super().__init__()
 
-        self.simulator = MullerSimulator()
+        system_xml = os.path.abspath(system_xml)
+        integrator_xml = os.path.abspath(integrator_xml)
+
+        self.simulator = MullerSimulator(system_xml, integrator_xml)
         self.modeller = MullerModeller()
         self.adapter = MullerAdapter(self.modeller)
 
