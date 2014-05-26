@@ -28,9 +28,11 @@ class MAccelGrid(object):
     def grid(self):
         """Launch several runs over a grid of parameters."""
 
+        # Check
         if self.lbv is None:
             return False
 
+        # Run helper function
         self.lbv.map(_launch, zip(itertools.repeat(self.config),
                                   itertools.repeat(self.griddir),
                                   self.config.get_param_grid()))

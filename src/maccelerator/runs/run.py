@@ -43,28 +43,20 @@ class MAccelRun(object):
     def run(self):
         """Execute adaptive loop until convergence."""
 
+        # Check IPython.parallel
         if self.lbv is None:
             return False
 
-        # Set up directories
-        rundir = self.rundir
-        traj_dir = pjoin(rundir, TRAJ)
-        sstate_dir = pjoin(rundir, SSTATE)
-        msms_dir = pjoin(rundir, MSMS)
-        try:
-            os.mkdir(rundir)
-            os.mkdir(traj_dir)
-            os.mkdir(sstate_dir)
-            os.mkdir(msms_dir)
-        except OSError as e:
-            log.warning('Skipping %s (%s)', rundir, e)
+        # Make directories
+        traj_dir, exit_status = make_directories(self.rundir)
+        if not exit_status:
             return False
 
         # Initialize variables for the loop
         converged = False
         round_i = 0
         rounds_left = self.params.post_converge
-        sstate = self.config.modeller.seed_state(self.params.tpr)
+        sstate = self.config.modeller.seed_state(self.params)
 
         while True:
             # Make directory for trajectories for this round
@@ -76,16 +68,16 @@ class MAccelRun(object):
             traj_outs = [pjoin(trajround_dir, self.trajfn.format(traj_i=i)) for
                          i in range(self.params.tpr)]
             self.lbv.map(self.config.simulator.simulate, sstate,
-                         [self.params.spt] * self.params.tpr, traj_outs)
+                         [self.params] * self.params.tpr, traj_outs)
             self.trajs[round_i] = traj_outs
 
             # Model with all trajectories from this round and previous
             trajs_till_now = le_than(self.trajs, round_i)
-            self.config.modeller.model(trajs_till_now)
+            self.config.modeller.model(trajs_till_now, self.params)
 
             # Check convergence
             if not converged:
-                converged = self.config.modeller.check_convergence()
+                converged = self.config.modeller.check_convergence(self.params)
 
             # Keep track of progress
             if converged:
@@ -96,8 +88,24 @@ class MAccelRun(object):
                 break
 
             # Move on
-            sstate = self.config.adapter.adapt(self.params.tpr)
+            sstate = self.config.adapter.adapt(self.params)
             round_i += 1
+
+
+def make_directories(rundir):
+    # Set up directories
+    traj_dir = pjoin(rundir, TRAJ)
+    sstate_dir = pjoin(rundir, SSTATE)
+    msms_dir = pjoin(rundir, MSMS)
+    try:
+        os.mkdir(rundir)
+        os.mkdir(traj_dir)
+        os.mkdir(sstate_dir)
+        os.mkdir(msms_dir)
+    except OSError as e:
+        log.warning('Skipping %s (%s)', rundir, e)
+        return '', False
+    return traj_dir, True
 
 
 def le_than(traj_dict, round_i):

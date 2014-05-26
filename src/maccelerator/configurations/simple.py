@@ -16,16 +16,16 @@ class SimpleSimulator(Simulator):
     def __init__(self):
         super().__init__()
 
-    def simulate(self, sstate, n_steps, traj_out_fn):
+    def simulate(self, sstate, params, traj_out_fn):
         """Output a list of numbers.
 
         :param sstate: Starting state (int)
-        :param n_steps: Number of steps to simulate
+        :param params: Contains number of steps to take
         :param traj_out_fn: Where to save the result
 
         :returns: A list or something
         """
-        traj = range(sstate, n_steps)
+        traj = range(sstate, params.spt)
 
         if traj_out_fn is not None:
             np.save(traj_out_fn, traj)
@@ -44,23 +44,27 @@ class SimpleModeller(Modeller):
         super().__init__()
         self.trajs = []
 
-    def model(self, traj_fns):
+    def model(self, traj_fns, params):
         """Just load up all of the 'trajectories'.
 
+        :param params: Not used
         :param traj_fns: Files to load
         """
         self.trajs = [np.load(tfn) for tfn in traj_fns]
 
-    def check_convergence(self):
-        """If we have enough trajectories, we're converged."""
+    def check_convergence(self, params):
+        """If we have enough trajectories, we're converged.
+
+        :param params: Not used
+        """
         return len(self.trajs) > 40
 
-    def seed_state(self, tpr):
+    def seed_state(self, params):
         """Start from 0 in each trajectory.
 
-        :param tpr: Number of seed states to generate
+        :param params: Contains number of seed states to generate
         """
-        return [0] * tpr
+        return [0] * params.tpr
 
 
 class SimpleAdapter(Adapter):
@@ -70,11 +74,12 @@ class SimpleAdapter(Adapter):
         super().__init__()
         self.modeller = modeller
 
-    def adapt(self, n_tpr):
+    def adapt(self, params):
         """Get biggest number in the last n trajectories.
 
-        :param n_tpr: Number of new states to generate
+        :param params: Contains number of new states to generate
         """
+        n_tpr = params.tpr
         ret = np.array([np.max(t) for t in self.modeller.trajs[-n_tpr:]])
         assert len(ret) == n_tpr
         return ret

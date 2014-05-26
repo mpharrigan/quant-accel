@@ -7,15 +7,17 @@ Created on Mar 5, 2014
 import logging as log
 import os
 
-from msmbuilder import MSMLib as msml, clustering
 import mdtraj as md
 import numpy as np
 
 from mdtraj import io
 
+from mixtape.cluster import KMeans
+from mixtape.markovstatemodel import MarkovStateModel
+
 
 class Adapter(object):
-    def adapt(self, n_tpr):
+    def adapt(self, params):
         raise NotImplementedError
 
 
@@ -25,10 +27,11 @@ class SortCountsAdapter(Adapter):
         self.modeller = modeller
 
 
-    def adapt(self, n_tpr):
+    def adapt(self, params):
         """From a counts matrix, pick the best states from which to start."""
         counts = self.modeller.counts
         found_states = None  #TODO
+        n_tpr = params.tpr
 
         counts_per_state = np.asarray(counts.sum(axis=1)).flatten()
         if found_states is not None:
@@ -42,50 +45,50 @@ class SortCountsAdapter(Adapter):
 
 
 class Modeller(object):
-    def model(self, traj_fns):
+    def model(self, traj_fns, params):
         raise NotImplementedError
 
-    def seed_state(self, tpr):
+    def seed_state(self, params):
         """Get seed states to start the run.
 
         :param tpr: Number of seed states to generate
         """
         raise NotImplementedError
 
-    def check_convergence(self):
+    def check_convergence(self, params):
         raise NotImplementedError
 
 
 class ClusterModeller(Modeller):
     def __init__(self):
         super().__init__()
-        self._counts = None
+        self.msm = None
 
-    def cluster_model(self, trajs, lagtime, distance_cutoff):
-        """Get counts from euclidean kmeans clustering
+    def _model(self, trajs_vec, lagtime):
+        """Cluster using kmeans and build an MSM
+
+        :param trajs_vec: List of vector representation of trajectories.
+        :param lagtime: The desired lagtime of the model.
+
+        References:
+        http://en.wikipedia.org/wiki/Determining_the_number_of_clusters_in_a_data_set#Rule_of_thumb
         """
 
-        metric = toy.Euclidean2d()
-
         log.info("Starting cluster")
-        hkm = clustering.KMeans(metric, trajs, distance_cutoff=distance_cutoff)
-        assignments = clustering.split(hkm._assignments, hkm._traj_lengths)
-        assignments = np.array(assignments)
+        # Get number of data points
+        n_datapoints = np.sum([len(traj) for traj in trajs_vec])
+        n_clusters = int(np.sqrt(n_datapoints / 2))
+        kmeans = KMeans(n_clusters=n_clusters)
+        kmeans.fit(trajs_vec)
 
-        counts = msml.get_count_matrix_from_assignments(
-            assignments,
-            lag_time=lagtime)
-
-        centroids = hkm._centroids
-        centroids_t = md.Trajectory(centroids[:, np.newaxis, :],
-                                    trajs[0].topology)
-
-        self._counts = counts
-        return counts, centroids_t
+        log.info("Building MSM")
+        msm = MarkovStateModel(lag_time=lagtime, n_timescales=10)
+        msm.fit(kmeans.labels_)
+        self.msm = msm
 
     @property
     def counts(self):
-        return self._counts
+        return self.msm.countsmat_
 
 
 class TMatModeller(Modeller):

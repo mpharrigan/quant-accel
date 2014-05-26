@@ -47,11 +47,11 @@ def serialize_openmm(system, integrator, sys_fn, int_fn):
 
 
 class Simulator(object):
-    def simulate(self, sstate, n_steps, traj_out_fn):
+    def simulate(self, sstate, params, traj_out_fn):
         """Run a simulation
 
         :param sstate: Starting state
-        :param n_steps: Number of steps to take
+        :param params: Parameter object that contains number of steps to take
         :param traj_out_fn: Where to save the trajectory
         """
         raise NotImplementedError
@@ -139,6 +139,11 @@ class OpenMMSimulator(Simulator):
             del reporter
 
         return True
+
+
+    @property
+    def trajfn(self):
+        return "traj-{traj_i}.h5"
 
 
 #    def simulate_muller(self, args):

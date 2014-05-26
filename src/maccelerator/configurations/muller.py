@@ -36,8 +36,9 @@ class MullerSimulator(OpenMMSimulator):
     def __init__(self, system_xml, integrator_xml):
         super().__init__(system_xml, integrator_xml, report_stride=10)
 
-    def simulate(self, sstate, n_steps, traj_out_fn):
-        return super()._simulate(sstate, n_steps, traj_out_fn, minimize=False,
+    def simulate(self, sstate, params, traj_out_fn):
+        return super()._simulate(sstate, params.spt, traj_out_fn,
+                                 minimize=False,
                                  random_initial_velocities=True)
 
 
@@ -45,10 +46,10 @@ class MullerModeller(ClusterModeller):
     def __init__(self):
         super().__init__()
 
-    def seed_state(self, tpr):
+    def seed_state(self, params):
         """Start from the bottom right well.
 
-        :param tpr: Make this many seed states. They will all be the same
+        :param params: Make this many seed states. They will all be the same
         """
 
         top = md.Topology()
@@ -59,7 +60,20 @@ class MullerModeller(ClusterModeller):
         xyz = np.array([[[0.5, 0.0, 0.0]]])
 
         seed_state = md.Trajectory(xyz, top)
-        return [seed_state for i in range(tpr)]
+        return [seed_state for _ in range(params.tpr)]
+
+    def model(self, traj_fns, params):
+        trajs = MullerModeller.load_xy(traj_fns)
+        super()._model(trajs, lagtime=params.adapt_lt)
+
+    @staticmethod
+    def load_xy(traj_fns):
+        """Load only the xy coordinates of an mdtraj trajectory.
+
+        :param traj_fns: List of trajectory filenames.
+        """
+        trajs = [md.load(tfn).xyz[:, 0, 0:2] for tfn in traj_fns]
+        return trajs
 
 
 class MullerAdapter(SortCountsAdapter):
