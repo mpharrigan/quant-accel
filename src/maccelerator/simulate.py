@@ -182,23 +182,21 @@ class TMatSimulator(Simulator):
         #        t_matrix = t_matrix.tocsr()
 
         self.t_matrix = t_matrix
-        self.p = None
-        self.actual_it = None
-
         log.info('Using transition matrix of shape %s', self.t_matrix.shape)
 
 
-    def simulate(self, sstate, n_steps, traj_out_fn):
+    def simulate(self, sstate, params, traj_out_fn):
         """We run some KMC dynamics, and then send back the results.
 
         :param sstate: Initial state index
-        :param n_steps: Length of trajectory to return. Note:
+        :param params: Contains length of trajectory to return. Note:
                         We actually take one fewer *step* because we include
                         the initial state in our trajectory
         :param traj_out_fn: Optionally write out a trajectory in HDF5 format
         """
         log.debug('Starting TMat simulation...')
 
+        n_steps = params.spt
         t_matrix = self.t_matrix
         state_out = np.zeros(n_steps, dtype=int)
 
@@ -227,32 +225,11 @@ class TMatSimulator(Simulator):
         return state_out
 
 
-class OtherTMatSimulator(Simulator):
-    #TODO Remove
-    def simulate_tmat(self, args):
-        """Load up relevant files and simulate tmat using quantaccel.TMatSimulator.
-        """
-
-        # Prepare filenames
-        sstate_fn, traj_out_fn = get_filenames(args)
-
-        # Load stuff
-        sim = tmat_simulation.TMatSimulator(args.tmat_fn, get_eigen=False)
-        sstate_traj = io.loadh(sstate_fn, 'arr_0')
-
-        # Pick out the nth frame, loop around
-        sstate = sstate_traj[args.traj % len(sstate_traj)]
-
-        # Do it
-        sim.simulate(sstate=sstate, n_steps=args.n_spt,
-                     traj_out_fn=traj_out_fn)
-
-
-def get_filenames(args):
-    sstate_fn = os.path.join('sstates', 'round-%d.h5' % args.round)
-    traj_out_fn = os.path.join('trajs', 'round-%d' % args.round,
-                               'traj%d.h5' % args.traj)
-    return sstate_fn, traj_out_fn
+#def get_filenames(args):
+#    sstate_fn = os.path.join('sstates', 'round-%d.h5' % args.round)
+#    traj_out_fn = os.path.join('trajs', 'round-%d' % args.round,
+#                               'traj%d.h5' % args.traj)
+#    return sstate_fn, traj_out_fn
 
 
 def sanity_check(simulation):

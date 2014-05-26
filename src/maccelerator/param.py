@@ -2,7 +2,7 @@
 
 
 class AdaptiveParams(object):
-    def __init__(self, spt, tpr, run_id):
+    def __init__(self, spt, tpr, run_id=0):
         self.tpr = tpr
         self.spt = spt
         self.run_id = run_id

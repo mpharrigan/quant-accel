@@ -1,12 +1,14 @@
 """Configure types of runs."""
 
 from simtk import openmm
+import scipy.io
 
 
 class Configuration(object):
     def __init__(self):
         self.simulator = None
         self.modeller = None
+        self.adapter = None
 
     def get_param_grid(self):
         raise NotImplementedError
@@ -23,7 +25,9 @@ class OpenMMConfiguration(Configuration):
 
 
 class TMatConfiguration(Configuration):
-    pass
+    def __init__(self, tmat_fn):
+        self.tmat = scipy.io.mmread(tmat_fn)
+        self.tmat = self.tmat.tocsr()
 
 
 
