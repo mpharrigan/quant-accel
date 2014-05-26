@@ -15,6 +15,8 @@ from mixtape.featurizer import DihedralFeaturizer
 from mixtape.cluster import KMeans
 from mixtape.markovstatemodel import MarkovStateModel
 
+import logging as log
+
 
 def make_alanine_reference_data(dirname):
     ala_trajs_dir = pjoin(dirname, 'ala_trajs')
@@ -36,8 +38,10 @@ def make_alanine_reference_data(dirname):
     msm = MarkovStateModel(n_states=20, lag_time=3)
     msm.fit(kmeans.labels_)
 
+    log.warning("This function is non-deterministic :(")
+
     # Save transition matrix
-    scipy.io.mmwrite('ala2.mtx', msm.transmat_,
+    scipy.io.mmwrite(pjoin(dirname, 'ala2.mtx'), msm.transmat_,
                      comment='Generated for quant-accel reference data')
 
 
@@ -46,6 +50,8 @@ def make_muller_reference_data(dirname):
 
     :param dirname: Where to put the files.
     """
+
+    # TODO: Integrator has a random seed
     system, integrator = generate_muller_sysint()
     serialize_openmm(system, integrator, pjoin(dirname, 'muller_sys.xml'),
                      pjoin(dirname, 'muller_int.xml'))
