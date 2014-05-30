@@ -10,6 +10,7 @@ import numpy as np
 from ..simulate import OpenMMSimulator, generate_openmm_sysint
 from ..model import ClusterModeller, SortCountsAdapter
 from ..configuration import OpenMMConfiguration
+from ..check_convergence import PopulationProjectionTVD, Volume
 from ..param import AdaptiveParams
 
 
@@ -32,6 +33,23 @@ def generate_muller_sysint():
     return system, integrator
 
 
+def make_traj_from_coords(xyz):
+    """Take numpy array and turn it into a one particle trajectory
+
+    :param xyz: (n_frames, 3) np.ndarray
+    """
+
+    top = md.Topology()
+    chain = top.add_chain()
+    resi = top.add_residue('NA', chain)
+    top.add_atom('C', md.element.carbon, resi)
+
+    xyz = np.asarray(xyz)
+    xyz = xyz[:, np.newaxis, :]
+    traj = md.Trajectory(xyz, top)
+    return traj
+
+
 class MullerSimulator(OpenMMSimulator):
     def __init__(self, system_xml, integrator_xml):
         super().__init__(system_xml, integrator_xml, report_stride=10)
@@ -51,15 +69,7 @@ class MullerModeller(ClusterModeller):
 
         :param params: Make this many seed states. They will all be the same
         """
-
-        top = md.Topology()
-        chain = top.add_chain()
-        resi = top.add_residue('NA', chain)
-        top.add_atom('C', md.element.carbon, resi)
-
-        xyz = np.array([[[0.5, 0.0, 0.0]]])
-
-        seed_state = md.Trajectory(xyz, top)
+        seed_state = make_traj_from_coords([[0.5, 0.0, 0.0]])
         return [seed_state for _ in range(params.tpr)]
 
     def model(self, traj_fns, params):
@@ -76,8 +86,28 @@ class MullerModeller(ClusterModeller):
         return trajs
 
 
+class MullerConvchecker(PopulationProjectionTVD):
+    def __init__(self, modeller):
+        volume = Volume([-1.5, 1.2], [-0.2, 3.0])
+        grid = Volume.get_grid(volume, resolution=200)
+
+        super().__init__(modeller, threshold=0.6, grid=grid,
+                         potentialfunc=muller.MullerForce.potential, temp=750)
+
+
 class MullerAdapter(SortCountsAdapter):
-    pass
+    def adapt(self, params):
+        state_indices = super().adapt(params)
+        sstate_positions = self.modeller.clusterer.cluster_centers_[
+                           state_indices, :]
+        assert sstate_positions.shape[1] == 2
+        sstate_positions = np.hstack((sstate_positions,
+                                     np.zeros((len(sstate_positions), 1))))
+        assert sstate_positions.shape[1] == 3
+
+        sstate_traj = make_traj_from_coords(sstate_positions)
+        #TODO Save
+        return sstate_traj
 
 
 class MullerParams(AdaptiveParams):
@@ -103,6 +133,7 @@ class MullerConfiguration(OpenMMConfiguration):
 
         self.simulator = MullerSimulator(system_xml, integrator_xml)
         self.modeller = MullerModeller()
+        self.convchecker = MullerConvchecker(self.modeller)
         self.adapter = MullerAdapter(self.modeller)
 
 

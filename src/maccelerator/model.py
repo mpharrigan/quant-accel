@@ -26,19 +26,29 @@ class SortCountsAdapter(Adapter):
         super().__init__()
         self.modeller = modeller
 
-
     def adapt(self, params):
-        """From a counts matrix, pick the best states from which to start."""
+        """From a counts matrix, pick the best states from which to start.
+
+        :returns: Index of state
+        """
         counts = self.modeller.counts
         found_states = None  #TODO
         n_tpr = params.tpr
 
+        # Get counts
         counts_per_state = np.asarray(counts.sum(axis=1)).flatten()
+
+        # Only consider states we know about
         if found_states is not None:
             counts_per_state = counts_per_state[found_states]
+
+        # Sort
         states_to_sample = np.argsort(counts_per_state)
+
+        # Get the right number of states
         if len(states_to_sample) > n_tpr:
             states_to_sample = states_to_sample[:n_tpr]
+
         log.info('Generating %d new starting structures.',
                  len(states_to_sample))
         return states_to_sample
@@ -63,6 +73,7 @@ class ClusterModeller(Modeller):
     def __init__(self):
         super().__init__()
         self.msm = None
+        self.clusterer = None
 
     def _model(self, trajs_vec, lagtime):
         """Cluster using kmeans and build an MSM
@@ -80,11 +91,17 @@ class ClusterModeller(Modeller):
         n_clusters = int(np.sqrt(n_datapoints / 2))
         kmeans = KMeans(n_clusters=n_clusters)
         kmeans.fit(trajs_vec)
+        self.clusterer = kmeans
 
         log.info("Building MSM")
         msm = MarkovStateModel(lag_time=lagtime, n_timescales=10)
         msm.fit(kmeans.labels_)
         self.msm = msm
+
+    def check_convergence(self, params):
+        #TODO
+        self.msm.populations_
+        pass
 
     @property
     def counts(self):

@@ -8,6 +8,7 @@ class Configuration(object):
     def __init__(self):
         self.simulator = None
         self.modeller = None
+        self.convchecker = None
         self.adapter = None
 
     def get_param_grid(self):
@@ -15,17 +16,12 @@ class Configuration(object):
 
 
 class OpenMMConfiguration(Configuration):
-    def serialize(self, system, integrator, out_sys_fn, out_int_fn):
-        #TODO: This code should probably go elsewhere
-
-        with open(out_sys_fn, 'w') as f:
-            f.write(openmm.XmlSerializer.serialize(system))
-        with open(out_int_fn, 'w') as f:
-            f.write(openmm.XmlSerializer.serialize(integrator))
+    pass
 
 
 class TMatConfiguration(Configuration):
     def __init__(self, tmat_fn):
+        super().__init__()
         self.tmat = scipy.io.mmread(tmat_fn)
         self.tmat = self.tmat.tocsr()
 

@@ -6,6 +6,7 @@ import numpy as np
 
 from ..simulate import Simulator
 from ..model import Modeller, Adapter
+from ..check_convergence import ConvergenceChecker
 from ..configuration import Configuration
 from ..param import AdaptiveParams
 
@@ -52,19 +53,27 @@ class SimpleModeller(Modeller):
         """
         self.trajs = [np.load(tfn) for tfn in traj_fns]
 
-    def check_convergence(self, params):
-        """If we have enough trajectories, we're converged.
-
-        :param params: Not used
-        """
-        return len(self.trajs) > 40
-
     def seed_state(self, params):
         """Start from 0 in each trajectory.
 
         :param params: Contains number of seed states to generate
         """
         return [0] * params.tpr
+
+
+class SimpleConvchecker(ConvergenceChecker):
+    """A simple check for convergence."""
+
+    def __init__(self, modeller):
+        super().__init__()
+        self.modeller = modeller
+
+    def check_convergence(self, params):
+        """If we have enough trajectories, we're converged.
+
+        :param params: Not used
+        """
+        return len(self.modeller.trajs) > 40
 
 
 class SimpleAdapter(Adapter):
@@ -115,6 +124,7 @@ class SimpleConfiguration(Configuration):
 
         self.modeller = SimpleModeller()
         self.adapter = SimpleAdapter(self.modeller)
+        self.convchecker = SimpleConvchecker(self.modeller)
         self.simulator = SimpleSimulator()
 
     def get_param_grid(self):

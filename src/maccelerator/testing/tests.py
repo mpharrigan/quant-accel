@@ -84,7 +84,7 @@ class TestMullerRun(unittest.TestCase):
     def setUp(self):
         configuration = maccel.MullerConfiguration(
             get_fn('muller_sys.xml'), get_fn('muller_int.xml'))
-        param = maccel.SimpleParams(spt=100, tpr=2)
+        param = maccel.SimpleParams(spt=1600, tpr=2)
         rundir = pjoin(tempfile.mkdtemp(), 'runz')
         self.rundir = rundir
         self.run = maccel.MAccelRun(configuration, param, rundir)

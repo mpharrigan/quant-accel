@@ -7,6 +7,7 @@ from collections import defaultdict
 
 from IPython.parallel import Client
 
+log.basicConfig(level=log.DEBUG)
 
 TRAJ = 'trajs'
 SSTATE = 'sstates'
@@ -59,6 +60,8 @@ class MAccelRun(object):
         sstate = self.config.modeller.seed_state(self.params)
 
         while True:
+            log.info("Doing round %d", round_i)
+
             # Make directory for trajectories for this round
             trajround_dir = pjoin(traj_dir, TRAJROUND.format(round_i=round_i))
             trajround_dir = os.path.abspath(trajround_dir)
@@ -77,7 +80,8 @@ class MAccelRun(object):
 
             # Check convergence
             if not converged:
-                converged = self.config.modeller.check_convergence(self.params)
+                converged = self.config.convchecker.check_convergence(
+                    self.params)
 
             # Keep track of progress
             if converged:
