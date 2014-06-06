@@ -55,8 +55,16 @@ class TestMullerSampling(unittest.TestCase):
 
     def test_sstate(self):
         params = maccel.configurations.MullerParams(spt=100, tpr=20, run_id=-1)
+        params.rundir = self.tmpdir
+        params.make_directories()
+        params._round_i = 5
+
         sstate = self.config.modeller.seed_state(params)
         for ss in sstate:
+            np.testing.assert_array_equal(ss.xyz, [[[0.5, 0.0, 0.0]]])
+
+        sstate_load = md.load(pjoin(self.tmpdir, 'sstates', 'seed-6.h5'))
+        for ss in sstate_load:
             np.testing.assert_array_equal(ss.xyz, [[[0.5, 0.0, 0.0]]])
 
     def test_sampling_length(self):
@@ -84,12 +92,14 @@ class TestMullerRun(unittest.TestCase):
     def setUp(self):
         configuration = maccel.MullerConfiguration(
             get_fn('muller_sys.xml'), get_fn('muller_int.xml'))
-        param = maccel.SimpleParams(spt=1600, tpr=2)
-        rundir = pjoin(tempfile.mkdtemp(), 'runz')
+        param = maccel.SimpleParams(spt=5000, tpr=2)
+        rundir = pjoin(tempfile.mkdtemp())
         self.rundir = rundir
+        print(self.rundir)
         self.run = maccel.MAccelRun(configuration, param, rundir)
 
     def test_run(self):
+        pass
         self.run.run()
 
         #TODO: Add asserts
@@ -157,7 +167,7 @@ class TestRun(unittest.TestCase):
     def setUp(self):
         configuration = maccel.SimpleConfiguration()
         param = maccel.SimpleParams(spt=10, tpr=10)
-        rundir = pjoin(tempfile.mkdtemp(), 'runz')
+        rundir = tempfile.mkdtemp()
         self.rundir = rundir
 
         self.run = maccel.MAccelRun(configuration, param, rundir)

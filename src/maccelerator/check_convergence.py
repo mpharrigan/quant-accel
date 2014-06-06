@@ -9,6 +9,7 @@ From an already built msm, check convergence and write to a file
 import numpy as np
 import logging as log
 from scipy import interpolate
+from matplotlib import pyplot as plt
 
 # Boltzmann constant in md units
 KB = 0.0083145
@@ -54,16 +55,21 @@ class PopulationProjectionTVD(ConvergenceChecker):
     def check_convergence(self, params):
 
         xx, yy = self.grid
-        n_states = self.modeller.msm.n_states
+        n_states = self.modeller.msm.transmat_.shape[0]
         mapping = self.modeller.msm.mapping_
         back_map = []
+        # Construct back-mapping to trim centroids
         for k, v in mapping.items():
             if v >= 0:
                 back_map += [k]
         back_map = np.asarray(back_map)
         centroids = self.modeller.clusterer.cluster_centers_[back_map]
 
-        log.debug("Checking convergence. %d states (%d centroids)", n_states, len(centroids))
+        # A little debug info and asserts
+        log.debug(
+            "Checking convergence. %d states (%d centroids, %d untrimmed)",
+            n_states, len(centroids),
+            len(self.modeller.clusterer.cluster_centers_))
         assert n_states == len(centroids)
 
         # Make sure our arrays have enough dimensions
@@ -83,14 +89,43 @@ class PopulationProjectionTVD(ConvergenceChecker):
         est = est.clip(min=0.0)
         est /= np.sum(est)
 
+        # Calculate actual result
         calc_eq = self.potentialfunc(xx, yy)
         calc_eq = np.exp(-calc_eq / (self.temp * KB))
         calc_eq /= np.sum(calc_eq)
 
+        # Calculate error
         errorval = self.distribution_norm(calc_eq, est)
         log.debug("TVD Error: %g\t Threshold: %g", errorval, self.threshold)
 
+        # Plot
+        self.plot(calc_eq, est, params)
+
+        # Return whether converged
         return errorval < self.threshold
+
+    def plot(self, theory_plot, est_plot, param):
+        """Plot a projection onto a grid."""
+        xx, yy = self.grid
+        bounds = (xx.min(), xx.max(), yy.min(), yy.max())
+
+        plt.clf()
+        # Make the projection
+        plt.subplot(121)
+        plt.title(param.pretty_desc)
+        plt.imshow(est_plot.T, interpolation='nearest', extent=bounds,
+                   aspect='auto',
+                   origin='lower')
+        plt.colorbar()
+
+        plt.subplot(122)
+        plt.title("Theoretical")
+        plt.imshow(theory_plot.T, interpolation='nearest', extent=bounds,
+                   aspect='auto', origin='lower')
+        plt.colorbar()
+
+        plt.gcf().set_size_inches(14, 5)
+        plt.savefig("{}.png".format(param.plot_fn))
 
 
 class PopulationCentroidTVD(ConvergenceChecker):

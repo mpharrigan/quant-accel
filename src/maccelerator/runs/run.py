@@ -9,11 +9,6 @@ from IPython.parallel import Client
 
 log.basicConfig(level=log.DEBUG)
 
-TRAJ = 'trajs'
-SSTATE = 'sstates'
-MSMS = 'msms'
-TRAJROUND = 'round-{round_i}'
-
 
 class MAccelRun(object):
     """Object for performing an accelerated run
@@ -27,7 +22,7 @@ class MAccelRun(object):
     def __init__(self, configuration, params, rundir):
         self.config = configuration
         self.params = params
-        self.rundir = rundir
+        self.params.rundir = rundir
         self.trajs = defaultdict(list)
 
         # Template for trajectory names
@@ -49,7 +44,7 @@ class MAccelRun(object):
             return False
 
         # Make directories
-        traj_dir, exit_status = make_directories(self.rundir)
+        traj_dir, exit_status = self.params.make_directories()
         if not exit_status:
             return False
 
@@ -63,9 +58,7 @@ class MAccelRun(object):
             log.info("Doing round %d", round_i)
 
             # Make directory for trajectories for this round
-            trajround_dir = pjoin(traj_dir, TRAJROUND.format(round_i=round_i))
-            trajround_dir = os.path.abspath(trajround_dir)
-            os.mkdir(trajround_dir)
+            trajround_dir = self.params.make_trajround(round_i)
 
             # Do fancy IPython.parallel stuff to parallelize simulation
             traj_outs = [pjoin(trajround_dir, self.trajfn.format(traj_i=i)) for
@@ -79,11 +72,12 @@ class MAccelRun(object):
             self.config.modeller.model(trajs_till_now, self.params)
 
             # Check convergence
-            if not converged:
-                converged = self.config.convchecker.check_convergence(
-                    self.params)
+            converged = self.config.convchecker.check_convergence(
+                self.params)
 
             # Keep track of progress
+            # Note: if we dip in and out of convergence it doesn't decrement
+            # this, but it doesn't get reset.
             if converged:
                 rounds_left -= 1
 
@@ -94,22 +88,6 @@ class MAccelRun(object):
             # Move on
             sstate = self.config.adapter.adapt(self.params)
             round_i += 1
-
-
-def make_directories(rundir):
-    # Set up directories
-    traj_dir = pjoin(rundir, TRAJ)
-    sstate_dir = pjoin(rundir, SSTATE)
-    msms_dir = pjoin(rundir, MSMS)
-    try:
-        os.mkdir(rundir)
-        os.mkdir(traj_dir)
-        os.mkdir(sstate_dir)
-        os.mkdir(msms_dir)
-    except OSError as e:
-        log.warning('Skipping %s (%s)', rundir, e)
-        return '', False
-    return traj_dir, True
 
 
 def le_than(traj_dict, round_i):

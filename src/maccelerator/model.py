@@ -61,12 +61,10 @@ class Modeller(object):
     def seed_state(self, params):
         """Get seed states to start the run.
 
-        :param tpr: Number of seed states to generate
+        :param params: Contains number of seed states to generate
         """
         raise NotImplementedError
 
-    def check_convergence(self, params):
-        raise NotImplementedError
 
 
 class ClusterModeller(Modeller):
@@ -97,11 +95,6 @@ class ClusterModeller(Modeller):
         msm = MarkovStateModel(lag_time=lagtime, n_timescales=10)
         msm.fit(kmeans.labels_)
         self.msm = msm
-
-    def check_convergence(self, params):
-        #TODO
-        self.msm.populations_
-        pass
 
     @property
     def counts(self):

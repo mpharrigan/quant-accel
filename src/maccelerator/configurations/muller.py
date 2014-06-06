@@ -69,8 +69,9 @@ class MullerModeller(ClusterModeller):
 
         :param params: Make this many seed states. They will all be the same
         """
-        seed_state = make_traj_from_coords([[0.5, 0.0, 0.0]])
-        return [seed_state for _ in range(params.tpr)]
+        seed_state = make_traj_from_coords([[0.5, 0.0, 0.0]] * params.tpr)
+        seed_state.save('{}.h5'.format(params.seed_state_fn))
+        return seed_state
 
     def model(self, traj_fns, params):
         trajs = MullerModeller.load_xy(traj_fns)
@@ -102,7 +103,7 @@ class MullerAdapter(SortCountsAdapter):
                            state_indices, :]
         assert sstate_positions.shape[1] == 2
         sstate_positions = np.hstack((sstate_positions,
-                                     np.zeros((len(sstate_positions), 1))))
+                                      np.zeros((len(sstate_positions), 1))))
         assert sstate_positions.shape[1] == 3
 
         sstate_traj = make_traj_from_coords(sstate_positions)
