@@ -89,7 +89,8 @@ class MullerModeller(ClusterModeller):
 
 class MullerConvchecker(PopulationProjectionTVD):
     def __init__(self, modeller):
-        volume = Volume([-1.5, 1.2], [-0.2, 3.0])
+        #volume = Volume([-1.5, 1.2], [-0.2, 3.0])
+        volume = Volume([-1.0, 1.0], [-0.1, 2.0])
         grid = Volume.get_grid(volume, resolution=200)
 
         super().__init__(modeller, threshold=0.6, grid=grid,
@@ -102,8 +103,8 @@ class MullerAdapter(SortCountsAdapter):
         sstate_positions = self.modeller.clusterer.cluster_centers_[
                            state_indices, :]
         assert sstate_positions.shape[1] == 2
-        sstate_positions = np.hstack((sstate_positions,
-                                      np.zeros((len(sstate_positions), 1))))
+        sstate_positions = np.hstack(
+            (sstate_positions, np.zeros((len(sstate_positions), 1))))
         assert sstate_positions.shape[1] == 3
 
         sstate_traj = make_traj_from_coords(sstate_positions)

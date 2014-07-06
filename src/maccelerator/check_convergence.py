@@ -30,11 +30,13 @@ def distribution_norm_tvd(p, q):
 class ConvergenceChecker(object):
     def __init__(self):
         self.threshold = None
+        self.energy = False
 
-    def check_convergence(self, params):
+    def check_convergence(self, params, sstate):
         """Check convergence
 
         :param params: Parameters
+        :param sstate: New starting states for plotting
         :returns: Boolean
         """
         raise NotImplementedError
@@ -52,7 +54,7 @@ class PopulationProjectionTVD(ConvergenceChecker):
         self.distribution_norm = distribution_norm_tvd
         self.threshold = threshold
 
-    def check_convergence(self, params):
+    def check_convergence(self, params, sstate):
 
         xx, yy = self.grid
         n_states = self.modeller.msm.transmat_.shape[0]
@@ -91,20 +93,24 @@ class PopulationProjectionTVD(ConvergenceChecker):
 
         # Calculate actual result
         calc_eq = self.potentialfunc(xx, yy)
-        calc_eq = np.exp(-calc_eq / (self.temp * KB))
-        calc_eq /= np.sum(calc_eq)
+        if self.energy:
+            est = -self.temp * KB * np.log(est)
+        else:
+            # Probability (populations)
+            calc_eq = np.exp(-calc_eq / (self.temp * KB))
+            calc_eq /= np.sum(calc_eq)
 
         # Calculate error
         errorval = self.distribution_norm(calc_eq, est)
         log.debug("TVD Error: %g\t Threshold: %g", errorval, self.threshold)
 
         # Plot
-        self.plot(calc_eq, est, params)
+        self.plot(calc_eq, est, params, sstate.xyz[:, 0, :])
 
         # Return whether converged
         return errorval < self.threshold
 
-    def plot(self, theory_plot, est_plot, param):
+    def plot(self, theory_plot, est_plot, param, sstate):
         """Plot a projection onto a grid."""
         xx, yy = self.grid
         bounds = (xx.min(), xx.max(), yy.min(), yy.max())
@@ -117,6 +123,8 @@ class PopulationProjectionTVD(ConvergenceChecker):
                    aspect='auto',
                    origin='lower')
         plt.colorbar()
+        plt.scatter(sstate[:, 0], sstate[:, 1], s=100, c='w', linewidths=2,
+                    zorder=10)
 
         plt.subplot(122)
         plt.title("Theoretical")

@@ -12,7 +12,7 @@ import numpy as np
 
 from mdtraj import io
 
-from mixtape.cluster import KMeans
+from mixtape.cluster import KMeans, MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
 
 
@@ -51,6 +51,8 @@ class SortCountsAdapter(Adapter):
 
         log.info('Generating %d new starting structures.',
                  len(states_to_sample))
+        counts_str = ', '.join([str(j) for j in counts_per_state[states_to_sample]])
+        log.debug('Counts %s', counts_str)
         return states_to_sample
 
 
@@ -87,18 +89,18 @@ class ClusterModeller(Modeller):
         # Get number of data points
         n_datapoints = np.sum([len(traj) for traj in trajs_vec])
         n_clusters = int(np.sqrt(n_datapoints / 2))
-        kmeans = KMeans(n_clusters=n_clusters)
-        kmeans.fit(trajs_vec)
-        self.clusterer = kmeans
+        clusterer = MiniBatchKMeans(n_clusters=n_clusters)
+        clusterer.fit(trajs_vec)
+        self.clusterer = clusterer
 
         log.info("Building MSM")
         msm = MarkovStateModel(lag_time=lagtime, n_timescales=10)
-        msm.fit(kmeans.labels_)
+        msm.fit(clusterer.labels_)
         self.msm = msm
 
     @property
     def counts(self):
-        return self.msm.countsmat_
+        return self.msm.rawcounts_
 
 
 class TMatModeller(Modeller):

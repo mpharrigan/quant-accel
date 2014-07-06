@@ -71,9 +71,12 @@ class MAccelRun(object):
             trajs_till_now = le_than(self.trajs, round_i)
             self.config.modeller.model(trajs_till_now, self.params)
 
+            # Get a new starting state
+            sstate = self.config.adapter.adapt(self.params)
+
             # Check convergence
             converged = self.config.convchecker.check_convergence(
-                self.params)
+                self.params, sstate)
 
             # Keep track of progress
             # Note: if we dip in and out of convergence it doesn't decrement
@@ -86,7 +89,6 @@ class MAccelRun(object):
                 break
 
             # Move on
-            sstate = self.config.adapter.adapt(self.params)
             round_i += 1
 
 
