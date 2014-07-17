@@ -9,19 +9,28 @@ import os
 
 import mdtraj as md
 import numpy as np
+from mixtape.cluster import MiniBatchKMeans
+from mixtape.markovstatemodel import MarkovStateModel
 
 from mdtraj import io
 
-from mixtape.cluster import KMeans, MiniBatchKMeans
-from mixtape.markovstatemodel import MarkovStateModel
-
 
 class Adapter(object):
+    """Base class for an object that chooses where to start new simulation."""
+
     def adapt(self, params):
+        """Return a state from which to start.
+
+        :param params: Simulation parameters.
+        """
         raise NotImplementedError
 
 
 class SortCountsAdapter(Adapter):
+    """Choose the states from which we've transitioned the fewest times,
+    in order
+    """
+
     def __init__(self, modeller):
         super().__init__()
         self.modeller = modeller
@@ -29,10 +38,12 @@ class SortCountsAdapter(Adapter):
     def adapt(self, params):
         """From a counts matrix, pick the best states from which to start.
 
+        :param params: Simulation parameters so we know how many new states
+                       to return
         :returns: Index of state
         """
         counts = self.modeller.counts
-        found_states = None  #TODO
+        found_states = None  # TODO: Deal with found states
         n_tpr = params.tpr
 
         # Get counts
@@ -58,7 +69,14 @@ class SortCountsAdapter(Adapter):
 
 
 class Modeller(object):
+    """Base class for constructing models."""
+
     def model(self, traj_fns, params):
+        """Create a model.
+
+        :param traj_fns: Trajectory filenames from which we build the model
+        :param params: Simulation parameters.
+        """
         raise NotImplementedError
 
     def seed_state(self, params):
@@ -70,6 +88,8 @@ class Modeller(object):
 
 
 class ClusterModeller(Modeller):
+    """Cluster and then build a model from cluster labels."""
+
     def __init__(self):
         super().__init__()
         self.msm = None
@@ -84,11 +104,13 @@ class ClusterModeller(Modeller):
         References:
         http://en.wikipedia.org/wiki/Determining_the_number_of_clusters_in_a_data_set#Rule_of_thumb
         """
-
         log.info("Starting cluster")
+
         # Get number of data points
         n_datapoints = np.sum([len(traj) for traj in trajs_vec])
         n_clusters = int(np.sqrt(n_datapoints / 2))
+
+        # Do clustering
         clusterer = MiniBatchKMeans(n_clusters=n_clusters)
         clusterer.fit(trajs_vec)
         self.clusterer = clusterer
@@ -100,37 +122,44 @@ class ClusterModeller(Modeller):
 
     @property
     def counts(self):
+        """Raw counts from which we can estimate uncertainty for adapting."""
         return self.msm.rawcounts_
 
 
 class TMatModeller(Modeller):
-    def tmat_model(self, trajs, lagtime):
-        """Get counts from a tmat simulation
+    """Model from transition matrix trajectories. (No clustering)"""
+
+    def __init__(self):
+        super().__init__()
+        self.msm = None
+        self.found_states = None
+
+    def _model(self, trajs, lagtime):
+        """Build a model from the result of a transition matrix simulations
 
         We take care of only returning states which we have 'discovered'
 
-        :param trajs: List of ndarray
-        :param lagtime: Lagtime
-        :return: counts: counts of states we have discovered.
-                 found_states: actual indices of the states, used for translating
-                 back into absolute state indices
+        :param trajs: List of ndarray; State indices
+        :param lagtime: Build a model at this lag time
         """
 
-        # Don't need n_states, we won't be sampling from anything higher than
-        # that anyways
-        counts = msml.get_count_matrix_from_assignments(np.array(trajs),
-                                                        lag_time=lagtime,
-                                                        sliding_window=True)
+        msm = MarkovStateModel(lag_time=lagtime, n_timescales=10)
+        msm.fit(trajs)
+        self.msm = msm
 
         # Get found states
         # Those which have at least one transition to or from
         # Note: We can't just sample from states with zero 'from' counts
         # This would neglect states visited at the ends of trajectories.
         # These are probably pretty important for adaptive sampling
-        countscoo = counts.tocoo()
+        countscoo = msm.rawcounts_.tocoo()
         found_states = np.hstack((countscoo.row, countscoo.col))
-        found_states = np.unique(found_states)
-        return counts, found_states
+        self.found_states = np.unique(found_states)
+
+    @property
+    def counts(self):
+        """Raw counts to use for adapting."""
+        return self.msm.rawcounts_
 
 
 # TODO: Move these
