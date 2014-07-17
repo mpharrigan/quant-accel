@@ -6,19 +6,31 @@ This can be run from the command line.
 import os
 from os.path import join as pjoin
 import argparse
-import scipy.io
+import pickle
 
-from maccelerator.configurations.muller import generate_muller_sysint
-from maccelerator.simulate import serialize_openmm
+import scipy.io
+import mdtraj.io
 from mixtape.datasets.alanine_dipeptide import fetch_alanine_dipeptide
 from mixtape.featurizer import DihedralFeaturizer
 from mixtape.cluster import KMeans
 from mixtape.markovstatemodel import MarkovStateModel
 
-import logging as log
+from maccelerator.configurations.muller import generate_muller_sysint
+from maccelerator.simulate import serialize_openmm
 
 
 def make_alanine_reference_data(dirname):
+    """Make a small transition matrix from Alanine trajectories
+
+    We featurize using phi / psi angles
+
+    :param dirname: Where to save the transition matrix (ala.mtx)
+
+    Note: This function is not-deterministic, although it would be useful
+    if it were, so testing could be conducted.
+    """
+
+    # TODO: Save the phi / psi of the cluster centers for visualization.
     ala_trajs_dir = pjoin(dirname, 'ala_trajs')
     try:
         os.mkdir(ala_trajs_dir)
@@ -27,7 +39,7 @@ def make_alanine_reference_data(dirname):
     ala = fetch_alanine_dipeptide(ala_trajs_dir)
 
     # Featurize
-    dihed = DihedralFeaturizer(['phi', 'psi'])
+    dihed = DihedralFeaturizer(['phi', 'psi'], sincos=False)
     feat_trajs = dihed.transform(ala['trajectories'])
 
     # Cluster
@@ -38,11 +50,17 @@ def make_alanine_reference_data(dirname):
     msm = MarkovStateModel(n_states=20, lag_time=3)
     msm.fit(kmeans.labels_)
 
-    log.warning("This function is non-deterministic :(")
+    # Save cluster centers
+    mdtraj.io.saveh(pjoin(dirname, 'ala.centers.h5'),
+                    cluster_centers=kmeans.cluster_centers_)
 
     # Save transition matrix
-    scipy.io.mmwrite(pjoin(dirname, 'ala2.mtx'), msm.transmat_,
+    scipy.io.mmwrite(pjoin(dirname, 'ala.mtx'), msm.transmat_,
                      comment='Generated for quant-accel reference data')
+
+    # Save MSM Object
+    with open(pjoin(dirname, 'ala.msm.pickl'), 'wb') as f:
+        pickle.dump(msm, f)
 
 
 def make_muller_reference_data(dirname):
@@ -67,7 +85,10 @@ def make_reference_data(dirname='../../reference'):
     except OSError:
         pass
 
+    print('Making Muller Data')
     make_muller_reference_data(dirname)
+
+    print('Making Alanine Data')
     make_alanine_reference_data(dirname)
 
 
