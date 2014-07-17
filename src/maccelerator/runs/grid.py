@@ -1,13 +1,12 @@
 __author__ = 'harrigan'
 
-import os
 from os.path import join as pjoin
 import logging as log
+import itertools
 
 from IPython.parallel import Client
 
 from .run import MAccelRun
-import itertools
 
 
 class MAccelGrid(object):

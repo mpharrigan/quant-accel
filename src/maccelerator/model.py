@@ -51,7 +51,8 @@ class SortCountsAdapter(Adapter):
 
         log.info('Generating %d new starting structures.',
                  len(states_to_sample))
-        counts_str = ', '.join([str(j) for j in counts_per_state[states_to_sample]])
+        counts_str = ', '.join(
+            [str(j) for j in counts_per_state[states_to_sample]])
         log.debug('Counts %s', counts_str)
         return states_to_sample
 
@@ -66,7 +67,6 @@ class Modeller(object):
         :param params: Contains number of seed states to generate
         """
         raise NotImplementedError
-
 
 
 class ClusterModeller(Modeller):

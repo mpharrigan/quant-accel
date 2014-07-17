@@ -17,7 +17,6 @@ from simtk.openmm.app import Simulation
 from simtk.openmm.app import StateDataReporter
 from simtk import openmm
 import numpy as np
-import mdtraj as md
 
 from mdtraj import io
 
@@ -146,26 +145,6 @@ class OpenMMSimulator(Simulator):
         return "traj-{traj_i}.h5"
 
 
-#    def simulate_muller(self, args):
-#        #TODO: This code should probably be used somewhere
-#        """Load up relevant files and simulate muller using openmm."""
-#
-#        # Prepare filenames
-#        sstate_fn, traj_out_fn = get_filenames(args)
-#
-#        # Load stuff
-#        system, integrator = deserialize(args.sys_fn, args.int_fn)
-#        sstate_traj = md.load(sstate_fn)
-#
-#        # Pick out the nth frame, loop around
-#        sstate = sstate_traj[args.traj % sstate_traj.n_frames]
-#
-#        # Do it
-#        simulate_openmm(sstate=sstate, system=system, integrator=integrator,
-#                        n_spt=args.n_spt, report_stride=args.report,
-#                        traj_out_fn=traj_out_fn)
-
-
 class TMatSimulator(Simulator):
     @property
     def n_states(self):
@@ -223,13 +202,6 @@ class TMatSimulator(Simulator):
             io.saveh(traj_out_fn, state_out)
         log.debug('Finished TMat simulation.')
         return state_out
-
-
-#def get_filenames(args):
-#    sstate_fn = os.path.join('sstates', 'round-%d.h5' % args.round)
-#    traj_out_fn = os.path.join('trajs', 'round-%d' % args.round,
-#                               'traj%d.h5' % args.traj)
-#    return sstate_fn, traj_out_fn
 
 
 def sanity_check(simulation):
