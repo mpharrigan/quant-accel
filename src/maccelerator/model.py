@@ -127,10 +127,12 @@ class ClusterModeller(Modeller):
 class TMatModeller(Modeller):
     """Model from transition matrix trajectories. (No clustering)"""
 
-    def __init__(self):
+    def __init__(self, tot_n_states):
         super().__init__()
         self.msm = None
         self.found_states = None
+        self.full_populations = None
+        self.tot_n_states = tot_n_states
 
     def _model(self, trajs, lagtime):
         """Build a model from the result of a transition matrix simulations
@@ -141,9 +143,21 @@ class TMatModeller(Modeller):
         :param lagtime: Build a model at this lag time
         """
 
-        msm = MarkovStateModel(lag_time=lagtime, n_timescales=10)
+        msm = MarkovStateModel(lag_time=lagtime, n_timescales=10,
+                               n_states=self.tot_n_states)
         msm.fit(trajs)
         self.msm = msm
+
+        # Back out full-sized populations
+        n_states = self.msm.n_states
+        populations = np.zeros(n_states)
+        for i in range(n_states):
+            try:
+                populations[i] = msm.populations_[msm.mapping_[i]]
+            except KeyError:
+                pass
+
+        self.full_populations = populations
 
         # Get found states
         # Those which have at least one transition to or from

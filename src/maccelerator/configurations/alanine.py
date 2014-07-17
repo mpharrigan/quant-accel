@@ -14,6 +14,9 @@ class AlanineSimulator(TMatSimulator):
 
 
 class AlanineModeller(TMatModeller):
+    def __init__(self, tot_n_states):
+        super().__init__(tot_n_states)
+
     def seed_state(self, params):
         return [0] * params.tpr
 
@@ -34,7 +37,11 @@ class AlanineParams(AdaptiveParams):
     @property
     def post_converge(self):
         # TODO Change
-        return 0
+        return 1
+
+    @property
+    def threshold(self):
+        return 0.05
 
 
 class AlanineAdapter(SortCountsAdapter):
@@ -42,9 +49,9 @@ class AlanineAdapter(SortCountsAdapter):
 
 
 class AlanineConvchecker(HybridConvergenceChecker):
-    def __init__(self, modeller, centers):
-        super().__init__(PopulationCentroidTVD(modeller, centers),
-                         EigenvecCentroid(modeller, centers))
+    def __init__(self, modeller, centers, ref_msm):
+        super().__init__(PopulationCentroidTVD(modeller, centers, ref_msm),
+                         EigenvecCentroid(modeller, centers, ref_msm))
         self.do_plots = True
 
 
@@ -55,10 +62,11 @@ class AlanineConfiguration(TMatConfiguration):
 
         centers = mdtraj.io.loadh(centers_fn, 'cluster_centers')
 
+        # TODO: Do we need to save ref_msm to the configuration?
         super().__init__(ref_msm)
         self.simulator = AlanineSimulator(self.tmat)
-        self.modeller = AlanineModeller()
-        self.convchecker = AlanineConvchecker(self.modeller, centers)
+        self.modeller = AlanineModeller(tot_n_states=self.tmat.shape[0])
+        self.convchecker = AlanineConvchecker(self.modeller, centers, ref_msm)
 
         self.adapter = AlanineAdapter(self.modeller)
 

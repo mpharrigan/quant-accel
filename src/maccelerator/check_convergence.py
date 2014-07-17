@@ -1,10 +1,10 @@
-'''
+"""
 Created on Mar 24, 2014
 
 @author: harrigan
 
 From an already built msm, check convergence and write to a file
-'''
+"""
 
 import numpy as np
 import logging as log
@@ -27,9 +27,8 @@ def distribution_norm_tvd(p, q):
     return res
 
 
-class ConvergenceChecker(object):
-    def __init__(self):
-        self.threshold = None
+class ConvergenceChecker:
+    """Base class for checking convergence and visualizing."""
 
     def check_convergence(self, params):
         """Check convergence
@@ -40,7 +39,11 @@ class ConvergenceChecker(object):
         raise NotImplementedError
 
     def plot(self, axs, sstate):
-        """Plot on given axes."""
+        """Plot on given axes.
+
+        :param axs: Axes
+        :param sstate: Starting states (for visualization)
+        """
         raise NotImplementedError
 
     def plot_and_save(self, params, sstate):
@@ -50,45 +53,75 @@ class ConvergenceChecker(object):
         it will just call the plot method with two axes
 
         :param params: Simulation parameters
-        :param sstates: Starting states (to assist in visualization)
+        :param sstate: Starting states (to assist in visualization)
         """
-        # TODO: Set number of plots in an intelligent way
-        fig, axs = plt.subplots(nrows=1, ncols=2, squeeze=True)
+        fig, axs = plt.subplots(nrows=1, ncols=self.n_plots, squeeze=True)
         self.plot(axs, sstate)
 
-        fig.set_size_inches(14, 5)
+        fig.set_size_inches(7 * self.n_plots, 5)
         fig.savefig("{}.png".format(params.plot_fn))
+
+    @property
+    def n_plots(self):
+        """Number of plots a particular checker generates."""
+        raise NotImplementedError
 
 
 class HybridConvergenceChecker(ConvergenceChecker):
-    """Take two convergence checkers."""
+    """Combine two convergence checkers with logical and"""
 
     def __init__(self, *checkers):
         super().__init__()
         self.checkers = checkers
         self.n_checkers = len(checkers)
 
-        # TODO: Set the number of vertical plots in an intelligent way
-        self.v_size = 2
-
     def check_convergence(self, params):
+        """Check the convergence of each checker combining with logical and
+
+        :param params: Simulation parameters
+        :returns converged: bool -- whether all are converged.
+        """
         converged = True
         for checker in self.checkers:
-            converged = converged and checker.check_convergence(params)
+            converged = (converged and checker.check_convergence(params))
+
+        return converged
 
     def plot_and_save(self, params, sstate):
-        fig, axs = plt.subplots(nrows=self.v_size, ncols=self.n_checkers,
+        """Plot a visualization for each subchecker, stacked horizontally
+
+        :param params: Simulation parameters
+        :param sstate: Starting states
+        """
+        fig, axs = plt.subplots(nrows=self.n_plots, ncols=self.n_checkers,
                                 squeeze=False)
         for i, checker in enumerate(self.checkers):
             checker.plot(axs[:, i], sstate)
 
-        # TODO: Set size intelligently
-        fig.set_size_inches(14, 9)
+        fig.set_size_inches(7 * self.n_checkers, 5 * self.n_plots)
+        fig.suptitle(params.pretty_desc)
         fig.savefig("{}.png".format(params.plot_fn))
+
+    @property
+    def n_plots(self):
+        """Find the maximum number of plots for any individual checker.
+
+        Use this as the number of rows; Each checker will get a column of
+        axes"""
+        return np.max([checker.n_plots for checker in self.checkers])
 
 
 class PopulationProjectionTVD(ConvergenceChecker):
-    def __init__(self, modeller, threshold, grid, potentialfunc, temp):
+    """Project equilibrium populations onto a grid and compute TVD.
+
+    :param modeller: Contains the estimated model
+    :param grid: Grid onto which we project
+    :param potentialfunc: Analytical (2d) potential function from which we
+                          compute reference probabilities
+    :param temp: Temperature at which we compute reference probabilities
+    """
+
+    def __init__(self, modeller, grid, potentialfunc, temp):
         super().__init__()
 
         self.modeller = modeller
@@ -97,12 +130,15 @@ class PopulationProjectionTVD(ConvergenceChecker):
         self.temp = temp
 
         self.distribution_norm = distribution_norm_tvd
-        self.threshold = threshold
 
         self.ref = None
         self.est = None
 
     def check_convergence(self, params):
+        """Use the latest model to check convergence
+
+        :param params: Contains the threshold
+        """
 
         xx, yy = self.grid
         n_states = self.modeller.msm.transmat_.shape[0]
@@ -148,10 +184,10 @@ class PopulationProjectionTVD(ConvergenceChecker):
 
         # Calculate error
         errorval = self.distribution_norm(calc_eq, est)
-        log.debug("TVD Error: %g\t Threshold: %g", errorval, self.threshold)
+        log.debug("TVD Error: %g\t Threshold: %g", errorval, params.threshold)
 
         # Return whether converged
-        return errorval < self.threshold
+        return errorval < params.threshold
 
     def plot(self, axs, sstate):
         """Plot a projection onto a grid.
@@ -178,39 +214,74 @@ class PopulationProjectionTVD(ConvergenceChecker):
         bot.imshow(self.ref.T, interpolation='nearest', extent=bounds,
                    aspect='auto', origin='lower')
 
+    @property
+    def n_plots(self):
+        return 2
+
 
 class PopulationCentroidTVD(ConvergenceChecker):
-    def __init__(self, modeller, centers):
+    """Compare equilibrium populations of states to a reference MSM."""
+
+    def __init__(self, modeller, centers, ref_msm):
         super().__init__()
         self.modeller = modeller
         self.centers = centers
+        self.ref_msm = ref_msm
+
+        self.distribution_norm = distribution_norm_tvd
+        self.cmap = plt.get_cmap('RdBu')
+
+        self.errors_over_time = []
 
     def check_convergence(self, params):
         """Check convergence
 
         :param params: Parameters
-        :param sstate: New starting states for plotting
         :returns: Boolean, whether it has converged
         """
-        return True
+
+        est = self.modeller.full_populations
+        ref = self.ref_msm.populations_
+
+        errorval = self.distribution_norm(ref, est)
+        log.debug("Population Error: %g\t Threshold: %g", errorval,
+                  params.threshold)
+
+        self.errors_over_time += [errorval]
+
+        return errorval < params.threshold
 
     def plot(self, axs, sstate):
         top, bot = axs[0:2]
 
-        top.scatter(self.centers[:, 0], self.centers[:, 1], s=200)
+        est = self.modeller.msm.populations_
+        ref = self.ref_msm.populations_
+        scale = 1e4
 
-        x = np.linspace(0, 1)
-        bot.plot(x, 1 - x)
+        top.scatter(self.centers[:, 0], self.centers[:, 1], s=scale * ref,
+                    c=ref, cmap=self.cmap, linewidths=0)
+        top.scatter(self.centers[:, 0], self.centers[:, 1], s=scale * est,
+                    facecolors='none', edgecolors='k', linewidths=2)
+        top.set_title('Populations')
+
+        # Bottom (over time)
+        bot.plot(self.errors_over_time, 'o-')
+        bot.set_ylim(0, 1)
         bot.set_xlabel('Time')
 
-        pass
+    @property
+    def n_plots(self):
+        return 2
 
 
 class EigenvecCentroid(ConvergenceChecker):
-    def __init__(self, modeller, centers):
+    """Compare the first eigenvector to that of a reference MSM."""
+
+    def __init__(self, modeller, centers, ref_msm):
         super().__init__()
         self.modeller = modeller
         self.centers = centers
+        self.ref_msm = ref_msm
 
     def check_convergence(self, params):
         return True
@@ -224,6 +295,10 @@ class EigenvecCentroid(ConvergenceChecker):
         x = np.linspace(0, 1)
         bot.plot(x, 1 - x)
         bot.set_xlabel('Time')
+
+    @property
+    def n_plots(self):
+        return 2
 
 
 class Volume(object):

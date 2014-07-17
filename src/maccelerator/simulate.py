@@ -163,7 +163,6 @@ class TMatSimulator(Simulator):
         self.t_matrix = t_matrix
         log.info('Using transition matrix of shape %s', self.t_matrix.shape)
 
-
     def simulate(self, sstate, params, traj_out_fn):
         """We run some KMC dynamics, and then send back the results.
 
