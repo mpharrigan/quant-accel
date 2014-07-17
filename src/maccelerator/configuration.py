@@ -2,6 +2,7 @@
 
 from simtk import openmm
 import scipy.io
+import pickle
 
 
 class Configuration(object):
@@ -20,11 +21,11 @@ class OpenMMConfiguration(Configuration):
 
 
 class TMatConfiguration(Configuration):
-    def __init__(self, tmat_fn):
+    def __init__(self, ref_msm):
         super().__init__()
-        self.tmat = scipy.io.mmread(tmat_fn)
-        self.tmat = self.tmat.tocsr()
 
+        self.ref_msm = ref_msm
+        self.tmat = self.ref_msm.transmat_.tocsr()
 
 
 

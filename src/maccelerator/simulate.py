@@ -199,7 +199,7 @@ class TMatSimulator(Simulator):
 
         # Write
         if traj_out_fn is not None:
-            io.saveh(traj_out_fn, state_out)
+            io.saveh(traj_out_fn, state_traj=state_out)
         log.debug('Finished TMat simulation.')
         return state_out
 

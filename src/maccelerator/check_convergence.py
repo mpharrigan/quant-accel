@@ -30,7 +30,6 @@ def distribution_norm_tvd(p, q):
 class ConvergenceChecker(object):
     def __init__(self):
         self.threshold = None
-        self.energy = False
 
     def check_convergence(self, params, sstate):
         """Check convergence
@@ -40,6 +39,71 @@ class ConvergenceChecker(object):
         :returns: Boolean
         """
         raise NotImplementedError
+
+    def plot_population_2d(self, true, estimated):
+        raise NotImplementedError
+
+    def plot_eigenvec_2d(self, true, estimated):
+        raise NotImplementedError
+
+    def plot_population_time(self, true, estimated):
+        raise NotImplementedError
+
+    def plot_eigenvec_time(self, true, estimated):
+        raise NotImplementedError
+
+    def plot_and_save(self, param):
+        plt.clf()
+        # Make the projection
+        plt.subplot(221)
+        self.plot_population_2d()
+
+        plt.subplot(222)
+        self.plot_eigenvec_2d()
+
+        plt.subplot(223)
+        self.plot_population_time()
+
+        plt.subplot(224)
+        self.plot_eigenvec_time()
+
+        plt.suptitle(param.pretty_desc)
+
+        plt.gcf().set_size_inches(14, 9)
+        plt.savefig("{}.png".format(param.plot_fn))
+
+
+class HybridConvergenceChecker(ConvergenceChecker):
+    """Take two convergence checkers."""
+
+    def __init__(self, *checkers):
+        super().__init__()
+        self.checkers = checkers
+        self.n_checkers = len(checkers)
+        self.do_plots = False
+
+        # TODO: Set the number of vertical plots in an intelligent way
+        self.v_size = 2
+
+
+    def check_convergence(self, params, sstate):
+        converged = True
+        for checker in self.checkers:
+            converged = converged and checker.check_convergence(params, sstate)
+
+        if self.do_plots:
+            self.plot_and_save(params)
+
+
+    def plot_and_save(self, param):
+        fig, axs = plt.subplots(nrows=self.v_size, ncols=self.n_checkers,
+                                squeeze=False)
+        for i, checker in enumerate(self.checkers):
+            checker.plot(axs[:, i])
+
+        # TODO: Set size intelligently
+        fig.set_size_inches(14, 9)
+        fig.savefig("{}.png".format(param.plot_fn))
 
 
 class PopulationProjectionTVD(ConvergenceChecker):
@@ -93,12 +157,9 @@ class PopulationProjectionTVD(ConvergenceChecker):
 
         # Calculate actual result
         calc_eq = self.potentialfunc(xx, yy)
-        if self.energy:
-            est = -self.temp * KB * np.log(est)
-        else:
-            # Probability (populations)
-            calc_eq = np.exp(-calc_eq / (self.temp * KB))
-            calc_eq /= np.sum(calc_eq)
+        # Probability (populations)
+        calc_eq = np.exp(-calc_eq / (self.temp * KB))
+        calc_eq /= np.sum(calc_eq)
 
         # Calculate error
         errorval = self.distribution_norm(calc_eq, est)
@@ -137,9 +198,50 @@ class PopulationProjectionTVD(ConvergenceChecker):
 
 
 class PopulationCentroidTVD(ConvergenceChecker):
-    def __init__(self, modeller):
+    def __init__(self, modeller, centers):
         super().__init__()
         self.modeller = modeller
+        self.centers = centers
+
+    def check_convergence(self, params, sstate):
+        """Check convergence
+
+        :param params: Parameters
+        :param sstate: New starting states for plotting
+        :returns: Boolean, whether it has converged
+        """
+        return True
+
+    def plot(self, axs):
+        top, bot = axs[0:2]
+
+        top.scatter(self.centers[:, 0], self.centers[:, 1], s=200)
+
+        x = np.linspace(0, 1)
+        bot.plot(x, 1 - x)
+        bot.set_xlabel('Time')
+
+        pass
+
+
+class EigenvecCentroid(ConvergenceChecker):
+    def __init__(self, modeller, centers):
+        super().__init__()
+        self.modeller = modeller
+        self.centers = centers
+
+    def check_convergence(self, params, sstate):
+        return True
+
+    def plot(self, axs):
+        top, bot = axs[0:2]
+
+        top.scatter(self.centers[:, 0], self.centers[:, 1], s=200)
+        top.set_title('Eigenvec')
+
+        x = np.linspace(0, 1)
+        bot.plot(x, 1 - x)
+        bot.set_xlabel('Time')
 
 
 class Volume(object):
@@ -188,7 +290,8 @@ class Volume(object):
         :param resolution: how fine the grid should be
         """
         (xmin, xmax, ymin, ymax) = volume.bounds
-        log.debug('Making grid with bounds %.2f %.2f %.2f %.2f', *volume.bounds)
+        log.debug('Making grid with bounds %.2f %.2f %.2f %.2f',
+                  *volume.bounds)
 
         grid_width = max(xmax - xmin, ymax - ymin) / resolution
         log.debug("Gridwithd %f", grid_width)
@@ -197,7 +300,7 @@ class Volume(object):
         return grid
 
 
-#TODO: Put these where they belong
-MULLERTHRESH = 0.6
-NTL9THRESH = 0.4
+    #TODO: Put these where they belong
+    MULLERTHRESH = 0.6
+    NTL9THRESH = 0.4
 
