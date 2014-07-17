@@ -31,46 +31,33 @@ class ConvergenceChecker(object):
     def __init__(self):
         self.threshold = None
 
-    def check_convergence(self, params, sstate):
+    def check_convergence(self, params):
         """Check convergence
 
         :param params: Parameters
-        :param sstate: New starting states for plotting
-        :returns: Boolean
+        :returns: bool -- whether it's converged.
         """
         raise NotImplementedError
 
-    def plot_population_2d(self, true, estimated):
+    def plot(self, axs, sstate):
+        """Plot on given axes."""
         raise NotImplementedError
 
-    def plot_eigenvec_2d(self, true, estimated):
-        raise NotImplementedError
+    def plot_and_save(self, params, sstate):
+        """Plot and save a visualization of the convergence check
 
-    def plot_population_time(self, true, estimated):
-        raise NotImplementedError
+        This is used if we *aren't* using a HybridConvergenceChecker, and
+        it will just call the plot method with two axes
 
-    def plot_eigenvec_time(self, true, estimated):
-        raise NotImplementedError
+        :param params: Simulation parameters
+        :param sstates: Starting states (to assist in visualization)
+        """
+        # TODO: Set number of plots in an intelligent way
+        fig, axs = plt.subplots(nrows=1, ncols=2, squeeze=True)
+        self.plot(axs, sstate)
 
-    def plot_and_save(self, param):
-        plt.clf()
-        # Make the projection
-        plt.subplot(221)
-        self.plot_population_2d()
-
-        plt.subplot(222)
-        self.plot_eigenvec_2d()
-
-        plt.subplot(223)
-        self.plot_population_time()
-
-        plt.subplot(224)
-        self.plot_eigenvec_time()
-
-        plt.suptitle(param.pretty_desc)
-
-        plt.gcf().set_size_inches(14, 9)
-        plt.savefig("{}.png".format(param.plot_fn))
+        fig.set_size_inches(14, 5)
+        fig.savefig("{}.png".format(params.plot_fn))
 
 
 class HybridConvergenceChecker(ConvergenceChecker):
@@ -80,30 +67,24 @@ class HybridConvergenceChecker(ConvergenceChecker):
         super().__init__()
         self.checkers = checkers
         self.n_checkers = len(checkers)
-        self.do_plots = False
 
         # TODO: Set the number of vertical plots in an intelligent way
         self.v_size = 2
 
-
-    def check_convergence(self, params, sstate):
+    def check_convergence(self, params):
         converged = True
         for checker in self.checkers:
-            converged = converged and checker.check_convergence(params, sstate)
+            converged = converged and checker.check_convergence(params)
 
-        if self.do_plots:
-            self.plot_and_save(params)
-
-
-    def plot_and_save(self, param):
+    def plot_and_save(self, params, sstate):
         fig, axs = plt.subplots(nrows=self.v_size, ncols=self.n_checkers,
                                 squeeze=False)
         for i, checker in enumerate(self.checkers):
-            checker.plot(axs[:, i])
+            checker.plot(axs[:, i], sstate)
 
         # TODO: Set size intelligently
         fig.set_size_inches(14, 9)
-        fig.savefig("{}.png".format(param.plot_fn))
+        fig.savefig("{}.png".format(params.plot_fn))
 
 
 class PopulationProjectionTVD(ConvergenceChecker):
@@ -118,7 +99,10 @@ class PopulationProjectionTVD(ConvergenceChecker):
         self.distribution_norm = distribution_norm_tvd
         self.threshold = threshold
 
-    def check_convergence(self, params, sstate):
+        self.ref = None
+        self.est = None
+
+    def check_convergence(self, params):
 
         xx, yy = self.grid
         n_states = self.modeller.msm.transmat_.shape[0]
@@ -154,47 +138,45 @@ class PopulationProjectionTVD(ConvergenceChecker):
                                    (xx, yy), method=method, fill_value=0.0)
         est = est.clip(min=0.0)
         est /= np.sum(est)
+        self.est = est
 
         # Calculate actual result
         calc_eq = self.potentialfunc(xx, yy)
-        # Probability (populations)
         calc_eq = np.exp(-calc_eq / (self.temp * KB))
         calc_eq /= np.sum(calc_eq)
+        self.ref = calc_eq
 
         # Calculate error
         errorval = self.distribution_norm(calc_eq, est)
         log.debug("TVD Error: %g\t Threshold: %g", errorval, self.threshold)
 
-        # Plot
-        self.plot(calc_eq, est, params, sstate.xyz[:, 0, :])
-
         # Return whether converged
         return errorval < self.threshold
 
-    def plot(self, theory_plot, est_plot, param, sstate):
-        """Plot a projection onto a grid."""
+    def plot(self, axs, sstate):
+        """Plot a projection onto a grid.
+
+        :param axs: At least two axes on which we will plot
+        :param sstate: Starting states to overlay
+        """
+        # Get axes
+        top, bot = axs[0:2]
+
+        # Set up Grid
         xx, yy = self.grid
         bounds = (xx.min(), xx.max(), yy.min(), yy.max())
 
-        plt.clf()
-        # Make the projection
-        plt.subplot(121)
-        plt.title(param.pretty_desc)
-        plt.imshow(est_plot.T, interpolation='nearest', extent=bounds,
+        top.set_title('Populations (Estimated)')
+        top.imshow(self.est.T, interpolation='nearest', extent=bounds,
                    aspect='auto',
                    origin='lower')
-        plt.colorbar()
-        plt.scatter(sstate[:, 0], sstate[:, 1], s=100, c='w', linewidths=2,
+        top.scatter(sstate[:, 0], sstate[:, 1], s=100, c='w', linewidths=2,
                     zorder=10)
 
-        plt.subplot(122)
-        plt.title("Theoretical")
-        plt.imshow(theory_plot.T, interpolation='nearest', extent=bounds,
+        # TODO: Make this into one plot
+        bot.set_title("Populations (Reference)")
+        bot.imshow(self.ref.T, interpolation='nearest', extent=bounds,
                    aspect='auto', origin='lower')
-        plt.colorbar()
-
-        plt.gcf().set_size_inches(14, 5)
-        plt.savefig("{}.png".format(param.plot_fn))
 
 
 class PopulationCentroidTVD(ConvergenceChecker):
@@ -203,7 +185,7 @@ class PopulationCentroidTVD(ConvergenceChecker):
         self.modeller = modeller
         self.centers = centers
 
-    def check_convergence(self, params, sstate):
+    def check_convergence(self, params):
         """Check convergence
 
         :param params: Parameters
@@ -212,7 +194,7 @@ class PopulationCentroidTVD(ConvergenceChecker):
         """
         return True
 
-    def plot(self, axs):
+    def plot(self, axs, sstate):
         top, bot = axs[0:2]
 
         top.scatter(self.centers[:, 0], self.centers[:, 1], s=200)
@@ -230,10 +212,10 @@ class EigenvecCentroid(ConvergenceChecker):
         self.modeller = modeller
         self.centers = centers
 
-    def check_convergence(self, params, sstate):
+    def check_convergence(self, params):
         return True
 
-    def plot(self, axs):
+    def plot(self, axs, sstate):
         top, bot = axs[0:2]
 
         top.scatter(self.centers[:, 0], self.centers[:, 1], s=200)

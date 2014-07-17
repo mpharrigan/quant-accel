@@ -75,8 +75,8 @@ class MAccelRun(object):
             sstate = self.config.adapter.adapt(self.params)
 
             # Check convergence
-            converged = self.config.convchecker.check_convergence(
-                self.params, sstate)
+            converged = self.config.convchecker.check_convergence(self.params)
+            self.config.convchecker.plot_and_save(self.params, sstate)
 
             # Keep track of progress
             # Note: if we dip in and out of convergence it doesn't decrement
