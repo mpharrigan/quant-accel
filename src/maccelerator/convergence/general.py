@@ -13,8 +13,8 @@ class TimescaleDistance(ConvergenceChecker):
         self.ref_msm = ref_msm
 
     def check_convergence(self, params):
-        est = self.modeller.msm.timescales_[0]
-        ref = self.ref_msm.timescales_[0]
+        est = self.modeller.msm.timescales_[0] / self.modeller.msm.lag_time
+        ref = self.ref_msm.timescales_[0] / self.ref_msm.lag_time
 
         errorval = est - ref
         self.errors_over_time += [errorval]
