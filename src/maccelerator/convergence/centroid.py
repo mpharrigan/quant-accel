@@ -4,6 +4,7 @@ import logging as log
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.pyplot import Normalize
 import scipy.sparse
 import scipy.linalg
 
@@ -87,7 +88,7 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
         scale = 1e4
 
         top.scatter(self.centers[:, 0], self.centers[:, 1], s=scale * ref,
-                    c=ref, cmap=self.cmap, linewidths=0)
+                    c=ref, cmap=self.cmap, linewidths=0, norm=Normalize(vmin=0))
         top.scatter(self.centers[:, 0], self.centers[:, 1], s=scale * est,
                     facecolors='none', edgecolors='k', linewidths=2)
         top.set_title('Populations')

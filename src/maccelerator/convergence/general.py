@@ -23,10 +23,18 @@ class TimescaleDistance(ConvergenceChecker):
     def plot(self, axs, sstate):
         top, bot = axs[0:2]
 
-        top.set_title('Timescale difference')
+        est = self.modeller.msm.timescales_ / self.modeller.msm.lag_time
+        est = est[~np.isnan(est)]
+        est = est[est > 0]
+        ref = self.ref_msm.timescales_ / self.ref_msm.lag_time
 
-        top.hlines(self.modeller.msm.timescales_, 0, 0.5, 'r', label='Est')
-        top.hlines(self.ref_msm.timescales_, 0.5, 1, 'b', label='Ref')
+        if not np.all(np.isreal(est)):
+            print('Not real!!!')
+            print(est)
+
+        top.set_title('Timescale difference')
+        top.hlines(est, 0, 0.5, 'r', label='Est')
+        top.hlines(ref, 0.5, 1, 'b', label='Ref')
         top.legend(loc='best')
         top.set_yscale('log')
 
