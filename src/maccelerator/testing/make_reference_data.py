@@ -11,11 +11,9 @@ import pickle
 import scipy.io
 import mdtraj.io
 from mixtape.datasets.alanine_dipeptide import fetch_alanine_dipeptide
-from mixtape.featurizer import DihedralFeaturizer
-from mixtape.cluster import KMeans
-from mixtape.markovstatemodel import MarkovStateModel
 
 from maccelerator.configurations.muller import generate_muller_sysint
+from maccelerator.configurations.alanine import generate_alanine_msm
 from maccelerator.simulate import serialize_openmm
 
 
@@ -24,31 +22,17 @@ def make_alanine_reference_data(dirname):
 
     We featurize using phi / psi angles
 
-    :param dirname: Where to save the transition matrix (ala.mtx)
-
     Note: This function is not-deterministic, although it would be useful
     if it were, so testing could be conducted.
     """
-
-    # TODO: Save the phi / psi of the cluster centers for visualization.
     ala_trajs_dir = pjoin(dirname, 'ala_trajs')
     try:
         os.mkdir(ala_trajs_dir)
     except OSError:
         pass
+
     ala = fetch_alanine_dipeptide(ala_trajs_dir)
-
-    # Featurize
-    dihed = DihedralFeaturizer(['phi', 'psi'], sincos=False)
-    feat_trajs = dihed.transform(ala['trajectories'])
-
-    # Cluster
-    kmeans = KMeans(n_clusters=20, random_state=52)
-    kmeans.fit(feat_trajs)
-
-    # Build MSM
-    msm = MarkovStateModel(n_states=20, lag_time=3, n_timescales=5)
-    msm.fit(kmeans.labels_)
+    msm, kmeans = generate_alanine_msm(ala)
 
     # Save cluster centers
     mdtraj.io.saveh(pjoin(dirname, 'ala.centers.h5'),
