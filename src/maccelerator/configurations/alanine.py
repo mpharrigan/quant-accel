@@ -2,7 +2,7 @@ from ..simulate import TMatSimulator
 from ..model import TMatModeller, SortCountsAdapter
 from ..configuration import TMatConfiguration
 from ..check_convergence import PopulationCentroidTVD, EigenvecCentroid, \
-    HybridConvergenceChecker
+    HybridConvergenceChecker, EigenvecL2, TMatFro, TimescaleDistance
 from ..param import AdaptiveParams
 
 import pickle
@@ -51,7 +51,12 @@ class AlanineAdapter(SortCountsAdapter):
 class AlanineConvchecker(HybridConvergenceChecker):
     def __init__(self, modeller, centers, ref_msm):
         super().__init__(PopulationCentroidTVD(modeller, centers, ref_msm),
-                         EigenvecCentroid(modeller, centers, ref_msm))
+                         EigenvecCentroid(modeller, centers, ref_msm),
+                         EigenvecL2(modeller, centers, ref_msm),
+                         TMatFro(modeller, centers, ref_msm),
+                         TimescaleDistance(modeller, centers, ref_msm)
+
+        )
         self.do_plots = True
 
 

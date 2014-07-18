@@ -11,6 +11,7 @@ import logging as log
 import numpy as np
 from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
+import scipy.sparse
 
 
 class Adapter(object):
@@ -132,6 +133,8 @@ class TMatModeller(Modeller):
         self.msm = None
         self.found_states = None
         self.full_populations = None
+        self.full_eigenvec = None
+        self.full_tmat = None
         self.tot_n_states = tot_n_states
 
     def _model(self, trajs, lagtime):
@@ -143,7 +146,7 @@ class TMatModeller(Modeller):
         :param lagtime: Build a model at this lag time
         """
 
-        msm = MarkovStateModel(lag_time=lagtime, n_timescales=10,
+        msm = MarkovStateModel(lag_time=lagtime, n_timescales=1,
                                n_states=self.tot_n_states)
         msm.fit(trajs)
         self.msm = msm
@@ -151,13 +154,24 @@ class TMatModeller(Modeller):
         # Back out full-sized populations
         n_states = self.msm.n_states
         populations = np.zeros(n_states)
+        eigenvec = np.zeros(n_states)
         for i in range(n_states):
             try:
                 populations[i] = msm.populations_[msm.mapping_[i]]
+                eigenvec[i] = msm.eigenvectors_[msm.mapping_[i], 1]
             except KeyError:
                 pass
 
+        # Back out full transition matrix, oh boy
+        tmatcoo = msm.transmat_.tocoo()
+        for fr, to in msm.mapping_.items():
+            tmatcoo.row[tmatcoo.row == to] = fr
+            tmatcoo.col[tmatcoo.col == to] = fr
+
         self.full_populations = populations
+        self.full_eigenvec = eigenvec
+        self.full_tmat = scipy.sparse.coo_matrix(
+            (tmatcoo.data, (tmatcoo.row, tmatcoo.col))).tocsr()
 
         # Get found states
         # Those which have at least one transition to or from
