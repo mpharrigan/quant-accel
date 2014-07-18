@@ -11,6 +11,7 @@ class TimescaleDistance(ConvergenceChecker):
         super().__init__(tolerance)
         self.modeller = modeller
         self.ref_msm = ref_msm
+        self.converged = False
 
     def check_convergence(self, params):
         est = self.modeller.msm.timescales_[0] / self.modeller.msm.lag_time
@@ -18,6 +19,7 @@ class TimescaleDistance(ConvergenceChecker):
 
         errorval = np.abs(est - ref)
         self.errors_over_time += [errorval]
+        self.converged = errorval < self.tolerance
         return errorval < self.tolerance
 
     def plot(self, axs, sstate):
@@ -37,6 +39,9 @@ class TimescaleDistance(ConvergenceChecker):
         bot.plot(self.errors_over_time, 'o-')
         bot.axhline(0, c='k')
         bot.set_xlabel('Time')
+        cstring = 'Converged' if self.converged else 'Not Converged'
+        ccolor = 'green' if self.converged else 'red'
+        bot.set_title(cstring, color=ccolor)
 
     @property
     def n_plots(self):

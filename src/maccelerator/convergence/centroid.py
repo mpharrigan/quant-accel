@@ -47,6 +47,7 @@ class CentroidConvergenceChecker(ConvergenceChecker):
         self.modeller = modeller
         self.centers = centers
         self.ref_msm = ref_msm
+        self.converged = False
 
 
 class PopulationCentroidTVD(CentroidConvergenceChecker):
@@ -73,6 +74,7 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
                   self.tolerance)
 
         self.errors_over_time += [errorval]
+        self.converged = errorval < self.tolerance
 
         return errorval < self.tolerance
 
@@ -97,6 +99,9 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
         bot.plot(self.errors_over_time, 'o-')
         bot.axhline(0, c='k')
         bot.set_xlabel('Time')
+        cstring = 'Converged' if self.converged else 'Not Converged'
+        ccolor = 'green' if self.converged else 'red'
+        bot.set_title(cstring, color=ccolor)
 
     @property
     def n_plots(self):
@@ -129,7 +134,7 @@ class EigenvecCentroid(CentroidConvergenceChecker):
 
         log.debug("Eigenvec Error: %g\t Threshold: %g", errorval,
                   self.tolerance)
-
+        self.converged = errorval < self.tolerance
         return errorval < self.tolerance
 
 
@@ -150,6 +155,9 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         bot.plot(self.errors_over_time, 'o-')
         bot.axhline(0, c='k')
         bot.set_xlabel('Time')
+        cstring = 'Converged' if self.converged else 'Not Converged'
+        ccolor = 'green' if self.converged else 'red'
+        bot.set_title(cstring, color=ccolor)
 
     @property
     def n_plots(self):
@@ -172,6 +180,7 @@ class EigenvecL2(CentroidConvergenceChecker):
         log.debug("Eigenvec L2 Error: %g\t Threshold: %g", errorval,
                   self.tolerance)
 
+        self.converged = errorval < self.tolerance
         return errorval < self.tolerance
 
     def plot(self, axs, sstate):
@@ -187,6 +196,9 @@ class EigenvecL2(CentroidConvergenceChecker):
         bot.plot(self.errors_over_time, 'o-')
         bot.axhline(0, c='k')
         bot.set_xlabel('Time')
+        cstring = 'Converged' if self.converged else 'Not Converged'
+        ccolor = 'green' if self.converged else 'red'
+        bot.set_title(cstring, color=ccolor)
 
     @property
     def n_plots(self):
@@ -206,6 +218,7 @@ class TMatFro(CentroidConvergenceChecker):
         log.debug("Frobenius Norm: %g\t Threshold: %g", errorval,
                   self.tolerance)
 
+        self.converged = errorval < self.tolerance
         return errorval < self.tolerance
 
     def plot(self, axs, sstate):
@@ -216,6 +229,9 @@ class TMatFro(CentroidConvergenceChecker):
         bot.plot(self.errors_over_time, 'o-')
         bot.axhline(0, c='k')
         bot.set_xlabel('Time')
+        cstring = 'Converged' if self.converged else 'Not Converged'
+        ccolor = 'green' if self.converged else 'red'
+        bot.set_title(cstring, color=ccolor)
 
     @property
     def n_plots(self):
