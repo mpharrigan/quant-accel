@@ -1,13 +1,15 @@
+import pickle
+
+import mdtraj.io
+
 from ..simulate import TMatSimulator
 from ..model import TMatModeller, SortCountsAdapter
 from ..configuration import TMatConfiguration
-from ..check_convergence import PopulationCentroidTVD, EigenvecCentroid, \
-    HybridConvergenceChecker, EigenvecL2, TMatFro, TimescaleDistance
+from ..convergence.hybrid import TMatConvergenceChecker
 from ..param import AdaptiveParams
 
-import pickle
-import mdtraj.io
 
+# TODO: Put make reference function in here
 
 class AlanineSimulator(TMatSimulator):
     pass
@@ -48,31 +50,23 @@ class AlanineAdapter(SortCountsAdapter):
     pass
 
 
-class AlanineConvchecker(HybridConvergenceChecker):
-    def __init__(self, modeller, centers, ref_msm):
-        super().__init__(PopulationCentroidTVD(modeller, centers, ref_msm),
-                         EigenvecCentroid(modeller, centers, ref_msm),
-                         EigenvecL2(modeller, centers, ref_msm),
-                         TMatFro(modeller, centers, ref_msm),
-                         TimescaleDistance(modeller, centers, ref_msm)
-
-        )
-        self.do_plots = True
+class AlanineConvchecker(TMatConvergenceChecker):
+    pass
 
 
 class AlanineConfiguration(TMatConfiguration):
     def __init__(self, ref_msm_fn, centers_fn):
+        # Load reference MSM
         with open(ref_msm_fn, 'rb') as ref_msm_f:
             ref_msm = pickle.load(ref_msm_f)
 
+        # Load cluster centers for visualization
         centers = mdtraj.io.loadh(centers_fn, 'cluster_centers')
 
-        # TODO: Do we need to save ref_msm to the configuration?
-        super().__init__(ref_msm)
-        self.simulator = AlanineSimulator(self.tmat)
-        self.modeller = AlanineModeller(tot_n_states=self.tmat.shape[0])
+        # Set fields
+        self.simulator = AlanineSimulator(ref_msm.transmat_)
+        self.modeller = AlanineModeller(tot_n_states=ref_msm.n_states)
         self.convchecker = AlanineConvchecker(self.modeller, centers, ref_msm)
-
         self.adapter = AlanineAdapter(self.modeller)
 
 

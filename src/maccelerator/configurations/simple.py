@@ -6,7 +6,7 @@ import numpy as np
 
 from ..simulate import Simulator
 from ..model import Modeller, Adapter
-from ..check_convergence import ConvergenceChecker
+from ..convergence.base import ConvergenceChecker
 from ..configuration import Configuration
 from ..param import AdaptiveParams
 
