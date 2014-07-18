@@ -116,20 +116,26 @@ class TMatModeller(Modeller):
                     eigenvec[i] = msm.eigenvectors_[msm.mapping_[i], 1]
                 except KeyError:
                     pass
+
+            # Back out full transition matrix, oh boy
+            tmatcoo = msm.transmat_.tocoo()
+            # Translate coordinates
+            for fr, to in msm.mapping_.items():
+                tmatcoo.row[tmatcoo.row == to] = fr
+                tmatcoo.col[tmatcoo.col == to] = fr
+
+            # Re-build
+            full_tmat = scipy.sparse.coo_matrix(
+                (tmatcoo.data, (tmatcoo.row, tmatcoo.col)),
+                shape=(n_states, n_states)).tocsr()
         else:
             populations = msm.populations_
             eigenvec = msm.eigenvectors_[:, 1]
-
-        # Back out full transition matrix, oh boy
-        tmatcoo = msm.transmat_.tocoo()
-        for fr, to in msm.mapping_.items():
-            tmatcoo.row[tmatcoo.row == to] = fr
-            tmatcoo.col[tmatcoo.col == to] = fr
+            full_tmat = msm.transmat_
 
         self.full_populations = populations
         self.full_eigenvec = eigenvec
-        self.full_tmat = scipy.sparse.coo_matrix(
-            (tmatcoo.data, (tmatcoo.row, tmatcoo.col))).tocsr()
+        self.full_tmat = full_tmat
 
         # Get found states
         # Those which have at least one transition to or from
