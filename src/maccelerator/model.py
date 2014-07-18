@@ -100,14 +100,18 @@ class TMatModeller(Modeller):
 
         # Back out full-sized populations
         n_states = self.msm.n_states
-        populations = np.zeros(n_states)
-        eigenvec = np.zeros(n_states)
-        for i in range(n_states):
-            try:
-                populations[i] = msm.populations_[msm.mapping_[i]]
-                eigenvec[i] = msm.eigenvectors_[msm.mapping_[i], 1]
-            except KeyError:
-                pass
+        if msm.transmat_.shape[0] < n_states:
+            populations = np.zeros(n_states)
+            eigenvec = np.zeros(n_states)
+            for i in range(n_states):
+                try:
+                    populations[i] = msm.populations_[msm.mapping_[i]]
+                    eigenvec[i] = msm.eigenvectors_[msm.mapping_[i], 1]
+                except KeyError:
+                    pass
+        else:
+            populations = msm.populations_
+            eigenvec = msm.eigenvectors_[:, 1]
 
         # Back out full transition matrix, oh boy
         tmatcoo = msm.transmat_.tocoo()
