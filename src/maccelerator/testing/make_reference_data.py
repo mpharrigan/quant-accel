@@ -47,7 +47,7 @@ def make_alanine_reference_data(dirname):
     kmeans.fit(feat_trajs)
 
     # Build MSM
-    msm = MarkovStateModel(n_states=20, lag_time=3)
+    msm = MarkovStateModel(n_states=20, lag_time=3, n_timescales=5)
     msm.fit(kmeans.labels_)
 
     # Save cluster centers
