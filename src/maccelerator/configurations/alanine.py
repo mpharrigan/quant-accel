@@ -3,7 +3,8 @@ import pickle
 import mdtraj.io
 
 from ..simulate import TMatSimulator
-from ..model import TMatModeller, SortCountsAdapter
+from ..model import TMatModeller
+from ..adapt import RandomAdapter
 from ..configuration import TMatConfiguration
 from ..convergence.hybrid import TMatConvergenceChecker
 from ..param import AdaptiveParams
@@ -46,7 +47,7 @@ class AlanineParams(AdaptiveParams):
         return 0.05
 
 
-class AlanineAdapter(SortCountsAdapter):
+class AlanineAdapter(RandomAdapter):
     pass
 
 

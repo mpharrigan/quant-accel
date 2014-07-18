@@ -120,7 +120,8 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         ref_val = self.ref_msm.eigenvalues_[1]
 
         # <y, Poy> / <y, y>
-        est_val = refs.dot(refs.dot(tmat).T)[0, 0] / np.dot(ref, ref)
+        self.applied_eigenv = refs.dot(tmat)
+        est_val = refs.dot(self.applied_eigenv.T)[0, 0] / np.dot(ref, ref)
 
         errorval = ref_val - est_val
         self.errors_over_time += [errorval]
@@ -138,10 +139,8 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         """
         top, bot = axs[0:2]
 
-        est = self.modeller.full_eigenvec
+        est = self.applied_eigenv.toarray().flatten()
         ref = self.ref_msm.eigenvectors_[:, 1]
-
-        # TODO: Plot reference vs. (estimated tmat acting on reference)
 
         scatter_eigenvector(top, self.centers, est, ref)
         top.set_title('$<\phi_1 | \hat{T} \circ \phi_1>$')

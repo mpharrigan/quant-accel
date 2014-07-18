@@ -5,7 +5,8 @@ but can be used for testing.
 import numpy as np
 
 from ..simulate import Simulator
-from ..model import Modeller, Adapter
+from ..model import Modeller
+from ..adapt import Adapter
 from ..convergence.base import ConvergenceChecker
 from ..configuration import Configuration
 from ..param import AdaptiveParams

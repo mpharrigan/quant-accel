@@ -25,6 +25,11 @@ class TimescaleDistance(ConvergenceChecker):
 
         top.set_title('Timescale difference')
 
+        top.hlines(self.modeller.msm.timescales_, 0, 0.5, 'r', label='Est')
+        top.hlines(self.ref_msm.timescales_, 0.5, 1, 'b', label='Ref')
+        top.legend(loc='best')
+        top.set_yscale('log')
+
         bot.plot(self.errors_over_time, 'o-')
         bot.axhline(0, c='k')
         bot.set_xlabel('Time')

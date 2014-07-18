@@ -8,7 +8,8 @@ import mdtraj as md
 import numpy as np
 
 from ..simulate import OpenMMSimulator, generate_openmm_sysint
-from ..model import ClusterModeller, SortCountsAdapter
+from ..model import ClusterModeller
+from ..adapt import SortCountsAdapter
 from ..configuration import OpenMMConfiguration
 from ..convergence.projection import PopulationProjectionTVD, Volume
 from ..param import AdaptiveParams
