@@ -69,14 +69,21 @@ class MAccelRun(object):
 
             # Model with all trajectories from this round and previous
             trajs_till_now = le_than(self.trajs, round_i)
-            self.config.modeller.model(trajs_till_now, self.params)
+            m_success = self.config.modeller.model(trajs_till_now, self.params)
 
             # Get a new starting state
             sstate = self.config.adapter.adapt(self.params)
 
             # Check convergence
-            converged = self.config.convchecker.check_convergence(self.params)
-            self.config.convchecker.plot_and_save(self.params, sstate)
+            if m_success:
+                converged = self.config.convchecker.check_convergence(
+                    self.params)
+                self.config.convchecker.plot_and_save(self.params, sstate)
+            else:
+                converged = False
+                self.config.convchecker.fallback(self.params)
+                self.config.convchecker.plot_and_save(self.params, sstate,
+                                                      fallback=True)
 
             # Keep track of progress
             # Note: if we dip in and out of convergence it doesn't decrement

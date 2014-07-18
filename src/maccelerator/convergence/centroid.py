@@ -121,7 +121,6 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         ref_val = self.ref_msm.eigenvalues_[1]
 
         # <y, Poy> / <y, y>
-        import pdb; pdb.set_trace()
         self.applied_eigenv = refs.dot(tmat)
         est_val = refs.dot(self.applied_eigenv.T)[0, 0] / np.dot(ref, ref)
 

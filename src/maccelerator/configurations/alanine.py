@@ -25,7 +25,7 @@ class AlanineModeller(TMatModeller):
 
     def model(self, traj_fns, params):
         trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
-        super()._model(trajs, lagtime=params.adapt_lt)
+        return super()._model(trajs, lagtime=params.adapt_lt)
 
 
 class AlanineParams(AdaptiveParams):

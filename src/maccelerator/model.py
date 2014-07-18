@@ -13,6 +13,9 @@ from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
 import scipy.sparse
 
+# Minimum number of states to have succeeded in building a model
+MINSTATES = 4
+
 
 class Modeller(object):
     """Base class for constructing models."""
@@ -98,6 +101,10 @@ class TMatModeller(Modeller):
         msm.fit(trajs)
         self.msm = msm
 
+        log.debug("States left: %d", msm.transmat_.shape[0])
+        if msm.transmat_.shape[0] < MINSTATES:
+            return False
+
         # Back out full-sized populations
         n_states = self.msm.n_states
         if msm.transmat_.shape[0] < n_states:
@@ -132,6 +139,8 @@ class TMatModeller(Modeller):
         countscoo = msm.rawcounts_.tocoo()
         found_states = np.hstack((countscoo.row, countscoo.col))
         self.found_states = np.unique(found_states)
+
+        return True
 
     @property
     def counts(self):

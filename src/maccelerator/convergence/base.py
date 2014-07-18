@@ -33,6 +33,10 @@ class ConvergenceChecker:
         """
         raise NotImplementedError
 
+    def fallback(self, params):
+        """Called if a model could not be built."""
+        self.errors_over_time += [None]
+
     def plot(self, axs, sstate):
         """Plot on given axes.
 
@@ -41,7 +45,11 @@ class ConvergenceChecker:
         """
         raise NotImplementedError
 
-    def plot_and_save(self, params, sstate):
+    def fallback_plot(self, axs, sstate):
+        """Plot something if we couldn't build a model."""
+        pass
+
+    def plot_and_save(self, params, sstate, fallback=False):
         """Plot and save a visualization of the convergence check
 
         This is used if we *aren't* using a HybridConvergenceChecker, and
@@ -51,7 +59,11 @@ class ConvergenceChecker:
         :param sstate: Starting states (to assist in visualization)
         """
         fig, axs = plt.subplots(nrows=1, ncols=self.n_plots, squeeze=True)
-        self.plot(axs, sstate)
+
+        if fallback:
+            self.fallback_plot(axs, sstate)
+        else:
+            self.plot(axs, sstate)
 
         fig.set_size_inches(7 * self.n_plots, 5)
         fig.savefig("{}.png".format(params.plot_fn))
@@ -85,7 +97,7 @@ class HybridConvergenceChecker(ConvergenceChecker):
 
         return np.all(converged)
 
-    def plot_and_save(self, params, sstate):
+    def plot_and_save(self, params, sstate, fallback=False):
         """Plot a visualization for each subchecker, stacked horizontally
 
         :param params: Simulation parameters
@@ -94,7 +106,10 @@ class HybridConvergenceChecker(ConvergenceChecker):
         fig, axs = plt.subplots(nrows=self.n_plots, ncols=self.n_checkers,
                                 squeeze=False)
         for i, checker in enumerate(self.checkers):
-            checker.plot(axs[:, i], sstate)
+            if fallback:
+                checker.fallback_plot(axs[:, i], sstate)
+            else:
+                checker.plot(axs[:, i], sstate)
 
         fig.set_size_inches(7 * self.n_checkers, 5 * self.n_plots)
         fig.suptitle(params.pretty_desc)

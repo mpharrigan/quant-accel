@@ -18,7 +18,7 @@ class TimescaleDistance(ConvergenceChecker):
 
         errorval = np.abs(est - ref)
         self.errors_over_time += [errorval]
-        return errorval < params.threshold
+        return errorval < self.tolerance
 
     def plot(self, axs, sstate):
         top, bot = axs[0:2]

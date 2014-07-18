@@ -23,7 +23,7 @@ while True:
 
 configuration = maccel.AlanineConfiguration(alanine_refmsm_fn,
                                             alanine_centers_fn)
-param = maccel.AlanineParams(spt=5, tpr=1)
+param = maccel.AlanineParams(spt=10, tpr=1)
 run = maccel.MAccelRun(configuration, param, folder_name)
 run.run()
 
