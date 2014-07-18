@@ -14,6 +14,29 @@ from .base import distribution_norm_tvd
 __author__ = 'harrigan'
 
 
+def scatter_eigenvector(ax, centers, est, ref, scale=2e3):
+    """Scatter point sizes are the absolute value of eigenvector values
+
+    Sign is indicated by color.
+    """
+    rpos = np.where(ref >= 0)[0]
+    rneg = np.where(ref < 0)[0]
+    epos = np.where(est >= 0)[0]
+    eneg = np.where(est < 0)[0]
+
+    # Reference
+    ax.scatter(centers[rpos, 0], centers[rpos, 1], linewidths=0,
+               s=scale * ref[rpos], c='coral')
+    ax.scatter(centers[rneg, 0], centers[rneg, 1], linewidths=0,
+               s=-scale * ref[rneg], c='skyblue')
+
+    # Estimate
+    ax.scatter(centers[epos, 0], centers[epos, 1], linewidths=2,
+               facecolors='none', edgecolors='r', s=scale * est[epos])
+    ax.scatter(centers[eneg, 0], centers[eneg, 1], linewidths=2,
+               facecolors='none', edgecolors='b', s=-scale * est[eneg])
+
+
 class CentroidConvergenceChecker(ConvergenceChecker):
     """For when we have consistent state decompositions."""
 
@@ -53,6 +76,10 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
         return errorval < params.threshold
 
     def plot(self, axs, sstate):
+        """Scatter points where size shows populations
+
+        Reference are shown as fill-only and estimate is edge-only circles.
+        """
         top, bot = axs[0:2]
 
         est = self.modeller.msm.populations_
@@ -79,6 +106,13 @@ class EigenvecCentroid(CentroidConvergenceChecker):
     """Compare the first eigenvector to that of a reference MSM."""
 
     def check_convergence(self, params):
+        """Apply estimated tmat to reference eigenvector
+
+        Dot with the reference eigenvector, normalize and compare with
+        the reference eigenvalue.
+
+        <y | yT> = <y | l | y'> = l <y|y'> ~ l
+        """
         ref = self.ref_msm.eigenvectors_[:, 1]
         refs = scipy.sparse.csr_matrix(ref)
         tmat = self.modeller.full_tmat
@@ -98,31 +132,19 @@ class EigenvecCentroid(CentroidConvergenceChecker):
 
 
     def plot(self, axs, sstate):
+        """Scatter point sizes are the absolute value of eigenvector values
+
+        Sign is indicated by color.
+        """
         top, bot = axs[0:2]
 
         est = self.modeller.full_eigenvec
         ref = self.ref_msm.eigenvectors_[:, 1]
-        scale = 2e3
 
-        rpos = np.where(ref >= 0)[0]
-        rneg = np.where(ref < 0)[0]
-        epos = np.where(est >= 0)[0]
-        eneg = np.where(est < 0)[0]
+        # TODO: Plot reference vs. (estimated tmat acting on reference)
 
-        # Reference
-        top.scatter(self.centers[rpos, 0], self.centers[rpos, 1], linewidths=0,
-                    s=scale * ref[rpos], c='coral')
-        top.scatter(self.centers[rneg, 0], self.centers[rneg, 1], linewidths=0,
-                    s=-scale * ref[rneg], c='skyblue')
-
-        # Estimate
-        top.scatter(self.centers[epos, 0], self.centers[epos, 1], linewidths=2,
-                    facecolors='none', edgecolors='r', s=scale * est[epos])
-        top.scatter(self.centers[eneg, 0], self.centers[eneg, 1], linewidths=2,
-                    facecolors='none', edgecolors='b', s=-scale * est[eneg])
-
-        top.set_title('1st Eigenvec')
-
+        scatter_eigenvector(top, self.centers, est, ref)
+        top.set_title('$<\phi_1 | \hat{T} \circ \phi_1>$')
 
         # Bottom (over time)
         bot.plot(self.errors_over_time, 'o-')
@@ -134,7 +156,7 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         return 2
 
 
-class EigenvecL2(EigenvecCentroid):
+class EigenvecL2(CentroidConvergenceChecker):
     """Try just doing L2 norm between eigenvector values."""
 
     def check_convergence(self, params):
@@ -151,6 +173,24 @@ class EigenvecL2(EigenvecCentroid):
                   params.threshold)
 
         return errorval < params.threshold
+
+    def plot(self, axs, sstate):
+        top, bot = axs[0:2]
+
+        ref = self.ref_msm.eigenvectors_[:, 1]
+        est = self.modeller.full_eigenvec
+
+        scatter_eigenvector(top, self.centers, est, ref)
+        top.set_title('$||\hat{\phi}_1-\phi_1||$')
+
+        # Bottom (over time)
+        bot.plot(self.errors_over_time, 'o-')
+        bot.axhline(0, c='k')
+        bot.set_xlabel('Time')
+
+    @property
+    def n_plots(self):
+        return 2
 
 
 class TMatFro(CentroidConvergenceChecker):
