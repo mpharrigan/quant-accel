@@ -10,7 +10,7 @@ import numpy as np
 from ..simulate import OpenMMSimulator, generate_openmm_sysint
 from ..model import ClusterModeller, SortCountsAdapter
 from ..configuration import OpenMMConfiguration
-from ..check_convergence import PopulationProjectionTVD, Volume
+from ..convergence.projection import PopulationProjectionTVD, Volume
 from ..param import AdaptiveParams
 
 

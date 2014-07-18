@@ -21,11 +21,7 @@ class OpenMMConfiguration(Configuration):
 
 
 class TMatConfiguration(Configuration):
-    def __init__(self, ref_msm):
-        super().__init__()
-
-        self.ref_msm = ref_msm
-        self.tmat = self.ref_msm.transmat_.tocsr()
+    pass
 
 
 
