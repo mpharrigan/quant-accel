@@ -7,8 +7,8 @@ __author__ = 'harrigan'
 
 
 class TimescaleDistance(ConvergenceChecker):
-    def __init__(self, modeller, ref_msm):
-        super().__init__()
+    def __init__(self, tolerance, modeller, ref_msm):
+        super().__init__(tolerance)
         self.modeller = modeller
         self.ref_msm = ref_msm
 

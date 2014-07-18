@@ -41,8 +41,8 @@ def scatter_eigenvector(ax, centers, est, ref, scale=2e3):
 class CentroidConvergenceChecker(ConvergenceChecker):
     """For when we have consistent state decompositions."""
 
-    def __init__(self, modeller, centers, ref_msm):
-        super().__init__()
+    def __init__(self, tolerance, modeller, centers, ref_msm):
+        super().__init__(tolerance)
 
         self.modeller = modeller
         self.centers = centers
@@ -52,8 +52,8 @@ class CentroidConvergenceChecker(ConvergenceChecker):
 class PopulationCentroidTVD(CentroidConvergenceChecker):
     """Compare equilibrium populations of states to a reference MSM."""
 
-    def __init__(self, modeller, centers, ref_msm):
-        super().__init__(modeller, centers, ref_msm)
+    def __init__(self, tolerance, modeller, centers, ref_msm):
+        super().__init__(tolerance, modeller, centers, ref_msm)
         self.distribution_norm = distribution_norm_tvd
         self.cmap = plt.get_cmap('RdBu')
 
@@ -70,11 +70,11 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
 
         errorval = self.distribution_norm(ref, est)
         log.debug("Population Error: %g\t Threshold: %g", errorval,
-                  params.threshold)
+                  self.tolerance)
 
         self.errors_over_time += [errorval]
 
-        return errorval < params.threshold
+        return errorval < self.tolerance
 
     def plot(self, axs, sstate):
         """Scatter points where size shows populations
@@ -121,6 +121,7 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         ref_val = self.ref_msm.eigenvalues_[1]
 
         # <y, Poy> / <y, y>
+        import pdb; pdb.set_trace()
         self.applied_eigenv = refs.dot(tmat)
         est_val = refs.dot(self.applied_eigenv.T)[0, 0] / np.dot(ref, ref)
 
@@ -128,9 +129,9 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         self.errors_over_time += [errorval]
 
         log.debug("Eigenvec Error: %g\t Threshold: %g", errorval,
-                  params.threshold)
+                  self.tolerance)
 
-        return errorval < params.threshold
+        return errorval < self.tolerance
 
 
     def plot(self, axs, sstate):
@@ -170,9 +171,9 @@ class EigenvecL2(CentroidConvergenceChecker):
         self.errors_over_time += [errorval]
 
         log.debug("Eigenvec L2 Error: %g\t Threshold: %g", errorval,
-                  params.threshold)
+                  self.tolerance)
 
-        return errorval < params.threshold
+        return errorval < self.tolerance
 
     def plot(self, axs, sstate):
         top, bot = axs[0:2]
@@ -204,9 +205,9 @@ class TMatFro(CentroidConvergenceChecker):
         self.errors_over_time += [errorval]
 
         log.debug("Frobenius Norm: %g\t Threshold: %g", errorval,
-                  params.threshold)
+                  self.tolerance)
 
-        return errorval < params.threshold
+        return errorval < self.tolerance
 
     def plot(self, axs, sstate):
         top, bot = axs[0:2]

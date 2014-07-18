@@ -94,7 +94,7 @@ class MullerConvchecker(PopulationProjectionTVD):
         volume = Volume([-1.0, 1.0], [-0.1, 2.0])
         grid = Volume.get_grid(volume, resolution=200)
 
-        super().__init__(modeller, threshold=0.6, grid=grid,
+        super().__init__(modeller, tolerance=0.6, grid=grid,
                          potentialfunc=muller.MullerForce.potential, temp=750)
 
 

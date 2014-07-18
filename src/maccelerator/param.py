@@ -15,7 +15,7 @@ class AdaptiveParams(object):
 
     TRAJROUND = 'round-{round_i}'
     SEEDROUND = 'seed-{round_i}'
-    FIGROUND = 'plot-{round_i}'
+    FIGROUND = 'plot-{round_i:04d}'
 
 
     def __init__(self, spt, tpr, run_id=0):

@@ -40,11 +40,7 @@ class AlanineParams(AdaptiveParams):
     @property
     def post_converge(self):
         # TODO Change
-        return 1
-
-    @property
-    def threshold(self):
-        return 0.05
+        return 10
 
 
 class AlanineAdapter(RandomAdapter):
@@ -57,6 +53,8 @@ class AlanineConvchecker(TMatConvergenceChecker):
 
 class AlanineConfiguration(TMatConfiguration):
     def __init__(self, ref_msm_fn, centers_fn):
+        super().__init__()
+
         # Load reference MSM
         with open(ref_msm_fn, 'rb') as ref_msm_f:
             ref_msm = pickle.load(ref_msm_f)

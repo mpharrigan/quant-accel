@@ -21,8 +21,9 @@ def distribution_norm_tvd(p, q):
 class ConvergenceChecker:
     """Base class for checking convergence and visualizing."""
 
-    def __init__(self):
+    def __init__(self, tolerance):
         self.errors_over_time = []
+        self.tolerance = tolerance
 
     def check_convergence(self, params):
         """Check convergence
@@ -66,7 +67,7 @@ class HybridConvergenceChecker(ConvergenceChecker):
     """Combine two convergence checkers with logical and"""
 
     def __init__(self, *checkers):
-        super().__init__()
+        super().__init__(tolerance=-1)
         self.checkers = checkers
         self.n_checkers = len(checkers)
 

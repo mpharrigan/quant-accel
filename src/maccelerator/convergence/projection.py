@@ -22,8 +22,8 @@ class PopulationProjectionTVD(ConvergenceChecker):
     :param temp: Temperature at which we compute reference probabilities
     """
 
-    def __init__(self, modeller, grid, potentialfunc, temp):
-        super().__init__()
+    def __init__(self, tolerance, modeller, grid, potentialfunc, temp):
+        super().__init__(tolerance)
 
         self.modeller = modeller
         self.grid = grid
@@ -85,10 +85,10 @@ class PopulationProjectionTVD(ConvergenceChecker):
 
         # Calculate error
         errorval = self.distribution_norm(calc_eq, est)
-        log.debug("TVD Error: %g\t Threshold: %g", errorval, params.threshold)
+        log.debug("TVD Error: %g\t Threshold: %g", errorval, self.tolerance)
 
         # Return whether converged
-        return errorval < params.threshold
+        return errorval < self.tolerance
 
     def plot(self, axs, sstate):
         """Plot a projection onto a grid.
