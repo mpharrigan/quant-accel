@@ -211,8 +211,11 @@ class TMatFro(CentroidConvergenceChecker):
     def plot(self, axs, sstate):
         top, bot = axs[0:2]
 
+        top.set_title('Tmat Frobenius Norm')
+
         bot.plot(self.errors_over_time, 'o-')
         bot.axhline(0, c='k')
+        bot.set_xlabel('Time')
 
     @property
     def n_plots(self):
