@@ -53,6 +53,7 @@ class SimpleModeller(Modeller):
         :param traj_fns: Files to load
         """
         self.trajs = [np.load(tfn) for tfn in traj_fns]
+        return True
 
     def seed_state(self, params):
         """Start from 0 in each trajectory.
@@ -66,7 +67,7 @@ class SimpleConvchecker(ConvergenceChecker):
     """A simple check for convergence."""
 
     def __init__(self, modeller):
-        super().__init__()
+        super().__init__(tolerance=-1)
         self.modeller = modeller
 
     def check_convergence(self, params):

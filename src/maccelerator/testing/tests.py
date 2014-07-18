@@ -107,7 +107,8 @@ class TestMullerRun(unittest.TestCase):
 
 class TestAlanineRun(unittest.TestCase):
     def setUp(self):
-        configuration = maccel.AlanineConfiguration(get_fn("ala2.mtx"))
+        configuration = maccel.AlanineConfiguration(get_fn('ala.msm.pickl'),
+                                                    get_fn('ala.centers.h5'))
         param = maccel.SimpleParams(spt=50, tpr=2)
         rundir = pjoin(tempfile.mkdtemp(), 'runz')
         self.rundir = rundir
