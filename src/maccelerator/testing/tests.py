@@ -119,29 +119,6 @@ class TestAlanineRun(unittest.TestCase):
         #TODO: Add asserts
 
 
-class TestSimple(unittest.TestCase):
-    def setUp(self):
-        self.config = maccel.SimpleConfiguration()
-
-
-    def test_sstate(self):
-        params = maccel.configurations.SimpleParams(spt=10, tpr=8)
-        sstate = self.config.modeller.seed_state(params)
-
-        self.assertEqual(len(sstate), 8)
-
-        for ss in sstate:
-            self.assertEqual(ss, 0)
-
-
-    def test_sample(self):
-        params = maccel.configurations.SimpleParams(spt=10, tpr=1)
-        sstate = self.config.modeller.seed_state(params)
-        seq = self.config.simulator.simulate(sstate[0], params,
-                                             traj_out_fn=None)
-        np.testing.assert_array_equal(seq, range(10))
-
-
 class TestTMatSampling(unittest.TestCase):
     def setUp(self):
         tmat = scipy.sparse.csr_matrix(
@@ -163,47 +140,5 @@ class TestTMatSampling(unittest.TestCase):
 
         self.assertTrue(os.path.exists(pjoin(self.tmpdir, 'trj1.h5')))
 
-
-class TestRun(unittest.TestCase):
-    def setUp(self):
-        configuration = maccel.SimpleConfiguration()
-        param = maccel.SimpleParams(spt=10, tpr=10)
-        rundir = tempfile.mkdtemp()
-        self.rundir = rundir
-
-        self.run = maccel.MAccelRun(configuration, param, rundir)
-
-    def test_run(self):
-        self.run.run()
-        self.assertEqual(len(self.run.trajs), 9)
-
-        self.assertTrue(
-            os.path.exists(pjoin(self.rundir, 'trajs/round-8/traj-9.npy')))
-
-
-class TestGrid(unittest.TestCase):
-    def setUp(self):
-        configuration = maccel.SimpleConfiguration()
-        griddir = tempfile.mkdtemp()
-
-        self.grid = maccel.MAccelGrid(configuration, griddir)
-
-
-    def test_grid(self):
-        self.grid.grid()
-
-        outdirs = [os.path.basename(d) for d in os.listdir(self.grid.griddir)]
-
-        self.assertTrue('blt-1_alt-1_spt-10_tpr-10' in outdirs)
-        self.assertTrue('blt-1_alt-1_spt-20_tpr-10' in outdirs)
-        self.assertEqual(len(os.listdir(self.grid.griddir)), 2)
-
-    def test_grid_noparallel(self):
-        params = maccel.configurations.SimpleParams(spt=20, tpr=20)
-        maccel.runs.grid._launch((self.grid.config, self.grid.griddir, params))
-
-    def test_iterable_paramlist(self):
-        for p in self.grid.config.get_param_grid():
-            self.assertTrue(hasattr(p, 'spt'))
 
 

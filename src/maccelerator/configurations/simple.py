@@ -27,11 +27,14 @@ class SimpleSimulator(Simulator):
 
         :returns: A list or something
         """
-        traj = range(sstate, params.spt)
+
+        trajs = [np.arange(sstate, sstate + params.spt) for _ in
+                 range(params.tpr)]
 
         if traj_out_fn is not None:
-            np.save(traj_out_fn, traj)
-        return traj
+            for traj in trajs:
+                np.save(traj_out_fn, traj)
+        return trajs
 
     @property
     def trajfn(self):
@@ -75,7 +78,11 @@ class SimpleConvchecker(ConvergenceChecker):
 
         :param params: Not used
         """
-        return len(self.modeller.trajs) > 40
+        return len(self.modeller.trajs) >= 40
+
+    @property
+    def n_plots(self):
+        return 0
 
 
 class SimpleAdapter(Adapter):
@@ -104,8 +111,8 @@ class SimpleParams(AdaptiveParams):
 
     @property
     def post_converge(self):
-        """Do 5 rounds after convergence."""
-        return 5
+        """Do 4 rounds after convergence."""
+        return 4
 
     @property
     def adapt_lt(self):

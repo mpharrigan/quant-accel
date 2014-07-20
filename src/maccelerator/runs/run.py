@@ -49,7 +49,6 @@ class MAccelRun(object):
             return False
 
         # Initialize variables for the loop
-        converged = False
         round_i = 0
         rounds_left = self.params.post_converge
         sstate = self.config.modeller.seed_state(self.params)
@@ -92,7 +91,7 @@ class MAccelRun(object):
                 rounds_left -= 1
 
             # See if we're done
-            if rounds_left <= 0:
+            if rounds_left < 0:
                 break
 
             # Move on

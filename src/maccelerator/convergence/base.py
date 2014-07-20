@@ -58,6 +58,9 @@ class ConvergenceChecker:
         :param params: Simulation parameters
         :param sstate: Starting states (to assist in visualization)
         """
+        if self.n_plots < 1:
+            return
+
         fig, axs = plt.subplots(nrows=1, ncols=self.n_plots, squeeze=True)
 
         if fallback:
@@ -103,6 +106,9 @@ class HybridConvergenceChecker(ConvergenceChecker):
         :param params: Simulation parameters
         :param sstate: Starting states
         """
+        if self.n_plots < 1:
+            return
+
         fig, axs = plt.subplots(nrows=self.n_plots, ncols=self.n_checkers,
                                 squeeze=False)
         for i, checker in enumerate(self.checkers):
