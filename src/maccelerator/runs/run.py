@@ -22,11 +22,8 @@ class MAccelRun(object):
     def __init__(self, configuration, params, rundir):
         self.config = configuration
         self.params = params
-        self.params.rundir = rundir
         self.trajs = defaultdict(list)
-
-        # Template for trajectory names
-        self.sstatefn = configuration.adapter.sstatefn
+        self.rundir = rundir
 
         try:
             c = Client()
@@ -44,7 +41,7 @@ class MAccelRun(object):
             return False
 
         # Make directories
-        traj_dir, exit_status = self.params.make_directories()
+        traj_dir, exit_status = self.config.file.make_directories(self.rundir)
         if not exit_status:
             return False
 
@@ -58,7 +55,7 @@ class MAccelRun(object):
             log.info("Doing round %d", round_i)
 
             # Make directory for trajectories for this round
-            trajround_dir = self.params.make_trajround(round_i)
+            trajround_dir = self.config.file.make_trajround(round_i)
 
             # Do fancy IPython.parallel stuff to parallelize simulation
             traj_outs = self.get_traj_fns(trajround_dir)
@@ -110,11 +107,11 @@ class MAccelRun(object):
 
     def get_sstate_fn(self, round_i):
         """Return a starting-state filename."""
-        return pjoin(self.params.sstate_dir,
+        return pjoin(self.config.file.sstate_dir,
                      self.config.adapter.sstatefn.format(round_i=round_i + 1))
 
     def get_plot_fn(self, round_i):
-        return pjoin(self.params.figs_dir,
+        return pjoin(self.config.file.figs_dir,
                      self.config.convchecker.plotfn.format(round_i=round_i))
 
 
