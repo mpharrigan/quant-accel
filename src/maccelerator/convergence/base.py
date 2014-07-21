@@ -49,7 +49,7 @@ class ConvergenceChecker:
         """Plot something if we couldn't build a model."""
         pass
 
-    def plot_and_save(self, params, sstate, fallback=False):
+    def plot_and_save(self, params, sstate, plot_fn, fallback=False):
         """Plot and save a visualization of the convergence check
 
         This is used if we *aren't* using a HybridConvergenceChecker, and
@@ -69,13 +69,17 @@ class ConvergenceChecker:
             self.plot(axs, sstate)
 
         fig.set_size_inches(7 * self.n_plots, 5)
-        fig.savefig("{}.png".format(params.plot_fn))
+        fig.savefig(plot_fn)
         plt.close(fig)
 
     @property
     def n_plots(self):
         """Number of plots a particular checker generates."""
         raise NotImplementedError
+
+    @property
+    def plotfn(self):
+        return "plot-{round_i:04d}.png"
 
 
 class HybridConvergenceChecker(ConvergenceChecker):
@@ -100,7 +104,7 @@ class HybridConvergenceChecker(ConvergenceChecker):
 
         return np.all(converged)
 
-    def plot_and_save(self, params, sstate, fallback=False):
+    def plot_and_save(self, params, sstate, plot_fn, fallback=False):
         """Plot a visualization for each subchecker, stacked horizontally
 
         :param params: Simulation parameters
@@ -119,7 +123,7 @@ class HybridConvergenceChecker(ConvergenceChecker):
 
         fig.set_size_inches(7 * self.n_checkers, 5 * self.n_plots)
         fig.suptitle(params.pretty_desc)
-        fig.savefig("{}.png".format(params.plot_fn))
+        fig.savefig(plot_fn)
         plt.close(fig)
 
     @property

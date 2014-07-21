@@ -76,6 +76,10 @@ class AlanineAdapter(RandomAdapter):
         # TODO: Save
         return indices
 
+    @property
+    def sstatefn(self):
+        return 'sstate-{round_i}.h5'
+
 
 class AlanineConvchecker(TMatConvergenceChecker):
     pass

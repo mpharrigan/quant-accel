@@ -75,14 +75,17 @@ class MAccelRun(object):
             sstate = self.config.adapter.adapt(self.params, ssout)
 
             # Check convergence
+            plot_fn = self.get_plot_fn(round_i)
             if m_success:
                 converged = self.config.convchecker.check_convergence(
                     self.params)
-                self.config.convchecker.plot_and_save(self.params, sstate)
+                self.config.convchecker.plot_and_save(self.params, sstate,
+                                                      plot_fn)
             else:
                 converged = False
                 self.config.convchecker.fallback(self.params)
                 self.config.convchecker.plot_and_save(self.params, sstate,
+                                                      plot_fn,
                                                       fallback=True)
 
             # Keep track of progress
@@ -109,6 +112,10 @@ class MAccelRun(object):
         """Return a starting-state filename."""
         return pjoin(self.params.sstate_dir,
                      self.config.adapter.sstatefn.format(round_i=round_i + 1))
+
+    def get_plot_fn(self, round_i):
+        return pjoin(self.params.figs_dir,
+                     self.config.convchecker.plotfn.format(round_i=round_i))
 
 
 def le_than(traj_dict, round_i):
