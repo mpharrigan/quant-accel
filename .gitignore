@@ -3,3 +3,6 @@
 
 reference
 tmp
+htmlcov
+
+.coverage

@@ -78,3 +78,7 @@ class TestRun(TestCase):
     @unittest.skip
     def test_msm_files(self):
         return False
+
+
+if __name__ == "__main__":
+    unittest.main()

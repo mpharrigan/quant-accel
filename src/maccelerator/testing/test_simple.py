@@ -7,14 +7,16 @@ __author__ = 'harrigan'
 
 import os
 from os.path import join as pjoin
+import unittest
 from unittest import TestCase
 import logging
-from maccelerator.testing.utils import get_folder
 
 import numpy as np
 from numpy.testing import assert_array_equal
 
+from maccelerator.testing.utils import get_folder
 import maccelerator as maccel
+
 
 
 # Disable logging during test
@@ -153,3 +155,7 @@ class TestGrid(TestCase):
         for p in self.grid.config.get_param_grid():
             with self.subTest():
                 self.assertTrue(hasattr(p, 'spt'))
+
+
+if __name__ == "__main__":
+    unittest.main()
