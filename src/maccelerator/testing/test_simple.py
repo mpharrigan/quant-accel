@@ -5,11 +5,11 @@ Also test the 'simple' configuration that is included for testing.
 
 __author__ = 'harrigan'
 
-import tempfile
 import os
 from os.path import join as pjoin
 from unittest import TestCase
 import logging
+from maccelerator.testing.utils import get_folder
 
 import numpy as np
 from numpy.testing import assert_array_equal
@@ -27,7 +27,7 @@ class TestSimpleStartingStates(TestCase):
     def setUp(self):
         self.config = maccel.SimpleConfiguration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=8)
-        rundir = tempfile.mkdtemp()
+        rundir = get_folder('s1')
         self.out_fn = pjoin(rundir, 'test_sstate.npy')
         self.sstate = self.config.modeller.seed_state(params, self.out_fn)
 
@@ -49,7 +49,7 @@ class TestSimpleSample(TestCase):
     def setUp(self):
         self.config = maccel.SimpleConfiguration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=2)
-        rundir = tempfile.mkdtemp()
+        rundir = get_folder('s2')
         self.out_fn = pjoin(rundir, 'test_sample.npy')
 
         self.traj = self.config.simulator.simulate(0, params,
@@ -71,7 +71,7 @@ class TestRun(TestCase):
     def setUp(self):
         configuration = maccel.SimpleConfiguration()
         param = maccel.SimpleParams(spt=10, tpr=10)
-        rundir = tempfile.mkdtemp()
+        rundir = get_folder('s3')
         self.rundir = rundir
 
         self.run = maccel.MAccelRun(configuration, param, rundir)
@@ -123,7 +123,7 @@ class TestGrid(TestCase):
 
     def setUp(self):
         configuration = maccel.SimpleConfiguration()
-        self.griddir = tempfile.mkdtemp()
+        self.griddir = get_folder('s4')
         self.grid = maccel.MAccelGrid(configuration, self.griddir)
         self.grid.grid()
 
