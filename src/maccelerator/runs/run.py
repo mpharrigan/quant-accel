@@ -25,6 +25,8 @@ class MAccelRun(object):
         self.trajs = defaultdict(list)
         self.rundir = rundir
 
+        self.plot = False
+
         try:
             c = Client()
             self.lbv = c.load_balanced_view()
@@ -76,14 +78,16 @@ class MAccelRun(object):
             if m_success:
                 converged = self.config.convchecker.check_convergence(
                     self.params)
-                self.config.convchecker.plot_and_save(self.params, sstate,
-                                                      plot_fn)
+                if self.plot:
+                    self.config.convchecker.plot_and_save(self.params, sstate,
+                                                          plot_fn)
             else:
                 converged = False
                 self.config.convchecker.fallback(self.params)
-                self.config.convchecker.plot_and_save(self.params, sstate,
-                                                      plot_fn,
-                                                      fallback=True)
+                if self.plot:
+                    self.config.convchecker.plot_and_save(self.params, sstate,
+                                                          plot_fn,
+                                                          fallback=True)
 
             # Keep track of progress
             # Note: if we dip in and out of convergence it doesn't decrement
