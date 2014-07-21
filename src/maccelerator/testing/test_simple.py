@@ -47,21 +47,20 @@ class TestSimpleSample(TestCase):
     def setUp(self):
         self.config = maccel.SimpleConfiguration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=2)
+        rundir = tempfile.mkdtemp()
+        self.out_fn = pjoin(rundir, 'test_sample.npy')
 
-        self.seqs = self.config.simulator.simulate(0, params,
-                                                   traj_out_fn=None)
-
-    def test_num_trajectories(self):
-        self.assertEqual(len(self.seqs), 2)
+        self.traj = self.config.simulator.simulate(0, params,
+                                                   traj_out_fn=self.out_fn)
 
     def test_value_trajectories(self):
-        for i, seq in enumerate(self.seqs):
-            with self.subTest(i=i):
-                self.assertTrue(np.array_equal(seq, np.arange(10)))
+        self.assertTrue(np.array_equal(self.traj, np.arange(10)))
 
     def test_save_trajectories(self):
-        # TODO
-        self.assertTrue(True)
+        self.assertTrue(os.path.exists(self.out_fn))
+
+        traj = np.load(self.out_fn)
+        self.assertTrue(np.array_equal(traj, np.arange(10)))
 
 
 class TestRun(TestCase):

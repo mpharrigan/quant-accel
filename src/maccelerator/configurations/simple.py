@@ -28,13 +28,11 @@ class SimpleSimulator(Simulator):
         :returns: A list or something
         """
 
-        trajs = [np.arange(sstate, sstate + params.spt) for _ in
-                 range(params.tpr)]
+        traj = np.arange(sstate, sstate + params.spt)
 
         if traj_out_fn is not None:
-            for traj in trajs:
-                np.save(traj_out_fn, traj)
-        return trajs
+            np.save(traj_out_fn, traj)
+        return traj
 
     @property
     def trajfn(self):
