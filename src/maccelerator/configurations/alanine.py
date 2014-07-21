@@ -9,7 +9,7 @@ import numpy as np
 from ..simulate import TMatSimulator
 from ..model import TMatModeller
 from ..adapt import RandomAdapter
-from ..configuration import TMatConfiguration
+from .base import TMatConfiguration
 from ..convergence.hybrid import TMatConvergenceChecker
 from ..param import AdaptiveParams
 

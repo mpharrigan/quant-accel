@@ -1,9 +1,5 @@
 """Configure types of runs."""
 
-from simtk import openmm
-import scipy.io
-import pickle
-
 
 class Configuration(object):
     def __init__(self):

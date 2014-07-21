@@ -8,7 +8,7 @@ from ..simulate import Simulator
 from ..model import Modeller
 from ..adapt import Adapter
 from ..convergence.base import ConvergenceChecker
-from ..configuration import Configuration
+from .base import Configuration
 from ..param import AdaptiveParams
 
 

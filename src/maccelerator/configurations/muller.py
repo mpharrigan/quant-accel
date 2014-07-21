@@ -10,7 +10,7 @@ import numpy as np
 from ..simulate import OpenMMSimulator, generate_openmm_sysint
 from ..model import ClusterModeller
 from ..adapt import SortCountsAdapter
-from ..configuration import OpenMMConfiguration
+from .base import OpenMMConfiguration
 from ..convergence.projection import PopulationProjectionTVD, Volume
 from ..param import AdaptiveParams
 
@@ -90,7 +90,7 @@ class MullerModeller(ClusterModeller):
 
 class MullerConvchecker(PopulationProjectionTVD):
     def __init__(self, modeller):
-        #volume = Volume([-1.5, 1.2], [-0.2, 3.0])
+        # volume = Volume([-1.5, 1.2], [-0.2, 3.0])
         volume = Volume([-1.0, 1.0], [-0.1, 2.0])
         grid = Volume.get_grid(volume, resolution=200)
 
@@ -110,7 +110,7 @@ class MullerAdapter(SortCountsAdapter):
 
         sstate_traj = make_traj_from_coords(sstate_positions)
 
-        #TODO Save (just put it right here! The filename is in place!)
+        # TODO Save (just put it right here! The filename is in place!)
         return sstate_traj
 
 
