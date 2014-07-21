@@ -26,7 +26,9 @@ class TestSimpleStartingStates(TestCase):
     def setUp(self):
         self.config = maccel.SimpleConfiguration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=8)
-        self.sstate = self.config.modeller.seed_state(params)
+        rundir = tempfile.mkdtemp()
+        self.out_fn = pjoin(rundir, 'test_sstate.npy')
+        self.sstate = self.config.modeller.seed_state(params, self.out_fn)
 
     def test_length(self):
         self.assertEqual(len(self.sstate), 8)
@@ -36,9 +38,8 @@ class TestSimpleStartingStates(TestCase):
             with self.subTest(ss=ss):
                 self.assertEqual(ss, 0)
 
-    def test_save(self):
-        # TODO
-        self.assertTrue(True)
+    def test_save_sstates(self):
+        self.assertTrue(os.path.exists(self.out_fn))
 
 
 class TestSimpleSample(TestCase):
@@ -99,6 +100,17 @@ class TestRun(TestCase):
                         self.assertTrue(os.path.exists(trajoutfn))
                     else:
                         self.assertFalse(os.path.exists(trajoutfn))
+
+    def test_sstate_files(self):
+        for round_i in range(8 * 2):
+            should_exist = round_i <= 8
+            with self.subTest(round_i=round_i, should_exist=should_exist):
+                sstatefn = 'sstate-{round_i}.npy'.format(round_i=round_i)
+                sstatefn = pjoin(self.rundir, 'sstates', sstatefn)
+                if should_exist:
+                    self.assertTrue(os.path.exists(sstatefn))
+                else:
+                    self.assertFalse(os.path.exists(sstatefn))
 
 
 class TestGrid(TestCase):

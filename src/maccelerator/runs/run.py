@@ -26,7 +26,7 @@ class MAccelRun(object):
         self.trajs = defaultdict(list)
 
         # Template for trajectory names
-        self.trajfn = configuration.simulator.trajfn
+        self.sstatefn = configuration.adapter.sstatefn
 
         try:
             c = Client()
@@ -51,7 +51,8 @@ class MAccelRun(object):
         # Initialize variables for the loop
         round_i = 0
         rounds_left = self.params.post_converge
-        sstate = self.config.modeller.seed_state(self.params)
+        sstate = self.config.modeller.seed_state(self.params,
+                                                 self.get_sstate_fn(-1))
 
         while True:
             log.info("Doing round %d", round_i)
@@ -60,8 +61,7 @@ class MAccelRun(object):
             trajround_dir = self.params.make_trajround(round_i)
 
             # Do fancy IPython.parallel stuff to parallelize simulation
-            traj_outs = [pjoin(trajround_dir, self.trajfn.format(traj_i=i)) for
-                         i in range(self.params.tpr)]
+            traj_outs = self.get_traj_fns(trajround_dir)
             self.lbv.map(self.config.simulator.simulate, sstate,
                          [self.params] * self.params.tpr, traj_outs)
             self.trajs[round_i] = traj_outs
@@ -71,7 +71,8 @@ class MAccelRun(object):
             m_success = self.config.modeller.model(trajs_till_now, self.params)
 
             # Get a new starting state
-            sstate = self.config.adapter.adapt(self.params)
+            ssout = self.get_sstate_fn(round_i)
+            sstate = self.config.adapter.adapt(self.params, ssout)
 
             # Check convergence
             if m_success:
@@ -96,6 +97,18 @@ class MAccelRun(object):
 
             # Move on
             round_i += 1
+
+    def get_traj_fns(self, trajround_dir):
+        """Return a list of trajectory filenames for simulation."""
+        return [
+            pjoin(trajround_dir, self.config.simulator.trajfn.format(traj_i=i))
+            for i in range(self.params.tpr)
+        ]
+
+    def get_sstate_fn(self, round_i):
+        """Return a starting-state filename."""
+        return pjoin(self.params.sstate_dir,
+                     self.config.adapter.sstatefn.format(round_i=round_i + 1))
 
 
 def le_than(traj_dict, round_i):

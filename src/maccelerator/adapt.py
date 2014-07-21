@@ -9,11 +9,16 @@ __author__ = 'harrigan'
 class Adapter(object):
     """Base class for an object that chooses where to start new simulation."""
 
-    def adapt(self, params):
+    def adapt(self, params, sstate_out_fn):
         """Return a state from which to start.
 
         :param params: Simulation parameters.
+        :param sstate_out_fn: Where to save the starting states
         """
+        raise NotImplementedError
+
+    @property
+    def sstatefn(self):
         raise NotImplementedError
 
 
@@ -26,7 +31,7 @@ class SortCountsAdapter(Adapter):
         super().__init__()
         self.modeller = modeller
 
-    def adapt(self, params):
+    def _adapt(self, params):
         """From a counts matrix, pick the best states from which to start.
 
         :param params: Simulation parameters so we know how many new states
@@ -64,7 +69,7 @@ class RandomAdapter(Adapter):
         super().__init__()
         self.modeller = modeller
 
-    def adapt(self, params):
+    def _adapt(self, params):
         """Pick random indices
 
         :param params: So we know how many new states to return

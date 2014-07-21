@@ -65,13 +65,13 @@ class MullerModeller(ClusterModeller):
     def __init__(self):
         super().__init__()
 
-    def seed_state(self, params):
+    def seed_state(self, params, sstate_out_fn):
         """Start from the bottom right well.
 
         :param params: Make this many seed states. They will all be the same
         """
         seed_state = make_traj_from_coords([[0.5, 0.0, 0.0]] * params.tpr)
-        seed_state.save('{}.h5'.format(params.seed_state_fn))
+        seed_state.save(sstate_out_fn)
         return seed_state
 
     def model(self, traj_fns, params):
@@ -99,8 +99,8 @@ class MullerConvchecker(PopulationProjectionTVD):
 
 
 class MullerAdapter(SortCountsAdapter):
-    def adapt(self, params):
-        state_indices = super().adapt(params)
+    def adapt(self, params, sstate_out_fn):
+        state_indices = super()._adapt(params)
         sstate_positions = self.modeller.clusterer.cluster_centers_[
                            state_indices, :]
         assert sstate_positions.shape[1] == 2
@@ -109,7 +109,8 @@ class MullerAdapter(SortCountsAdapter):
         assert sstate_positions.shape[1] == 3
 
         sstate_traj = make_traj_from_coords(sstate_positions)
-        #TODO Save
+
+        #TODO Save (just put it right here! The filename is in place!)
         return sstate_traj
 
 

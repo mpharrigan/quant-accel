@@ -28,7 +28,11 @@ class Modeller(object):
         """
         raise NotImplementedError
 
-    def seed_state(self, params):
+    # TODO: Why is seed state generation done in Modeller??
+    # TODO: It's really more like a param when you think about it
+    # TODO: Or even related to the simulation (openmm is different than tmat)
+    # TODO: But it returns the same type of thing as Adapter
+    def seed_state(self, params, sstate_out_fn):
         """Get seed states to start the run.
 
         :param params: Contains number of seed states to generate

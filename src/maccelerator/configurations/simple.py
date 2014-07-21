@@ -56,12 +56,14 @@ class SimpleModeller(Modeller):
         self.trajs = [np.load(tfn) for tfn in traj_fns]
         return True
 
-    def seed_state(self, params):
+    def seed_state(self, params, sstate_out_fn):
         """Start from 0 in each trajectory.
 
         :param params: Contains number of seed states to generate
         """
-        return [0] * params.tpr
+        sstate = [0] * params.tpr
+        np.save(sstate_out_fn, sstate)
+        return sstate
 
 
 class SimpleConvchecker(ConvergenceChecker):
@@ -90,15 +92,22 @@ class SimpleAdapter(Adapter):
         super().__init__()
         self.modeller = modeller
 
-    def adapt(self, params):
+    def adapt(self, params, sstate_out_fn):
         """Get biggest number in the last n trajectories.
 
         :param params: Contains number of new states to generate
+        :param sstate_out_fn: Save the starting states as a numpy file
         """
         n_tpr = params.tpr
         ret = np.array([np.max(t) for t in self.modeller.trajs[-n_tpr:]])
         assert len(ret) == n_tpr
+        if sstate_out_fn is not None:
+            np.save(sstate_out_fn, ret)
         return ret
+
+    @property
+    def sstatefn(self):
+        return "sstate-{round_i}.npy"
 
 
 class SimpleParams(AdaptiveParams):

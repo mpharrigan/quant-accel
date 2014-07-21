@@ -45,7 +45,8 @@ class AlanineModeller(TMatModeller):
     def __init__(self, tot_n_states):
         super().__init__(tot_n_states)
 
-    def seed_state(self, params):
+    def seed_state(self, params, sstate_out_fn):
+        #TODO: Save
         return [0] * params.tpr
 
     def model(self, traj_fns, params):
@@ -69,7 +70,11 @@ class AlanineParams(AdaptiveParams):
 
 
 class AlanineAdapter(RandomAdapter):
-    pass
+    def adapt(self, params, sstate_out_fn):
+        indices = super()._adapt(params)
+
+        # TODO: Save
+        return indices
 
 
 class AlanineConvchecker(TMatConvergenceChecker):

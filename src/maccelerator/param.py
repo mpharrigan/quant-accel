@@ -14,8 +14,6 @@ class AdaptiveParams(object):
     FIGS = 'figs'
 
     TRAJROUND = 'round-{round_i}'
-    SEEDROUND = 'seed-{round_i}'
-    FIGROUND = 'plot-{round_i:04d}'
 
 
     def __init__(self, spt, tpr, run_id=0):
@@ -26,8 +24,8 @@ class AdaptiveParams(object):
         self.traj_dir = ""
         self.sstate_dir = ""
         self.msms_dir = ""
+        self.figs_dir = ""
 
-        self._round_i = -1
 
     @property
     def post_converge(self):
@@ -53,15 +51,9 @@ class AdaptiveParams(object):
         """A description e.g. for plot titles."""
         return self.dirname
 
-    @property
-    def seed_state_fn(self):
-        return pjoin(self.sstate_dir,
-                     self.SEEDROUND.format(round_i=self._round_i + 1))
-
-    @property
-    def plot_fn(self):
-        return pjoin(self.figs_dir, self.FIGROUND.format(round_i=self._round_i))
-
+    # TODO: Should all this directory stuff really be here? Params should be
+    # TODO: things that change over the grid. This stuff shouldn't change!
+    # TODO: Maybe put in Configuration or make a new FileStructure class
     def make_directories(self):
         """Set up directories for a run."""
         rundir = self.rundir
@@ -81,7 +73,6 @@ class AdaptiveParams(object):
 
     def make_trajround(self, round_i):
         """Make directory for trajectories for a round"""
-        self._round_i = round_i
         trajround_dir = pjoin(self.traj_dir,
                               self.TRAJROUND.format(round_i=round_i))
         trajround_dir = os.path.abspath(trajround_dir)
