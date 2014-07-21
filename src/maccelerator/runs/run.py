@@ -43,7 +43,7 @@ class MAccelRun(object):
             return False
 
         # Make directories
-        traj_dir, exit_status = self.config.file.make_directories(self.rundir)
+        exit_status = self.config.file.make_directories(self.rundir)
         if not exit_status:
             return False
 

@@ -75,8 +75,8 @@ class FileStructure():
             os.mkdir(self.figs_dir)
         except OSError as e:
             log.warning('Skipping %s (%s)', rundir, e)
-            return '', False
-        return self.traj_dir, True
+            return False
+        return True
 
     def make_trajround(self, round_i):
         """Make directory for trajectories for a round"""
