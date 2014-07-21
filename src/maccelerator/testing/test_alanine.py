@@ -61,17 +61,17 @@ class TestRun(TestCase):
                     else:
                         self.assertFalse(os.path.exists(trajoutfn))
 
-    @unittest.skip
     def test_sstate_files(self):
-        for round_i in range(8 * 2):
-            should_exist = round_i <= 8
+        nrounds = len(self.run.trajs)
+        for round_i in range(nrounds * 2):
+            should_exist = round_i <= nrounds
             with self.subTest(round_i=round_i, should_exist=should_exist):
-                sstatefn = 'sstate-{round_i}.npy'.format(round_i=round_i)
+                sstatefn = 'sstate-{round_i}.h5'.format(round_i=round_i)
                 sstatefn = pjoin(self.rundir, 'sstates', sstatefn)
                 if should_exist:
                     self.assertTrue(os.path.exists(sstatefn))
-                    sstate = np.load(sstatefn)
-                    assert_array_equal(sstate, 9 * round_i + np.zeros(10))
+                    sstate = mdtraj.io.loadh(sstatefn, 'starting_states')
+                    self.assertEqual(len(sstate), self.tpr)
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
 

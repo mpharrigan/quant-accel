@@ -4,6 +4,7 @@ import mdtraj.io
 from mixtape.markovstatemodel import MarkovStateModel
 from mixtape.cluster import KMeans
 from mixtape.featurizer import DihedralFeaturizer
+import numpy as np
 
 from ..simulate import TMatSimulator
 from ..model import TMatModeller
@@ -46,8 +47,9 @@ class AlanineModeller(TMatModeller):
         super().__init__(tot_n_states)
 
     def seed_state(self, params, sstate_out_fn):
-        #TODO: Save
-        return [0] * params.tpr
+        sstate = np.asarray([0] * params.tpr, dtype=int)
+        mdtraj.io.saveh(sstate_out_fn, starting_states=sstate)
+        return sstate
 
     def model(self, traj_fns, params):
         trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
@@ -71,9 +73,8 @@ class AlanineParams(AdaptiveParams):
 
 class AlanineAdapter(RandomAdapter):
     def adapt(self, params, sstate_out_fn):
-        indices = super()._adapt(params)
-
-        # TODO: Save
+        indices = np.asarray(super()._adapt(params), dtype=int)
+        mdtraj.io.saveh(sstate_out_fn, starting_states=indices)
         return indices
 
     @property
