@@ -12,6 +12,7 @@ from unittest import TestCase
 import logging
 
 import numpy as np
+from numpy.testing import assert_array_equal
 
 import maccelerator as maccel
 
@@ -61,7 +62,7 @@ class TestSimpleSample(TestCase):
         self.assertTrue(os.path.exists(self.out_fn))
 
         traj = np.load(self.out_fn)
-        self.assertTrue(np.array_equal(traj, np.arange(10)))
+        assert_array_equal(traj, np.arange(10))
 
 
 class TestRun(TestCase):
@@ -98,6 +99,8 @@ class TestRun(TestCase):
                     trajoutfn = pjoin(self.rundir, 'trajs', trajoutfn)
                     if should_exist:
                         self.assertTrue(os.path.exists(trajoutfn))
+                        traj = np.load(trajoutfn)
+                        assert_array_equal(traj, 9 * round_i + np.arange(10))
                     else:
                         self.assertFalse(os.path.exists(trajoutfn))
 
@@ -109,6 +112,8 @@ class TestRun(TestCase):
                 sstatefn = pjoin(self.rundir, 'sstates', sstatefn)
                 if should_exist:
                     self.assertTrue(os.path.exists(sstatefn))
+                    sstate = np.load(sstatefn)
+                    assert_array_equal(sstate, 9 * round_i + np.zeros(10))
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
 
