@@ -22,8 +22,8 @@ def generate_muller_sysint():
     temperature = 750 * unit.kelvin
     friction = 100 / unit.picosecond
     timestep = 10.0 * unit.femtosecond
-    system, integrator = generate_openmm_sysint(mass, temperature,
-                                                friction, timestep)
+    system, integrator = generate_openmm_sysint(mass, temperature, friction,
+                                                timestep)
 
     # Prepare the system
     mullerforce = muller.MullerForce()
@@ -57,29 +57,15 @@ class MullerSimulator(OpenMMSimulator):
 
     def simulate(self, sstate, params, traj_out_fn):
         return super()._simulate(sstate, params.spt, traj_out_fn,
-                                 minimize=False,
-                                 random_initial_velocities=True)
+                                 minimize=False, random_initial_velocities=True)
 
 
 class MullerModeller(ClusterModeller):
     def __init__(self):
         super().__init__()
 
-    def seed_state(self, params, sstate_out_fn):
-        """Start from the bottom right well.
 
-        :param params: Make this many seed states. They will all be the same
-        """
-        seed_state = make_traj_from_coords([[0.5, 0.0, 0.0]] * params.tpr)
-        seed_state.save(sstate_out_fn)
-        return seed_state
-
-    def model(self, traj_fns, params):
-        trajs = MullerModeller.load_xy(traj_fns)
-        super()._model(trajs, lagtime=params.adapt_lt)
-
-    @staticmethod
-    def load_xy(traj_fns):
+    def load_trajs(self, traj_fns):
         """Load only the xy coordinates of an mdtraj trajectory.
 
         :param traj_fns: List of trajectory filenames.
@@ -89,12 +75,12 @@ class MullerModeller(ClusterModeller):
 
 
 class MullerConvchecker(PopulationProjectionTVD):
-    def __init__(self, modeller):
+    def __init__(self):
         # volume = Volume([-1.5, 1.2], [-0.2, 3.0])
         volume = Volume([-1.0, 1.0], [-0.1, 2.0])
         grid = Volume.get_grid(volume, resolution=200)
 
-        super().__init__(modeller=modeller, tolerance=0.6, grid=grid,
+        super().__init__(tolerance=0.6, grid=grid,
                          potentialfunc=muller.MullerForce.potential, temp=750)
 
 
@@ -110,8 +96,16 @@ class MullerAdapter(SortCountsAdapter):
 
         sstate_traj = make_traj_from_coords(sstate_positions)
 
-        # TODO Save (just put it right here! The filename is in place!)
         return sstate_traj
+
+    def seed_state(self, params, sstate_out_fn):
+        """Start from the bottom right well.
+
+        :param params: Make this many seed states. They will all be the same
+        """
+        seed_state = make_traj_from_coords([[0.5, 0.0, 0.0]] * params.tpr)
+        seed_state.save(sstate_out_fn)
+        return seed_state
 
 
 class MullerParams(AdaptiveParams):
@@ -137,7 +131,7 @@ class MullerConfiguration(OpenMMConfiguration):
 
         self.simulator = MullerSimulator(system_xml, integrator_xml)
         self.modeller = MullerModeller()
-        self.convchecker = MullerConvchecker(self.modeller)
-        self.adapter = MullerAdapter(self.modeller)
+        self.convchecker = MullerConvchecker()
+        self.adapter = MullerAdapter()
 
 

@@ -52,7 +52,7 @@ class AlanineModeller(TMatModeller):
 
 
 class AlanineAdapter(RandomAdapter):
-    def seed_state(self, params):
+    def seed_states(self, params):
         indices = [0] * params.tpr
         return SStates(indices)
 

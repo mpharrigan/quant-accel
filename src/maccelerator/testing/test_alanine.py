@@ -13,6 +13,7 @@ from numpy.testing import assert_array_equal
 import mdtraj.io
 
 import maccelerator as maccel
+from maccelerator.adapt import SStates
 from maccelerator.testing.utils import get_folder, get_fn
 
 
@@ -66,12 +67,12 @@ class TestRun(TestCase):
         for round_i in range(nrounds * 2):
             should_exist = round_i <= nrounds
             with self.subTest(round_i=round_i, should_exist=should_exist):
-                sstatefn = 'sstate-{round_i}.h5'.format(round_i=round_i)
+                sstatefn = 'sstate-{round_i}.pickl'.format(round_i=round_i)
                 sstatefn = pjoin(self.rundir, 'sstates', sstatefn)
                 if should_exist:
                     self.assertTrue(os.path.exists(sstatefn))
-                    sstate = mdtraj.io.loadh(sstatefn, 'starting_states')
-                    self.assertEqual(len(sstate), self.tpr)
+                    sstate = SStates.load(sstatefn)
+                    self.assertEqual(len(sstate.items()), self.tpr)
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
 

@@ -75,7 +75,7 @@ class ClusterModeller(Modeller):
         raise NotImplementedError
 
     def lagtime(self, params):
-        raise NotImplementedError
+        return params.build_lt
 
 
     def model(self, traj_fns, params):

@@ -8,7 +8,7 @@ from maccelerator.testing.utils import get_fn
 def parse():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--verbose', '-v', action='count')
+    parser.add_argument('--verbose', '-v', action='count', default=1)
     args = parser.parse_args()
     main(args.verbose)
 

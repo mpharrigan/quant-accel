@@ -21,7 +21,7 @@ class Configuration(object):
 
     @property
     def seed_state(self):
-        return self.adapter.seed_state
+        return self.adapter.seed_states
 
     @property
     def simulate(self):

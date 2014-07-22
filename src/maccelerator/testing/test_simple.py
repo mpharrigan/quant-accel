@@ -30,19 +30,23 @@ class TestSimpleStartingStates(TestCase):
         self.config = maccel.SimpleConfiguration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=8)
         rundir = get_folder('s1')
-        self.out_fn = pjoin(rundir, 'test_sstate.npy')
-        self.sstate = self.config.modeller.seed_state(params, self.out_fn)
+        self.out_fn = pjoin(rundir, 'test_sstate')
+        self.sstate = self.config.seed_state(params)
+        self.sstate.save(self.out_fn)
 
     def test_length(self):
-        self.assertEqual(len(self.sstate), 8)
+        self.assertEqual(len(self.sstate.items()), 8)
 
     def test_value(self):
-        for ss in self.sstate:
+        for ss in self.sstate.items():
             with self.subTest(ss=ss):
                 self.assertEqual(ss, 0)
 
     def test_save_sstates(self):
-        self.assertTrue(os.path.exists(self.out_fn))
+        full_ofn = '{}.pickl'.format(self.out_fn)
+        self.assertTrue(os.path.exists(full_ofn))
+
+        # TODO: Load
 
 
 class TestSimpleSample(TestCase):
@@ -53,12 +57,7 @@ class TestSimpleSample(TestCase):
         params = maccel.configurations.SimpleParams(spt=10, tpr=2)
         rundir = get_folder('s2')
         self.out_fn = pjoin(rundir, 'test_sample.npy')
-
-        self.traj = self.config.simulator.simulate(0, params,
-                                                   traj_out_fn=self.out_fn)
-
-    def test_value_trajectories(self):
-        self.assertTrue(np.array_equal(self.traj, np.arange(10)))
+        self.traj = self.config.simulate(0, params, traj_out_fn=self.out_fn)
 
     def test_save_trajectories(self):
         self.assertTrue(os.path.exists(self.out_fn))
@@ -110,12 +109,12 @@ class TestRun(TestCase):
         for round_i in range(8 * 2):
             should_exist = round_i <= 8
             with self.subTest(round_i=round_i, should_exist=should_exist):
-                sstatefn = 'sstate-{round_i}.npy'.format(round_i=round_i)
+                sstatefn = 'sstate-{round_i}.pickl'.format(round_i=round_i)
                 sstatefn = pjoin(self.rundir, 'sstates', sstatefn)
                 if should_exist:
                     self.assertTrue(os.path.exists(sstatefn))
                     sstate = np.load(sstatefn)
-                    assert_array_equal(sstate, 9 * round_i + np.zeros(10))
+                    assert_array_equal(sstate.items(), 9 * round_i + np.zeros(10))
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
 
@@ -155,6 +154,14 @@ class TestGrid(TestCase):
         for p in self.grid.config.get_param_grid():
             with self.subTest():
                 self.assertTrue(hasattr(p, 'spt'))
+
+
+class TestGridNoParallel(TestGrid):
+    def setUp(self):
+        configuration = maccel.SimpleConfiguration()
+        self.griddir = get_folder('s5')
+        self.grid = maccel.MAccelGrid(configuration, self.griddir)
+        self.grid.grid_noparallel()
 
 
 if __name__ == "__main__":

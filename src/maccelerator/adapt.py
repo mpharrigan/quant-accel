@@ -42,6 +42,11 @@ class SStates():
         with open(fn, 'wb') as f:
             pickle.dump(self, f)
 
+    @classmethod
+    def load(cls, fn):
+        with open(fn, 'rb') as f:
+            return pickle.load(f)
+
 
 class SortCountsAdapter(Adapter):
     """Choose the states from which we've transitioned the fewest times,
@@ -90,8 +95,7 @@ class RandomAdapter(Adapter):
         :param params: So we know how many new states to return
         :returns: Indices of new states
         """
-        sstate = SStates(
-            np.random.randint(0, model.n_states, params.tpr))
+        sstate = SStates(np.random.randint(0, model.n_states, params.tpr))
 
         return sstate
 

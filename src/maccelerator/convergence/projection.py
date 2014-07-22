@@ -22,10 +22,9 @@ class PopulationProjectionTVD(ConvergenceChecker):
     :param temp: Temperature at which we compute reference probabilities
     """
 
-    def __init__(self, tolerance, modeller, grid, potentialfunc, temp):
+    def __init__(self, tolerance, grid, potentialfunc, temp):
         super().__init__(tolerance)
 
-        self.modeller = modeller
         self.grid = grid
         self.potentialfunc = potentialfunc
         self.temp = temp
@@ -105,8 +104,7 @@ class PopulationProjectionTVD(ConvergenceChecker):
 
         top.set_title('Populations (Estimated)')
         top.imshow(self.est.T, interpolation='nearest', extent=bounds,
-                   aspect='auto',
-                   origin='lower')
+                   aspect='auto', origin='lower')
         top.scatter(sstate[:, 0], sstate[:, 1], s=100, c='w', linewidths=2,
                     zorder=10)
 
@@ -166,8 +164,7 @@ class Volume(object):
         :param resolution: how fine the grid should be
         """
         (xmin, xmax, ymin, ymax) = volume.bounds
-        log.debug('Making grid with bounds %.2f %.2f %.2f %.2f',
-                  *volume.bounds)
+        log.debug('Making grid with bounds %.2f %.2f %.2f %.2f', *volume.bounds)
 
         grid_width = max(xmax - xmin, ymax - ymin) / resolution
         log.debug("Gridwithd %f", grid_width)

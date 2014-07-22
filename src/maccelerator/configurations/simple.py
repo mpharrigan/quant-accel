@@ -5,9 +5,9 @@ but can be used for testing.
 import numpy as np
 
 from ..simulate import Simulator
-from ..model import Modeller
-from ..adapt import Adapter
-from ..convergence.base import ConvergenceChecker
+from ..model import Modeller, Model
+from ..adapt import Adapter, SStates
+from ..convergence.base import ConvergenceChecker, Convergence
 from .base import Configuration
 from ..param import AdaptiveParams
 
@@ -25,19 +25,22 @@ class SimpleSimulator(Simulator):
         :param params: Contains number of steps to take
         :param traj_out_fn: Where to save the result
 
-        :returns: A list or something
         """
-
         traj = np.arange(sstate, sstate + params.spt)
 
         if traj_out_fn is not None:
             np.save(traj_out_fn, traj)
-        return traj
 
     @property
     def trajfn(self):
         """Format string for where to save the trajectory."""
         return "traj-{traj_i}.npy"
+
+
+class SimpleModel(Model):
+    def __init__(self, trajs):
+        super().__init__(msm=None)
+        self.trajs = trajs
 
 
 class SimpleModeller(Modeller):
@@ -53,61 +56,52 @@ class SimpleModeller(Modeller):
         :param params: Not used
         :param traj_fns: Files to load
         """
-        self.trajs = [np.load(tfn) for tfn in traj_fns]
-        return True
-
-    def seed_state(self, params, sstate_out_fn):
-        """Start from 0 in each trajectory.
-
-        :param params: Contains number of seed states to generate
-        """
-        sstate = [0] * params.tpr
-        np.save(sstate_out_fn, sstate)
-        return sstate
+        trajs = [np.load(tfn) for tfn in traj_fns]
+        return SimpleModel(trajs)
 
 
 class SimpleConvchecker(ConvergenceChecker):
     """A simple check for convergence."""
 
-    def __init__(self, modeller):
-        super().__init__(tolerance=-1)
-        self.modeller = modeller
+    def __init__(self):
+        super().__init__(tolerance=40)
 
-    def check_convergence(self, params):
+    def check_convergence(self, model, params):
         """If we have enough trajectories, we're converged.
 
+        :param model: The model for which we check convergence
         :param params: Not used
         """
-        return len(self.modeller.trajs) >= 40
+        self.errors_over_time += [len(model.trajs)]
+        converged = len(model.trajs) >= self.tolerance
+        return Convergence(converged, self.errors_over_time)
 
     @property
     def n_plots(self):
+        """We don't use plots for this dummy configuration."""
         return 0
 
 
 class SimpleAdapter(Adapter):
     """A simple adapter for testing."""
 
-    def __init__(self, modeller):
-        super().__init__()
-        self.modeller = modeller
-
-    def adapt(self, params, sstate_out_fn):
+    def adapt(self, model, params):
         """Get biggest number in the last n trajectories.
 
+        :param model: The model from which we adapt
         :param params: Contains number of new states to generate
-        :param sstate_out_fn: Save the starting states as a numpy file
         """
         n_tpr = params.tpr
-        ret = np.array([np.max(t) for t in self.modeller.trajs[-n_tpr:]])
+        ret = np.array([np.max(t) for t in model.trajs[-n_tpr:]])
         assert len(ret) == n_tpr
-        if sstate_out_fn is not None:
-            np.save(sstate_out_fn, ret)
-        return ret
+        return SStates(ret)
 
-    @property
-    def sstatefn(self):
-        return "sstate-{round_i}.npy"
+    def seed_states(self, params):
+        """Start from zero
+
+        :param params: Contains number of seed states to generate.
+        """
+        return SStates([0] * params.tpr)
 
 
 class SimpleParams(AdaptiveParams):
@@ -139,13 +133,10 @@ class SimpleConfiguration(Configuration):
         super().__init__()
 
         self.modeller = SimpleModeller()
-        self.adapter = SimpleAdapter(self.modeller)
-        self.convchecker = SimpleConvchecker(self.modeller)
+        self.adapter = SimpleAdapter()
+        self.convchecker = SimpleConvchecker()
         self.simulator = SimpleSimulator()
 
     def get_param_grid(self):
         """Do two parameter configurations."""
-        return [
-            SimpleParams(spt=10, tpr=10),
-            SimpleParams(spt=20, tpr=10)
-        ]
+        return [SimpleParams(spt=10, tpr=10), SimpleParams(spt=20, tpr=10)]
