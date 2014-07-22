@@ -15,13 +15,11 @@ class TMatConvergenceChecker(HybridConvergenceChecker):
             you can scale using this number
     """
 
-    def __init__(self, modeller, centers, ref_msm, tolerance_scale=1):
+    def __init__(self, centers, ref_msm, tolerance_scale=1):
         super().__init__(
-            PopulationCentroidTVD(tolerance_scale * 0.08, modeller, centers,
-                                  ref_msm),
-            EigenvecCentroid(tolerance_scale * 0.01, modeller, centers,
-                             ref_msm),
-            EigenvecL2(tolerance_scale * 0.08, modeller, centers, ref_msm),
-            TMatFro(tolerance_scale * 0.5, modeller, centers, ref_msm),
-            TimescaleDistance(tolerance_scale * 20, modeller, ref_msm)
+            PopulationCentroidTVD(tolerance_scale * 0.08, centers, ref_msm),
+            EigenvecCentroid(tolerance_scale * 0.01, centers, ref_msm),
+            EigenvecL2(tolerance_scale * 0.08, centers, ref_msm),
+            TMatFro(tolerance_scale * 0.5, centers, ref_msm),
+            TimescaleDistance(tolerance_scale * 20, ref_msm)
         )

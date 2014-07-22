@@ -12,12 +12,13 @@ import numpy as np
 from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
 import scipy.sparse
+import pickle
 
 # Minimum number of states to have succeeded in building a model
 MINSTATES = 4
 
 
-class Modeller(object):
+class Modeller:
     """Base class for constructing models."""
 
     def model(self, traj_fns, params):
@@ -28,35 +29,65 @@ class Modeller(object):
         """
         raise NotImplementedError
 
-    # TODO: Why is seed state generation done in Modeller??
-    # TODO: It's really more like a param when you think about it
-    # TODO: Or even related to the simulation (openmm is different than tmat)
-    # TODO: But it returns the same type of thing as Adapter
-    def seed_state(self, params, sstate_out_fn):
-        """Get seed states to start the run.
+    @property
+    def modelfn(self):
+        return "msm-{round_i}"
 
-        :param params: Contains number of seed states to generate
-        """
-        raise NotImplementedError
+class Model:
+    def __init__(self, msm):
+        self._msm = msm
+        self.success = True
+
+
+    def save(self, fn):
+        fn = "{}.pickl".format(fn)
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
+
+    @property
+    def n_states(self):
+        return self._msm.n_states
+
+    @property
+    def counts(self):
+        return self._msm.raw_counts_
+
+    @property
+    def timescales(self):
+        return self._msm.timescales_
+
+    @property
+    def lagtime(self):
+        return self._msm.lag_time
+
+
+class ClusterModel(Model):
+    def __init__(self, msm, clusterer):
+        super().__init__(msm)
+        self._clusterer = clusterer
 
 
 class ClusterModeller(Modeller):
     """Cluster and then build a model from cluster labels."""
 
-    def __init__(self):
-        super().__init__()
-        self.msm = None
-        self.clusterer = None
 
-    def _model(self, trajs_vec, lagtime):
+    def load_trajs(self, traj_fns):
+        raise NotImplementedError
+
+    def lagtime(self, params):
+        raise NotImplementedError
+
+
+    def model(self, traj_fns, params):
         """Cluster using kmeans and build an MSM
 
-        :param trajs_vec: List of vector representation of trajectories.
-        :param lagtime: The desired lagtime of the model.
 
         References:
         http://en.wikipedia.org/wiki/Determining_the_number_of_clusters_in_a_data_set#Rule_of_thumb
         """
+        log.debug("Loading trajectories")
+        trajs_vec = self.load_trajs(traj_fns)
+
         log.info("Starting cluster")
 
         # Get number of data points
@@ -66,51 +97,58 @@ class ClusterModeller(Modeller):
         # Do clustering
         clusterer = MiniBatchKMeans(n_clusters=n_clusters)
         clusterer.fit(trajs_vec)
-        self.clusterer = clusterer
 
         log.info("Building MSM")
-        msm = MarkovStateModel(lag_time=lagtime, n_timescales=10)
+        msm = MarkovStateModel(lag_time=self.lagtime(params), n_timescales=10)
         msm.fit(clusterer.labels_)
-        self.msm = msm
 
-    @property
-    def counts(self):
-        """Raw counts from which we can estimate uncertainty for adapting."""
-        return self.msm.rawcounts_
+        return ClusterModel(msm, clusterer)
+
+
+class TMatModel(Model):
+    def __init__(self, msm, full_tmat, full_populations, full_eigenvec,
+                 found_states):
+        super().__init__(msm)
+        self.full_tmat = full_tmat
+        self.full_populations = full_populations
+        self.full_eigenvec = full_eigenvec
+        self.found_states = found_states
 
 
 class TMatModeller(Modeller):
     """Model from transition matrix trajectories. (No clustering)"""
 
+    def load_trajs(self, traj_fns):
+        raise NotImplementedError
+
+    def lagtime(self, params):
+        raise NotImplementedError
+
     def __init__(self, tot_n_states):
         super().__init__()
-        self.msm = None
-        self.found_states = None
-        self.full_populations = None
-        self.full_eigenvec = None
-        self.full_tmat = None
         self.tot_n_states = tot_n_states
 
-    def _model(self, trajs, lagtime):
+    def model(self, traj_fns, params):
         """Build a model from the result of a transition matrix simulations
 
         We take care of only returning states which we have 'discovered'
 
-        :param trajs: List of ndarray; State indices
-        :param lagtime: Build a model at this lag time
         """
 
-        msm = MarkovStateModel(lag_time=lagtime,
+        msm = MarkovStateModel(lag_time=self.lagtime(params),
                                n_states=self.tot_n_states)
-        msm.fit(trajs)
-        self.msm = msm
+        msm.fit(self.load_trajs(traj_fns))
 
+
+        # If it's too small, give up.
         log.debug("States left: %d", msm.transmat_.shape[0])
         if msm.transmat_.shape[0] < MINSTATES:
-            return False
+            model = Model(msm)
+            model.success = False
+            return model
 
         # Back out full-sized populations
-        n_states = self.msm.n_states
+        n_states = self.tot_n_states
         if msm.transmat_.shape[0] < n_states:
             populations = np.zeros(n_states)
             eigenvec = np.zeros(n_states)
@@ -137,10 +175,6 @@ class TMatModeller(Modeller):
             eigenvec = msm.eigenvectors_[:, 1]
             full_tmat = msm.transmat_
 
-        self.full_populations = populations
-        self.full_eigenvec = eigenvec
-        self.full_tmat = full_tmat
-
         # Get found states
         # Those which have at least one transition to or from
         # Note: We can't just sample from states with zero 'from' counts
@@ -148,11 +182,8 @@ class TMatModeller(Modeller):
         # These are probably pretty important for adaptive sampling
         countscoo = msm.rawcounts_.tocoo()
         found_states = np.hstack((countscoo.row, countscoo.col))
-        self.found_states = np.unique(found_states)
+        found_states = np.unique(found_states)
 
-        return True
+        return TMatModel(msm, full_tmat, populations, eigenvec,
+                         found_states)
 
-    @property
-    def counts(self):
-        """Raw counts to use for adapting."""
-        return self.msm.rawcounts_

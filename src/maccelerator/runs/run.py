@@ -38,61 +38,57 @@ class MAccelRun(object):
     def run(self):
         """Execute adaptive loop until convergence."""
 
+        # Aliases
+        params = self.params
+        config = self.config
+        file = self.config.file
+
         # Check IPython.parallel
         if self.lbv is None:
             return False
 
         # Make directories
-        exit_status = self.config.file.make_directories(self.rundir)
+        exit_status = file.make_directories(self.rundir)
         if not exit_status:
             return False
 
         # Initialize variables for the loop
         round_i = 0
-        rounds_left = self.params.post_converge
-        sstate = self.config.modeller.seed_state(self.params,
-                                                 self.get_sstate_fn(-1))
+        rounds_left = params.post_converge
+        sstate = config.seed_state(params)
+        sstate.save(file.sstate_fn(-1))
 
         while True:
             log.info("Doing round %d", round_i)
 
-            # Make directory for trajectories for this round
-            trajround_dir = self.config.file.make_trajround(round_i)
-
             # Do fancy IPython.parallel stuff to parallelize simulation
-            traj_outs = self.get_traj_fns(trajround_dir)
-            self.lbv.map(self.config.simulator.simulate, sstate,
-                         [self.params] * self.params.tpr, traj_outs)
+            traj_is = range(params.tpr)
+            traj_outs = file.make_traj_fns(round_i, traj_is)
+            self.lbv.map(config.simulate, sstate.items(),
+                         [params] * params.tpr, traj_outs)
             self.trajs[round_i] = traj_outs
 
             # Model with all trajectories from this round and previous
             trajs_till_now = le_than(self.trajs, round_i)
-            m_success = self.config.modeller.model(trajs_till_now, self.params)
+            model = config.model(trajs_till_now, params)
+            model.save(file.model_fn(round_i))
 
             # Get a new starting state
-            ssout = self.get_sstate_fn(round_i)
-            sstate = self.config.adapter.adapt(self.params, ssout)
+            sstate = config.adapt(model, params)
+            sstate.save(file.sstate_fn(round_i))
 
             # Check convergence
-            plot_fn = self.get_plot_fn(round_i)
-            if m_success:
-                converged = self.config.convchecker.check_convergence(
-                    self.params)
-                if self.plot:
-                    self.config.convchecker.plot_and_save(self.params, sstate,
-                                                          plot_fn)
-            else:
-                converged = False
-                self.config.convchecker.fallback(self.params)
-                if self.plot:
-                    self.config.convchecker.plot_and_save(self.params, sstate,
-                                                          plot_fn,
-                                                          fallback=True)
+            converge = config.check_convergence(model, params)
+            converge.save(file.conv_fn(round_i))
+
+            # Visualize
+            if self.plot:
+                converge.plot_and_save(sstate, file.plot_fn(round_i))
 
             # Keep track of progress
             # Note: if we dip in and out of convergence it doesn't decrement
             # this, but it doesn't get reset.
-            if converged:
+            if converge.converged:
                 rounds_left -= 1
 
             # See if we're done
@@ -101,22 +97,6 @@ class MAccelRun(object):
 
             # Move on
             round_i += 1
-
-    def get_traj_fns(self, trajround_dir):
-        """Return a list of trajectory filenames for simulation."""
-        return [
-            pjoin(trajround_dir, self.config.simulator.trajfn.format(traj_i=i))
-            for i in range(self.params.tpr)
-        ]
-
-    def get_sstate_fn(self, round_i):
-        """Return a starting-state filename."""
-        return pjoin(self.config.file.sstate_dir,
-                     self.config.adapter.sstatefn.format(round_i=round_i + 1))
-
-    def get_plot_fn(self, round_i):
-        return pjoin(self.config.file.figs_dir,
-                     self.config.convchecker.plotfn.format(round_i=round_i))
 
 
 def le_than(traj_dict, round_i):

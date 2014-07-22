@@ -2,6 +2,7 @@
 
 import numpy as np
 import logging as log
+import pickle
 
 __author__ = 'harrigan'
 
@@ -9,17 +10,37 @@ __author__ = 'harrigan'
 class Adapter(object):
     """Base class for an object that chooses where to start new simulation."""
 
-    def adapt(self, params, sstate_out_fn):
+    def adapt(self, model, params):
         """Return a state from which to start.
 
         :param params: Simulation parameters.
-        :param sstate_out_fn: Where to save the starting states
         """
+        raise NotImplementedError
+
+    def seed_states(self, params):
+        """Return a state from which to start without requiring a model."""
         raise NotImplementedError
 
     @property
     def sstatefn(self):
-        raise NotImplementedError
+        return "sstate-{round_i}"
+
+
+class SStates():
+    """Objects of this type will be returned from Adapter.adapt."""
+
+    def __init__(self, indices):
+        self.indices = indices
+
+    def items(self):
+        return self.indices
+
+
+    def save(self, fn):
+        """Save to a file."""
+        fn = "{}.pickl".format(fn)
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
 
 
 class SortCountsAdapter(Adapter):
@@ -27,18 +48,15 @@ class SortCountsAdapter(Adapter):
     in order
     """
 
-    def __init__(self, modeller):
-        super().__init__()
-        self.modeller = modeller
 
-    def _adapt(self, params):
+    def adapt(self, model, params):
         """From a counts matrix, pick the best states from which to start.
 
         :param params: Simulation parameters so we know how many new states
                        to return
         :returns: Indices of states
         """
-        counts = self.modeller.counts
+        counts = model.counts
         found_states = None  # TODO: Deal with found states
         n_tpr = params.tpr
 
@@ -61,20 +79,20 @@ class SortCountsAdapter(Adapter):
         counts_str = ', '.join(
             [str(j) for j in counts_per_state[states_to_sample]])
         log.debug('Counts %s', counts_str)
-        return states_to_sample
+
+        return SStates(states_to_sample)
 
 
 class RandomAdapter(Adapter):
-    def __init__(self, modeller):
-        super().__init__()
-        self.modeller = modeller
-
-    def _adapt(self, params):
+    def adapt(self, model, params):
         """Pick random indices
 
         :param params: So we know how many new states to return
         :returns: Indices of new states
         """
-        return np.random.randint(0, self.modeller.msm.n_states, params.tpr)
+        sstate = SStates(
+            np.random.randint(0, model.n_states, params.tpr))
+
+        return sstate
 
 

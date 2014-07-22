@@ -51,15 +51,18 @@ class FileStructure():
     sstate_base = 'sstates'
     msms_base = 'msms'
     figs_base = 'figs'
+    convs_base = 'convs'
 
     trajround_fmt = 'round-{round_i}'
 
-    def __init__(self):
+    def __init__(self, config):
         self.traj_dir = ''
         self.sstate_dir = ''
         self.msms_dir = ''
         self.figs_dir = ''
+        self.convs_dir = ''
         self.rundir = ''
+        self.config = config
 
     def make_directories(self, rundir):
         """Set up directories for a run."""
@@ -68,19 +71,48 @@ class FileStructure():
         self.sstate_dir = pjoin(rundir, self.sstate_base)
         self.msms_dir = pjoin(rundir, self.msms_base)
         self.figs_dir = pjoin(rundir, self.figs_base)
+        self.convs_dir = pjoin(rundir, self.convs_base)
         try:
             os.mkdir(self.traj_dir)
             os.mkdir(self.sstate_dir)
             os.mkdir(self.msms_dir)
             os.mkdir(self.figs_dir)
+            os.mkdir(self.convs_dir)
         except OSError as e:
             log.warning('Skipping %s (%s)', rundir, e)
             return False
         return True
 
-    def make_trajround(self, round_i):
-        """Make directory for trajectories for a round"""
+    def make_traj_fns(self, round_i, traj_is):
+        """Make directory for trajectories for a round
+
+        :param round_i: Round index for directory name
+        :param traj_is: Iterable over trajectory indices
+
+        """
         trajround_dir = self.trajround_fmt.format(round_i=round_i)
         trajround_dir = pjoin(self.traj_dir, trajround_dir)
         os.mkdir(trajround_dir)
-        return trajround_dir
+        return [
+            pjoin(trajround_dir, self.config.simulator.trajfn.format(traj_i=i))
+            for i in traj_is
+        ]
+
+    def sstate_fn(self, round_i):
+        """Return a starting-state filename."""
+        return pjoin(self.config.file.sstate_dir,
+                     self.config.adapter.sstatefn.format(round_i=round_i + 1))
+
+    def plot_fn(self, round_i):
+        """Return a plot filename."""
+        return pjoin(self.figs_dir,
+                     self.config.convchecker.plotfn.format(round_i=round_i))
+
+    def model_fn(self, round_i):
+        return pjoin(self.msms_dir,
+                     self.config.modeller.modelfn.format(round_i=round_i))
+
+    def conv_fn(self, round_i):
+        return pjoin(self.convs_dir,
+                     self.config.convchecker.convfn.format(round_i=round_i))
+

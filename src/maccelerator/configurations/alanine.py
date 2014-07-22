@@ -8,7 +8,7 @@ import numpy as np
 
 from ..simulate import TMatSimulator
 from ..model import TMatModeller
-from ..adapt import RandomAdapter
+from ..adapt import RandomAdapter, SStates
 from .base import TMatConfiguration
 from ..convergence.hybrid import TMatConvergenceChecker
 from ..param import AdaptiveParams
@@ -43,17 +43,22 @@ class AlanineSimulator(TMatSimulator):
 
 
 class AlanineModeller(TMatModeller):
-    def __init__(self, tot_n_states):
-        super().__init__(tot_n_states)
-
-    def seed_state(self, params, sstate_out_fn):
-        sstate = np.asarray([0] * params.tpr, dtype=int)
-        mdtraj.io.saveh(sstate_out_fn, starting_states=sstate)
-        return sstate
-
-    def model(self, traj_fns, params):
+    def load_trajs(self, traj_fns):
         trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
-        return super()._model(trajs, lagtime=params.adapt_lt)
+        return trajs
+
+    def lagtime(self, params):
+        return params.adapt_lt
+
+
+class AlanineAdapter(RandomAdapter):
+    def seed_state(self, params):
+        indices = [0] * params.tpr
+        return SStates(indices)
+
+
+class AlanineConvchecker(TMatConvergenceChecker):
+    pass
 
 
 class AlanineParams(AdaptiveParams):
@@ -67,23 +72,7 @@ class AlanineParams(AdaptiveParams):
 
     @property
     def post_converge(self):
-        # TODO Change
         return 10
-
-
-class AlanineAdapter(RandomAdapter):
-    def adapt(self, params, sstate_out_fn):
-        indices = np.asarray(super()._adapt(params), dtype=int)
-        mdtraj.io.saveh(sstate_out_fn, starting_states=indices)
-        return indices
-
-    @property
-    def sstatefn(self):
-        return 'sstate-{round_i}.h5'
-
-
-class AlanineConvchecker(TMatConvergenceChecker):
-    pass
 
 
 class AlanineConfiguration(TMatConfiguration):
@@ -100,7 +89,7 @@ class AlanineConfiguration(TMatConfiguration):
         # Set fields
         self.simulator = AlanineSimulator(ref_msm.transmat_)
         self.modeller = AlanineModeller(tot_n_states=ref_msm.n_states)
-        self.convchecker = AlanineConvchecker(self.modeller, centers, ref_msm)
-        self.adapter = AlanineAdapter(self.modeller)
+        self.convchecker = AlanineConvchecker(centers, ref_msm)
+        self.adapter = AlanineAdapter()
 
 

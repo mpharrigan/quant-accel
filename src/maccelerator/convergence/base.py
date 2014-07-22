@@ -2,6 +2,7 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
+import pickle
 
 __author__ = 'harrigan'
 
@@ -25,7 +26,7 @@ class ConvergenceChecker:
         self.errors_over_time = []
         self.tolerance = tolerance
 
-    def check_convergence(self, params):
+    def check_convergence(self, model, params):
         """Check convergence
 
         :param params: Parameters
@@ -33,9 +34,42 @@ class ConvergenceChecker:
         """
         raise NotImplementedError
 
-    def fallback(self, params):
-        """Called if a model could not be built."""
-        self.errors_over_time += [None]
+    @property
+    def convfn(self):
+        return "convergence-{round_i}"
+
+    @property
+    def plotfn(self):
+        return "plot-{round_i:04d}"
+
+
+class IConvergence:
+    """Interface only."""
+
+    def plot_and_save(self, params, sstate, plot_fn):
+        raise NotImplementedError
+
+    def plot(self, axs, sstate):
+        raise NotImplementedError
+
+    def save(self, conv_fn):
+        fn = "{}.pickl".format(conv_fn)
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
+
+    @property
+    def converged(self):
+        raise NotImplementedError
+
+
+class Convergence(IConvergence):
+    def __init__(self, converged, errors_over_time):
+        self._converged = converged
+        self.errors_over_time = errors_over_time
+
+    @property
+    def converged(self):
+        return self._converged
 
     def plot(self, axs, sstate):
         """Plot on given axes.
@@ -45,11 +79,16 @@ class ConvergenceChecker:
         """
         raise NotImplementedError
 
-    def fallback_plot(self, axs, sstate):
-        """Plot something if we couldn't build a model."""
-        pass
+    def _plot_bottom(self, bot):
+        bot.plot(self.errors_over_time, 'o-')
+        bot.axhline(0, c='k')
+        bot.set_xlabel('Time')
+        cstring = 'Converged' if self.converged else 'Not Converged'
+        ccolor = 'green' if self.converged else 'red'
+        bot.set_title(cstring, color=ccolor)
 
-    def plot_and_save(self, params, sstate, plot_fn, fallback=False):
+
+    def plot_and_save(self, params, sstate, plot_fn):
         """Plot and save a visualization of the convergence check
 
         This is used if we *aren't* using a HybridConvergenceChecker, and
@@ -63,10 +102,7 @@ class ConvergenceChecker:
 
         fig, axs = plt.subplots(nrows=1, ncols=self.n_plots, squeeze=True)
 
-        if fallback:
-            self.fallback_plot(axs, sstate)
-        else:
-            self.plot(axs, sstate)
+        self.plot(axs, sstate)
 
         fig.set_size_inches(7 * self.n_plots, 5)
         fig.savefig(plot_fn)
@@ -77,10 +113,6 @@ class ConvergenceChecker:
         """Number of plots a particular checker generates."""
         raise NotImplementedError
 
-    @property
-    def plotfn(self):
-        return "plot-{round_i:04d}.png"
-
 
 class HybridConvergenceChecker(ConvergenceChecker):
     """Combine two convergence checkers with logical and"""
@@ -90,21 +122,32 @@ class HybridConvergenceChecker(ConvergenceChecker):
         self.checkers = checkers
         self.n_checkers = len(checkers)
 
-    def check_convergence(self, params):
+    def check_convergence(self, model, params):
         """Check the convergence of each checker combining with logical and
 
         :param params: Simulation parameters
         :returns converged: bool -- whether all are converged.
         """
-        converged = []
+        convergences = []
         for checker in self.checkers:
             # Don't do this in a more clever way or short-circuit evaluation
             # Might bite you
-            converged += [checker.check_convergence(params)]
+            convergences += [checker.check_convergence(model, params)]
 
-        return np.all(converged)
+        return HybridConvergence(convergences)
 
-    def plot_and_save(self, params, sstate, plot_fn, fallback=False):
+
+class HybridConvergence(IConvergence):
+    def __init__(self, convergences):
+        super().__init__()
+        self.convergences = convergences
+        self.n_convergences = len(convergences)
+
+    @property
+    def converged(self):
+        return np.all([c.converged for c in self.convergences])
+
+    def plot_and_save(self, params, sstate, plot_fn):
         """Plot a visualization for each subchecker, stacked horizontally
 
         :param params: Simulation parameters
@@ -113,17 +156,14 @@ class HybridConvergenceChecker(ConvergenceChecker):
         if self.n_plots < 1:
             return
 
-        fig, axs = plt.subplots(nrows=self.n_plots, ncols=self.n_checkers,
+        fig, axs = plt.subplots(nrows=self.n_plots, ncols=self.n_convergences,
                                 squeeze=False)
-        for i, checker in enumerate(self.checkers):
-            if fallback:
-                checker.fallback_plot(axs[:, i], sstate)
-            else:
-                checker.plot(axs[:, i], sstate)
+        for i, convergence in enumerate(self.convergences):
+            convergence.plot(axs[:, i], sstate)
 
-        fig.set_size_inches(7 * self.n_checkers, 5 * self.n_plots)
+        fig.set_size_inches(7 * self.n_convergences, 5 * self.n_plots)
         fig.suptitle(params.pretty_desc)
-        fig.savefig(plot_fn)
+        fig.savefig("{}.png".format(plot_fn))
         plt.close(fig)
 
     @property
@@ -132,5 +172,5 @@ class HybridConvergenceChecker(ConvergenceChecker):
 
         Use this as the number of rows; Each checker will get a column of
         axes"""
-        return np.max([checker.n_plots for checker in self.checkers])
+        return np.max([conv.n_plots for conv in self.convergences])
 
