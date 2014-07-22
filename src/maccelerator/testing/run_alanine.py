@@ -1,14 +1,12 @@
 __author__ = 'harrigan'
 
-import maccelerator as maccel
-from maccelerator.testing.utils import get_fn, get_folder
-import os
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+import maccelerator as maccel
+from maccelerator.testing.utils import get_fn, get_folder
 
-# Change directory
-os.chdir('/home/harrigan/implement/quant-accel/july-tests/')
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Do it
 configuration = maccel.AlanineConfiguration(get_fn('ala.msm.pickl'),
