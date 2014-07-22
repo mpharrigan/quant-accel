@@ -1,18 +1,28 @@
 __author__ = 'harrigan'
 
 import unittest
+from unittest import TestCase
 import tempfile
 import os
 from os.path import join as pjoin
+import logging
 
+import numpy as np
+from numpy.testing import assert_array_equal
 from simtk import unit
 
 import maccelerator as maccel
-from maccelerator.configurations.muller import generate_muller_sysint
+from maccelerator.configurations.muller import generate_muller_sysint, \
+    make_traj_from_coords
 from maccelerator.simulate import serialize_openmm
 
 
-class TestMullerPrep(unittest.TestCase):
+# Disable logging during test
+logging.captureWarnings(True)
+logging.disable(logging.WARNING)
+
+
+class TestMullerPrep(TestCase):
     def setUp(self):
         self.tdir = tempfile.mkdtemp()
 
@@ -39,6 +49,22 @@ class TestMullerPrep(unittest.TestCase):
         self.assertEqual(
             config.simulator.integrator.getTemperature().value_in_unit(
                 unit.kelvin), 750.0)
+
+
+class TestTrajFromNumpy(TestCase):
+    def setUp(self):
+        self.xy = np.arange(10).reshape(5, 2)
+        self.xy = np.hstack((self.xy, np.zeros((5, 1))))
+
+    def test_make_traj_from_coords(self):
+        traj = make_traj_from_coords(self.xy)
+
+        self.assertEqual(len(traj.xyz.shape), 3)
+        self.assertEqual(traj.xyz.shape[2], 3)
+        self.assertEqual(traj.n_frames, 5)
+        self.assertEqual(traj.n_atoms, 1)
+
+        assert_array_equal(traj.xyz[:, 0, :], self.xy)
 
 
 if __name__ == "__main__":
