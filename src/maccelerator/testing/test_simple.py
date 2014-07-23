@@ -114,9 +114,22 @@ class TestRun(TestCase):
                 if should_exist:
                     self.assertTrue(os.path.exists(sstatefn))
                     sstate = np.load(sstatefn)
-                    assert_array_equal(sstate.items(), 9 * round_i + np.zeros(10))
+                    assert_array_equal(sstate.items(),
+                                       9 * round_i + np.zeros(10))
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
+
+
+class TestRunNoParallel(TestRun):
+    def setUp(self):
+        configuration = maccel.SimpleConfiguration()
+        param = maccel.SimpleParams(spt=10, tpr=10)
+        rundir = get_folder('s3np')
+        self.rundir = rundir
+
+        self.run = maccel.MAccelRun(configuration, param, rundir,
+                                    parallel=False)
+        self.run.run()
 
 
 class TestGrid(TestCase):

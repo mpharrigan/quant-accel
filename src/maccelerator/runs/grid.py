@@ -32,7 +32,6 @@ class MAccelGrid(object):
         if self.lbv is None:
             return False
 
-
         # Run helper function
         self.lbv.map(_launch, zip(itertools.repeat(self.config),
                                   itertools.repeat(self.griddir),

@@ -18,7 +18,7 @@ class MAccelRun(object):
     :param rundir: Directory for this specific run.
     """
 
-    def __init__(self, configuration, params, rundir):
+    def __init__(self, configuration, params, rundir, parallel=True):
         self.config = configuration
         self.params = params
         self.trajs = defaultdict(list)
@@ -26,13 +26,16 @@ class MAccelRun(object):
 
         self.plot = False
 
-        try:
-            c = Client()
-            self.lbv = c.load_balanced_view()
-            self.lbv.block = True
-        except FileNotFoundError as e:
-            log.error("Could not connect to parallel engine: %s", e)
-            self.lbv = None
+        if parallel:
+            try:
+                c = Client()
+                self.lbv = c.load_balanced_view()
+                self.lbv.block = True
+            except FileNotFoundError as e:
+                log.error("Could not connect to parallel engine: %s", e)
+                self.lbv = None
+        else:
+            self.lbv = NoParallelView()
 
     def run(self):
         """Execute adaptive loop until convergence."""
@@ -63,8 +66,8 @@ class MAccelRun(object):
             # Do fancy IPython.parallel stuff to parallelize simulation
             traj_is = range(params.tpr)
             traj_outs = file.make_traj_fns(round_i, traj_is)
-            self.lbv.map(config.simulate, sstate.items(),
-                         [params] * params.tpr, traj_outs)
+            self.lbv.map(config.simulate, sstate.items(), [params] * params.tpr,
+                         traj_outs)
             self.trajs[round_i] = traj_outs
 
             # Model with all trajectories from this round and previous
@@ -110,3 +113,9 @@ def le_than(traj_dict, round_i):
         if ri <= round_i:
             all_trajs += traj_dict[ri]
     return all_trajs
+
+
+class NoParallelView:
+    def map(self, func, *args):
+        for a1 in zip(*args):
+            func(*a1)
