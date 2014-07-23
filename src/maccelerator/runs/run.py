@@ -1,7 +1,6 @@
 """Code to handle the adaptive loop."""
 
 import logging as log
-from os.path import join as pjoin
 from collections import defaultdict
 
 from IPython.parallel import Client
