@@ -6,16 +6,17 @@ Created on Mar 5, 2014
 @author: harrigan
 """
 
-import logging as log
+import logging
+import pickle
 
 import numpy as np
 from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
-import scipy.sparse
-import pickle
 
 # Minimum number of states to have succeeded in building a model
 MINSTATES = 2
+
+log = logging.getLogger(__name__)
 
 
 class Modeller:
@@ -173,7 +174,7 @@ class TMatModeller(Modeller):
         # These are probably pretty important for adaptive sampling
         # countscoo = msm.rawcounts_.tocoo()
         # found_states = np.hstack((countscoo.row, countscoo.col))
-        #found_states = np.unique(found_states)
+        # found_states = np.unique(found_states)
         # TODO
         found_states = None
 

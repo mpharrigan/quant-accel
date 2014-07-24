@@ -1,8 +1,10 @@
 """Base classes for convergence checker objects."""
 
+import pickle
+
 import numpy as np
 from matplotlib import pyplot as plt
-import pickle
+
 
 __author__ = 'harrigan'
 

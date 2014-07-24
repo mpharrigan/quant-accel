@@ -1,6 +1,6 @@
 """Convergence criteria that depend on having a consistent state definition."""
 
-import logging as log
+import logging
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,6 +11,7 @@ import scipy.linalg
 from .base import ConvergenceChecker, Convergence
 from .base import distribution_norm_tvd
 
+log = logging.getLogger(__name__)
 
 __author__ = 'harrigan'
 CMAP = plt.get_cmap('RdBu')
@@ -107,7 +108,7 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
         ref = self.ref_msm.populations_
 
         errorval = self.distribution_norm(ref, est)
-        log.debug("Population Error: %g\t Threshold: %g", errorval,
+        log.debug("Population Error:\t%g\tThreshold: %g", errorval,
                   self.tolerance)
 
         self.errors_over_time += [errorval]
@@ -179,7 +180,7 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         errorval = ref_val - est_val
         self.errors_over_time += [errorval]
 
-        log.debug("Eigenvec Error: %g\t Threshold: %g", errorval,
+        log.debug("Eigenvec Error:\t%g\tThreshold: %g", errorval,
                   self.tolerance)
 
         converged = errorval < self.tolerance
@@ -262,7 +263,7 @@ class TMatFro(CentroidConvergenceChecker):
         errorval = scipy.linalg.norm(est - ref, ord='fro')
         self.errors_over_time += [errorval]
 
-        log.debug("Frobenius Norm: %g\t Threshold: %g", errorval,
+        log.debug("Frobenius Norm:\t%g\tThreshold: %g", errorval,
                   self.tolerance)
 
         converged = errorval < self.tolerance

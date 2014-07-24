@@ -9,7 +9,7 @@ Code copied from rmcgibbo
 '''
 
 import os
-import logging as log
+import logging
 
 from mdtraj.reporters import HDF5Reporter
 from simtk.openmm import XmlSerializer
@@ -20,6 +20,9 @@ import scipy.sparse
 import numpy as np
 
 from mdtraj import io
+
+
+log = logging.getLogger(__name__)
 
 
 def generate_openmm_sysint(mass, temperature, friction, timestep):
@@ -159,7 +162,7 @@ class TMatSimulator(Simulator):
     def __init__(self, t_matrix):
         # Load transition matrix
         # t_matrix = scipy.io.mmread(tmat_fn)
-        #        t_matrix = t_matrix.tocsr()
+        # t_matrix = t_matrix.tocsr()
 
         # TODO: Change to dense
         self.t_matrix = scipy.sparse.csr_matrix(t_matrix)

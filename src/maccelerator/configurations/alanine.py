@@ -4,7 +4,6 @@ import mdtraj.io
 from mixtape.markovstatemodel import MarkovStateModel
 from mixtape.cluster import KMeans
 from mixtape.featurizer import DihedralFeaturizer
-import numpy as np
 
 from ..simulate import TMatSimulator
 from ..model import TMatModeller

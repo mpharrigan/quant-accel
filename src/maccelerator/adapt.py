@@ -1,10 +1,14 @@
 """Classes for choosing new starting states."""
 
-import numpy as np
-import logging as log
+import logging
 import pickle
 
+import numpy as np
+
+
 __author__ = 'harrigan'
+
+log = logging.getLogger(__name__)
 
 
 class Adapter(object):

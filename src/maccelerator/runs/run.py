@@ -1,12 +1,12 @@
 """Code to handle the adaptive loop."""
 
-import logging as log
+import logging
 from collections import defaultdict
 
 from IPython.parallel import Client
 
 
-log.basicConfig(level=log.DEBUG)
+log = logging.getLogger(__name__)
 
 
 class MAccelRun(object):
