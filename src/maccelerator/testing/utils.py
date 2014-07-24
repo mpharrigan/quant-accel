@@ -5,7 +5,7 @@ BASE = '/home/harrigan/projects/quant-accel/'
 
 
 def get_fn(relative_name):
-    return pjoin(BASE, 'reference', relative_name)
+    return pjoin(BASE, 'reference-newmsm', relative_name)
 
 
 def get_folder(prefix):

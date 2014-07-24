@@ -15,7 +15,7 @@ import scipy.sparse
 import pickle
 
 # Minimum number of states to have succeeded in building a model
-MINSTATES = 4
+MINSTATES = 2
 
 
 class Modeller:
@@ -33,6 +33,7 @@ class Modeller:
     def modelfn(self):
         return "msm-{round_i}"
 
+
 class Model:
     def __init__(self, msm):
         self._msm = msm
@@ -46,7 +47,7 @@ class Model:
 
     @property
     def n_states(self):
-        return self._msm.n_states
+        return self._msm.n_states_
 
     @property
     def counts(self):
@@ -83,7 +84,8 @@ class ClusterModeller(Modeller):
 
 
         References:
-        http://en.wikipedia.org/wiki/Determining_the_number_of_clusters_in_a_data_set#Rule_of_thumb
+        http://en.wikipedia.org/wiki
+        /Determining_the_number_of_clusters_in_a_data_set#Rule_of_thumb
         """
         log.debug("Loading trajectories")
         trajs_vec = self.load_trajs(traj_fns)
@@ -135,55 +137,45 @@ class TMatModeller(Modeller):
 
         """
 
-        msm = MarkovStateModel(lag_time=self.lagtime(params),
-                               n_states=self.tot_n_states)
+        msm = MarkovStateModel(lag_time=self.lagtime(params))
         msm.fit(self.load_trajs(traj_fns))
 
 
         # If it's too small, give up.
         log.debug("States left: %d", msm.transmat_.shape[0])
-        if msm.transmat_.shape[0] < MINSTATES:
+        if msm.n_states_ < MINSTATES:
             model = Model(msm)
             model.success = False
             return model
 
         # Back out full-sized populations
-        n_states = self.tot_n_states
-        if msm.transmat_.shape[0] < n_states:
-            populations = np.zeros(n_states)
-            eigenvec = np.zeros(n_states)
-            for i in range(n_states):
-                try:
-                    populations[i] = msm.populations_[msm.mapping_[i]]
-                    eigenvec[i] = msm.eigenvectors_[msm.mapping_[i], 1]
-                except KeyError:
-                    pass
+        if msm.n_states_ < self.tot_n_states:
+            populations = np.zeros(self.tot_n_states)
+            eigenvec = np.zeros(self.tot_n_states)
+            tmat = np.zeros((self.tot_n_states, self.tot_n_states))
 
-            # Back out full transition matrix, oh boy
-            tmatcoo = msm.transmat_.tocoo()
-            # Translate coordinates
-            for fr, to in msm.mapping_.items():
-                tmatcoo.row[tmatcoo.row == to] = fr
-                tmatcoo.col[tmatcoo.col == to] = fr
+            kept = sorted(msm.mapping_.items(), key=lambda x: x[1])
+            kept = np.array([k for k, v in kept])
 
-            # Re-build
-            full_tmat = scipy.sparse.coo_matrix(
-                (tmatcoo.data, (tmatcoo.row, tmatcoo.col)),
-                shape=(n_states, n_states)).tocsr()
+            populations[kept] = msm.populations_
+            eigenvec[kept] = msm.left_eigenvectors_[:, 1]
+            tmat[np.ix_(kept, kept)] = msm.transmat_
+
         else:
             populations = msm.populations_
-            eigenvec = msm.eigenvectors_[:, 1]
-            full_tmat = msm.transmat_
+            eigenvec = msm.left_eigenvectors_[:, 1]
+            tmat = msm.transmat_
 
         # Get found states
         # Those which have at least one transition to or from
         # Note: We can't just sample from states with zero 'from' counts
         # This would neglect states visited at the ends of trajectories.
         # These are probably pretty important for adaptive sampling
-        countscoo = msm.rawcounts_.tocoo()
-        found_states = np.hstack((countscoo.row, countscoo.col))
-        found_states = np.unique(found_states)
+        # countscoo = msm.rawcounts_.tocoo()
+        # found_states = np.hstack((countscoo.row, countscoo.col))
+        #found_states = np.unique(found_states)
+        # TODO
+        found_states = None
 
-        return TMatModel(msm, full_tmat, populations, eigenvec,
-                         found_states)
+        return TMatModel(msm, tmat, populations, eigenvec, found_states)
 
