@@ -13,7 +13,9 @@ __author__ = 'harrigan'
 
 from os.path import join as pjoin
 import os
-import logging as log
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class FileStructure():
@@ -95,8 +97,7 @@ class FileStructure():
         os.mkdir(trajround_dir)
         return [
             pjoin(trajround_dir, self.config.simulator.trajfn.format(traj_i=i))
-            for i in traj_is
-        ]
+            for i in traj_is]
 
     def sstate_fn(self, round_i):
         """Return a starting-state filename."""

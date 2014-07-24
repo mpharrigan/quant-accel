@@ -1,15 +1,20 @@
 """Convergence criteria that project onto a grid."""
 
-from .base import ConvergenceChecker
-from .base import distribution_norm_tvd
-import logging as log
+import logging
+
 import numpy as np
 from scipy import interpolate
+
+from .base import ConvergenceChecker
+from .base import distribution_norm_tvd
+
 
 __author__ = 'harrigan'
 
 # Boltzmann constant in md units
 KB = 0.0083145
+
+log = logging.getLogger(__name__)
 
 
 class PopulationProjectionTVD(ConvergenceChecker):

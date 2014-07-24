@@ -1,7 +1,6 @@
 """Helper functions for plotting and visualization from ipython notebook.
 """
 
-
 from __future__ import division
 from matplotlib import pyplot as plt
 import numpy as np
@@ -10,7 +9,7 @@ from quantaccel import speedcalc as sc
 import math
 import logging
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 def convergence_plots(resobj, runcopy, name='pop', y_label='Pop TVD'):
@@ -113,9 +112,8 @@ def histograms(plotvs, whole_range, log_plot, htype='kde', shoop=False):
                 ax.set_title("%s: %s" % (plotvs.labellabel, k))
             else:
                 # Add complete title
-                ax.set_title(
-                    "%s: %s %s: %s" % (
-                        plotvs.labellabel, k, plotvs.xlabel, xval))
+                ax.set_title("%s: %s %s: %s" % (
+                    plotvs.labellabel, k, plotvs.xlabel, xval))
 
 
 def plot_avgs(plotvs):
@@ -183,7 +181,7 @@ def muller_non_adaptive(muller):
 
 def na_plot(time_vs_tpr_na):
     # TODO: Incorperate this with other plot function?
-    #            - At least do most of the plotting with an auxillary function
+    # - At least do most of the plotting with an auxillary function
     #              called by both.
     #            - Then add on 'perfect scaling' lines
 
@@ -250,12 +248,12 @@ def speed_figs(plotvs, naw):
             np.array([fit.x, ref_fir / fit.dat_time]).T)
 
         sax.errorbar(dt_cur[:, 0], dt_cur[:, 1],
-                     yerr=np.transpose(dt_cur[:, 2:4]),
-                     elinewidth=1.0, capsize=1.0, capthick=1.0, label=fit.key)
+                     yerr=np.transpose(dt_cur[:, 2:4]), elinewidth=1.0,
+                     capsize=1.0, capthick=1.0, label=fit.key)
 
         tax.errorbar(dt_ref[:, 0], dt_ref[:, 1],
-                     yerr=np.transpose(dt_ref[:, 2:4]),
-                     elinewidth=1.0, capsize=1.0, capthick=1.0, label=fit.key)
+                     yerr=np.transpose(dt_ref[:, 2:4]), elinewidth=1.0,
+                     capsize=1.0, capthick=1.0, label=fit.key)
 
         # Format
         ax1.set_xscale('log')

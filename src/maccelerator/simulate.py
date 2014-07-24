@@ -9,7 +9,7 @@ Code copied from rmcgibbo
 '''
 
 import os
-import logging as log
+import logging
 
 from mdtraj.reporters import HDF5Reporter
 from simtk.openmm import XmlSerializer
@@ -19,6 +19,9 @@ from simtk import openmm
 import numpy as np
 
 from mdtraj import io
+
+
+log = logging.getLogger(__name__)
 
 
 def generate_openmm_sysint(mass, temperature, friction, timestep):

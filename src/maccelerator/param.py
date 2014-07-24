@@ -1,10 +1,8 @@
 """Deal with parameters."""
 
-from os.path import join as pjoin
-import os
 import logging
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 class AdaptiveParams(object):
@@ -30,8 +28,7 @@ class AdaptiveParams(object):
     def dirname(self):
         return "blt-{build_lt}_alt-{adapt_lt}_spt-{spt}_tpr-{tpr}".format(
             build_lt=self.build_lt, adapt_lt=self.adapt_lt, spt=self.spt,
-            tpr=self.tpr
-        )
+            tpr=self.tpr)
 
     @property
     def pretty_desc(self):

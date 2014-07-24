@@ -6,16 +6,19 @@ Created on Mar 5, 2014
 @author: harrigan
 """
 
-import logging as log
+import logging
+import pickle
 
 import numpy as np
 from mixtape.cluster import MiniBatchKMeans
-from mixtape.markovstatemodel import MarkovStateModel
 import scipy.sparse
-import pickle
+from mixtape.markovstatemodel import MarkovStateModel
+
 
 # Minimum number of states to have succeeded in building a model
 MINSTATES = 4
+
+log = logging.getLogger(__name__)
 
 
 class Modeller:
