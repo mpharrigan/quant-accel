@@ -155,8 +155,7 @@ class TMatModeller(Modeller):
             eigenvec = np.zeros(self.tot_n_states)
             tmat = np.zeros((self.tot_n_states, self.tot_n_states))
 
-            kept = sorted(msm.mapping_.items(), key=lambda x: x[1])
-            kept = np.array([k for k, v in kept])
+            kept = np.array(msm.state_labels_)
 
             populations[kept] = msm.populations_
             eigenvec[kept] = msm.left_eigenvectors_[:, 1]
