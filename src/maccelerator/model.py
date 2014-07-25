@@ -13,9 +13,6 @@ import numpy as np
 from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
 
-# Minimum number of states to have succeeded in building a model
-MINSTATES = 2
-
 log = logging.getLogger(__name__)
 
 
@@ -38,8 +35,6 @@ class Modeller:
 class Model:
     def __init__(self, msm):
         self._msm = msm
-        self.success = True
-
 
     def save(self, fn):
         fn = "{}.pickl".format(fn)
@@ -116,6 +111,14 @@ class TMatModel(Model):
         self.full_populations = full_populations
         self.full_eigenvec = full_eigenvec
         self.found_states = found_states
+        self.tot_n_states = len(full_populations)
+
+    @property
+    def timescales(self):
+        if self._msm.n_states_ >= 2:
+            return self._msm.timescales_
+        else:
+            return np.asarray([0])
 
 
 class TMatModeller(Modeller):
@@ -141,13 +144,7 @@ class TMatModeller(Modeller):
         msm = MarkovStateModel(lag_time=self.lagtime(params))
         msm.fit(self.load_trajs(traj_fns))
 
-
-        # If it's too small, give up.
-        log.debug("States left: %d", msm.transmat_.shape[0])
-        if msm.n_states_ < MINSTATES:
-            model = Model(msm)
-            model.success = False
-            return model
+        log.debug("Number of untrimmed States: %d", msm.n_states_)
 
         # Back out full-sized populations
         if msm.n_states_ < self.tot_n_states:
@@ -157,9 +154,13 @@ class TMatModeller(Modeller):
 
             kept = np.array(msm.state_labels_)
 
-            populations[kept] = msm.populations_
-            eigenvec[kept] = msm.left_eigenvectors_[:, 1]
-            tmat[np.ix_(kept, kept)] = msm.transmat_
+            # Be super explicit about minimum state requirements
+            if msm.n_states_ >= 1:
+                populations[kept] = msm.populations_
+                tmat[np.ix_(kept, kept)] = msm.transmat_
+
+            if msm.n_states_ >= 2:
+                eigenvec[kept] = msm.left_eigenvectors_[:, 1]
 
         else:
             populations = msm.populations_
