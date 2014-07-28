@@ -15,6 +15,7 @@ import mdtraj.io
 import maccelerator as maccel
 from maccelerator.adapt import SStates
 from maccelerator.model import Model
+from maccelerator.param import AdaptiveParams
 from maccelerator.testing.utils import get_folder, get_fn
 
 
@@ -42,6 +43,13 @@ class TestRun(TestCase):
         for round_i, trajs in self.run.trajs.items():
             with self.subTest(round_i=round_i):
                 self.assertEqual(len(trajs), self.tpr)
+
+    def test_param_file(self):
+        paramfn = pjoin(self.rundir, 'params.pickl')
+        params = AdaptiveParams.load(paramfn)
+
+        self.assertEqual(self.tpr, params.tpr)
+        self.assertEqual(self.spt, params.spt)
 
     def test_trajectory_files(self):
         # Make sure files exist where they should and don't where they shouldn't

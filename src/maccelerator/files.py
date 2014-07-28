@@ -110,10 +110,16 @@ class FileStructure():
                      self.config.convchecker.plotfn.format(round_i=round_i))
 
     def model_fn(self, round_i):
+        """Return a model filename for each round."""
         return pjoin(self.msms_dir,
                      self.config.modeller.modelfn.format(round_i=round_i))
 
     def conv_fn(self, round_i):
+        """Return a convergence filename for each round."""
         return pjoin(self.convs_dir,
                      self.config.convchecker.convfn.format(round_i=round_i))
+
+    def param_fn(self, param):
+        """Return a filename to save param info."""
+        return pjoin(self.rundir, param.paramfn.format())
 

@@ -54,6 +54,9 @@ class MAccelRun(object):
         if not exit_status:
             return False
 
+        # Save parameters
+        params.save(file.param_fn(params))
+
         # Initialize variables for the loop
         round_i = 0
         rounds_left = params.post_converge
