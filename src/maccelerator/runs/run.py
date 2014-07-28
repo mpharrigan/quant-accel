@@ -2,6 +2,7 @@
 
 import logging
 from collections import defaultdict
+import pickle
 
 from IPython.parallel import Client
 
@@ -56,6 +57,7 @@ class MAccelRun(object):
 
         # Save parameters
         params.save(file.param_fn(params))
+        self.save(file.run_fn(self))
 
         # Initialize variables for the loop
         round_i = 0
@@ -102,6 +104,25 @@ class MAccelRun(object):
 
             # Move on
             round_i += 1
+
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        del state['lbv']
+        return state
+
+    @property
+    def runfn(self):
+        return 'run'
+
+    def save(self, fn):
+        fn = "{}.pickl".format(fn)
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, fn):
+        with open(fn, 'rb') as f:
+            return pickle.load(f)
 
 
 def le_than(traj_dict, round_i):

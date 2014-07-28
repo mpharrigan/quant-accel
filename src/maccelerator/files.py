@@ -123,3 +123,7 @@ class FileStructure():
         """Return a filename to save param info."""
         return pjoin(self.rundir, param.paramfn.format())
 
+    def run_fn(self, run):
+        """Return a filename to save a run object."""
+        return pjoin(self.rundir, run.runfn.format())
+

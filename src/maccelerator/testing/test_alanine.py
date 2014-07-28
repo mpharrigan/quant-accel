@@ -51,6 +51,18 @@ class TestRun(TestCase):
         self.assertEqual(self.tpr, params.tpr)
         self.assertEqual(self.spt, params.spt)
 
+    def test_run_file(self):
+        runfn = pjoin(self.rundir, 'run.pickl')
+        run = maccel.MAccelRun.load(runfn)
+
+        figfn = 'plot-{:04d}'.format(1)
+
+        self.assertEqual(run.rundir, self.rundir)
+        self.assertEqual(run.params.tpr, self.tpr)
+        self.assertEqual(run.config.file.plot_fn(1),
+                         pjoin(self.rundir, 'figs', figfn))
+
+
     def test_trajectory_files(self):
         # Make sure files exist where they should and don't where they shouldn't
 
