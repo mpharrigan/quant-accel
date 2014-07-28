@@ -40,6 +40,8 @@ class TestRun(TestCase):
 
     def test_num_trajs(self):
         # 2 trajectories per round
+        self.assertEqual(len(self.run.trajs), self.run.n_rounds)
+
         for round_i, trajs in self.run.trajs.items():
             with self.subTest(round_i=round_i):
                 self.assertEqual(len(trajs), self.tpr)
@@ -50,6 +52,18 @@ class TestRun(TestCase):
 
         self.assertEqual(self.tpr, params.tpr)
         self.assertEqual(self.spt, params.spt)
+
+    def test_run_file(self):
+        runfn = pjoin(self.rundir, 'run.pickl')
+        run = maccel.MAccelRun.load(runfn)
+
+        figfn = 'plot-{:04d}'.format(1)
+
+        self.assertEqual(run.rundir, self.rundir)
+        self.assertEqual(run.params.tpr, self.tpr)
+        self.assertEqual(run.config.file.plot_fn(1),
+                         pjoin(self.rundir, 'figs', figfn))
+
 
     def test_trajectory_files(self):
         # Make sure files exist where they should and don't where they shouldn't

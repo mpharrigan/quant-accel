@@ -126,7 +126,7 @@ class EigenvecCentroidConvergence(Convergence):
                  centers):
         super().__init__(converged, errors_over_time)
 
-        self.applied_eigenv = applied_eigenv
+        self.applied_eigenv = np.squeeze(applied_eigenv)
         self.ref_eigenv = ref_eigenv
         self.centers = centers
 
