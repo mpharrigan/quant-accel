@@ -2,7 +2,6 @@ __author__ = 'harrigan'
 
 import unittest
 from unittest import TestCase
-import tempfile
 import os
 from os.path import join as pjoin
 import logging
@@ -15,6 +14,8 @@ import maccelerator as maccel
 from maccelerator.configurations.muller import generate_muller_sysint, \
     make_traj_from_coords
 from maccelerator.simulate import serialize_openmm
+from maccelerator.testing.utils import get_folder
+
 
 
 # Disable logging during test
@@ -24,7 +25,7 @@ logging.disable(logging.WARNING)
 
 class TestMullerPrep(TestCase):
     def setUp(self):
-        self.tdir = tempfile.mkdtemp()
+        self.tdir = get_folder('mul_prep')
 
     def test_make(self):
         system, integrator = generate_muller_sysint()

@@ -7,22 +7,48 @@ from os.path import join as pjoin
 import os
 import unittest
 import logging
+import pickle
 
-import numpy as np
-from numpy.testing import assert_array_equal
 import mdtraj.io
+import scipy.io
 
 import maccelerator as maccel
 from maccelerator.adapt import SStates
 from maccelerator.model import Model
 from maccelerator.param import AdaptiveParams
 from maccelerator.testing.utils import get_folder, get_fn
-
+from maccelerator.testing.make_reference_data import make_alanine_reference_data
 
 
 # Disable logging during test
 logging.captureWarnings(True)
 logging.disable(logging.WARNING)
+
+
+class TestAlaninePrep(TestCase):
+    def setUp(self):
+        self.rundir = get_folder('ala_prep')
+
+    @unittest.skip
+    def test_make(self):
+        dirname = self.rundir
+        make_alanine_reference_data(dirname)
+        # Save cluster centers
+        centers = mdtraj.io.loadh(pjoin(dirname, 'ala.centers.h5'),
+                                  'cluster_centers')
+
+        self.assertEqual(len(centers), 20)
+
+        # Save transition matrix
+        tmat = scipy.io.mmread(pjoin(dirname, 'ala.mtx'))
+
+        self.assertEqual(tmat.shape[1], 20)
+
+        # Save MSM Object
+        with open(pjoin(dirname, 'ala.msm.pickl'), 'rb') as f:
+            msm = pickle.load(f)
+
+        self.assertIsNotNone(msm)
 
 
 class TestRun(TestCase):
