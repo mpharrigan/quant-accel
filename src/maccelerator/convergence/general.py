@@ -11,8 +11,8 @@ class TimescaleDistanceConvergence(Convergence):
                  errors_over_time):
         super().__init__(converged, errors_over_time)
 
-        self.est_timescales = est_timescales,
-        self.ref_timescales = ref_timescales,
+        self.est_timescales = est_timescales
+        self.ref_timescales = ref_timescales
         self.errors_over_time = errors_over_time
 
     def plot(self, axs, sstate):

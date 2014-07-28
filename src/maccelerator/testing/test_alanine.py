@@ -40,6 +40,8 @@ class TestRun(TestCase):
 
     def test_num_trajs(self):
         # 2 trajectories per round
+        self.assertEqual(len(self.run.trajs), self.run.n_rounds)
+
         for round_i, trajs in self.run.trajs.items():
             with self.subTest(round_i=round_i):
                 self.assertEqual(len(trajs), self.tpr)
