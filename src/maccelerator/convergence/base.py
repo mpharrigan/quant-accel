@@ -59,6 +59,11 @@ class IConvergence:
         with open(fn, 'wb') as f:
             pickle.dump(self, f)
 
+    @classmethod
+    def load(cls, fn):
+        with open(fn, 'rb') as f:
+            return pickle.load(f)
+
     @property
     def converged(self):
         raise NotImplementedError

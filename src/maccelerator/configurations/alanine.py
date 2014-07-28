@@ -31,7 +31,7 @@ def generate_alanine_msm(ala):
     kmeans.fit(feat_trajs)
 
     # Build MSM
-    msm = MarkovStateModel(n_states=20, lag_time=3, n_timescales=5)
+    msm = MarkovStateModel(lag_time=3)
     msm.fit(kmeans.labels_)
 
     return msm, kmeans
@@ -87,7 +87,7 @@ class AlanineConfiguration(TMatConfiguration):
 
         # Set fields
         self.simulator = AlanineSimulator(ref_msm.transmat_)
-        self.modeller = AlanineModeller(tot_n_states=ref_msm.n_states)
+        self.modeller = AlanineModeller(tot_n_states=ref_msm.n_states_)
         self.convchecker = AlanineConvchecker(centers, ref_msm)
         self.adapter = AlanineAdapter()
 

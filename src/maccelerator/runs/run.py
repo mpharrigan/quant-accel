@@ -2,6 +2,7 @@
 
 import logging
 from collections import defaultdict
+import pickle
 
 from IPython.parallel import Client
 
@@ -54,6 +55,9 @@ class MAccelRun(object):
         if not exit_status:
             return False
 
+        # Save parameters
+        params.save(file.param_fn(params))
+
         # Initialize variables for the loop
         round_i = 0
         rounds_left = params.post_converge
@@ -83,9 +87,8 @@ class MAccelRun(object):
             converge = config.check_convergence(model, params)
             converge.save(file.conv_fn(round_i))
 
-            # Visualize
             if self.plot:
-                converge.plot_and_save(sstate, file.plot_fn(round_i))
+                converge.plot_and_save(params, sstate, file.plot_fn(round_i))
 
             # Keep track of progress
             # Note: if we dip in and out of convergence it doesn't decrement
@@ -99,6 +102,36 @@ class MAccelRun(object):
 
             # Move on
             round_i += 1
+
+        # Save the run after done
+        self.save(file.run_fn(self))
+
+
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        try:
+            del state['lbv']
+        except KeyError:
+            pass
+        return state
+
+    @property
+    def runfn(self):
+        return 'run'
+
+    def save(self, fn):
+        fn = "{}.pickl".format(fn)
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, fn):
+        with open(fn, 'rb') as f:
+            return pickle.load(f)
+
+    @property
+    def n_rounds(self):
+        return len(self.trajs)
 
 
 def le_than(traj_dict, round_i):

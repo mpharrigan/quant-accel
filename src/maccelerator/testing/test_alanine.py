@@ -14,6 +14,8 @@ import mdtraj.io
 
 import maccelerator as maccel
 from maccelerator.adapt import SStates
+from maccelerator.model import Model
+from maccelerator.param import AdaptiveParams
 from maccelerator.testing.utils import get_folder, get_fn
 
 
@@ -38,9 +40,30 @@ class TestRun(TestCase):
 
     def test_num_trajs(self):
         # 2 trajectories per round
+        self.assertEqual(len(self.run.trajs), self.run.n_rounds)
+
         for round_i, trajs in self.run.trajs.items():
             with self.subTest(round_i=round_i):
                 self.assertEqual(len(trajs), self.tpr)
+
+    def test_param_file(self):
+        paramfn = pjoin(self.rundir, 'params.pickl')
+        params = AdaptiveParams.load(paramfn)
+
+        self.assertEqual(self.tpr, params.tpr)
+        self.assertEqual(self.spt, params.spt)
+
+    def test_run_file(self):
+        runfn = pjoin(self.rundir, 'run.pickl')
+        run = maccel.MAccelRun.load(runfn)
+
+        figfn = 'plot-{:04d}'.format(1)
+
+        self.assertEqual(run.rundir, self.rundir)
+        self.assertEqual(run.params.tpr, self.tpr)
+        self.assertEqual(run.config.file.plot_fn(1),
+                         pjoin(self.rundir, 'figs', figfn))
+
 
     def test_trajectory_files(self):
         # Make sure files exist where they should and don't where they shouldn't
@@ -76,9 +99,19 @@ class TestRun(TestCase):
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
 
-    @unittest.skip
     def test_msm_files(self):
-        return False
+        nrounds = len(self.run.trajs)
+        for round_i in range(nrounds * 2):
+            should_exist = round_i < nrounds
+            with self.subTest(round_i=round_i, should_exist=should_exist):
+                msmfn = 'msm-{round_i}.pickl'.format(round_i=round_i)
+                msmfn = pjoin(self.rundir, 'msms', msmfn)
+                if should_exist:
+                    self.assertTrue(os.path.exists(msmfn))
+                    model = Model.load(msmfn)
+                    self.assertEqual(model.tot_n_states, 20)
+                else:
+                    self.assertFalse(os.path.exists(msmfn))
 
 
 if __name__ == "__main__":

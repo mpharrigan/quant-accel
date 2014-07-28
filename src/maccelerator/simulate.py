@@ -16,6 +16,7 @@ from simtk.openmm import XmlSerializer
 from simtk.openmm.app import Simulation
 from simtk.openmm.app import StateDataReporter
 from simtk import openmm
+import scipy.sparse
 import numpy as np
 
 from mdtraj import io
@@ -160,10 +161,11 @@ class TMatSimulator(Simulator):
 
     def __init__(self, t_matrix):
         # Load transition matrix
-        #        t_matrix = scipy.io.mmread(tmat_fn)
-        #        t_matrix = t_matrix.tocsr()
+        # t_matrix = scipy.io.mmread(tmat_fn)
+        # t_matrix = t_matrix.tocsr()
 
-        self.t_matrix = t_matrix
+        # TODO: Change to dense
+        self.t_matrix = scipy.sparse.csr_matrix(t_matrix)
         log.info('Using transition matrix of shape %s', self.t_matrix.shape)
 
     def simulate(self, sstate, params, traj_out_fn):
@@ -187,9 +189,8 @@ class TMatSimulator(Simulator):
         for i in range(1, n_steps):
             # Get stuff from our sparse matrix
 
-            csr_slicer = slice(
-                t_matrix.indptr[sstate],
-                t_matrix.indptr[sstate + 1])
+            csr_slicer = slice(t_matrix.indptr[sstate],
+                               t_matrix.indptr[sstate + 1])
             probs = t_matrix.data[csr_slicer]
             colinds = t_matrix.indices[csr_slicer]
 
@@ -209,8 +210,7 @@ class TMatSimulator(Simulator):
 def sanity_check(simulation):
     """Lovingly ripped from @rmcgibbo
     """
-    positions = simulation.context.getState(
-        getPositions=True).getPositions(
+    positions = simulation.context.getState(getPositions=True).getPositions(
         asNumpy=True)
     for atom1, atom2 in simulation.topology.bonds():
         d = np.linalg.norm(
@@ -267,9 +267,8 @@ def add_reporters(simulation, outfn, report_stride, n_spt):
         """Callback for processing reporter output"""
         log.debug(report)
 
-    callback_reporter = CallbackReporter(reporter_callback,
-                                         report_stride, step=True,
-                                         potentialEnergy=True,
+    callback_reporter = CallbackReporter(reporter_callback, report_stride,
+                                         step=True, potentialEnergy=True,
                                          temperature=True, time=True,
                                          total_steps=n_spt * report_stride)
 

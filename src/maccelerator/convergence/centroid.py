@@ -114,9 +114,9 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
         self.errors_over_time += [errorval]
         converged = errorval < self.tolerance
 
-        return PopulationCentroidTVDConvergence(
-            converged, self.errors_over_time, est, ref, self.centers
-        )
+        return PopulationCentroidTVDConvergence(converged,
+                                                self.errors_over_time, est, ref,
+                                                self.centers)
 
 
 class EigenvecCentroidConvergence(Convergence):
@@ -126,7 +126,7 @@ class EigenvecCentroidConvergence(Convergence):
                  centers):
         super().__init__(converged, errors_over_time)
 
-        self.applied_eigenv = applied_eigenv
+        self.applied_eigenv = np.squeeze(applied_eigenv)
         self.ref_eigenv = ref_eigenv
         self.centers = centers
 
@@ -167,7 +167,7 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         :param model: The model for which we check convergence
         :param params: Run parameters (unused)
         """
-        ref = self.ref_msm.eigenvectors_[:, 1]
+        ref = self.ref_msm.left_eigenvectors_[:, 1]
         refs = scipy.sparse.csr_matrix(ref)
         tmat = model.full_tmat
 
@@ -184,9 +184,8 @@ class EigenvecCentroid(CentroidConvergenceChecker):
                   self.tolerance)
 
         converged = errorval < self.tolerance
-        return EigenvecCentroidConvergence(
-            converged, self.errors_over_time, applied_eigenv, ref, self.centers
-        )
+        return EigenvecCentroidConvergence(converged, self.errors_over_time,
+                                           applied_eigenv, ref, self.centers)
 
 
 class EigenvecL2Convergence(Convergence):
@@ -219,7 +218,7 @@ class EigenvecL2(CentroidConvergenceChecker):
     """Try just doing L2 norm between eigenvector values."""
 
     def check_convergence(self, model, params):
-        ref = self.ref_msm.eigenvectors_[:, 1]
+        ref = self.ref_msm.left_eigenvectors_[:, 1]
         est = model.full_eigenvec
 
         # Only relative sign matters, pick the best.
@@ -232,9 +231,8 @@ class EigenvecL2(CentroidConvergenceChecker):
                   self.tolerance)
 
         converged = errorval < self.tolerance
-        return EigenvecL2Convergence(
-            converged, self.errors_over_time, ref, est, self.centers
-        )
+        return EigenvecL2Convergence(converged, self.errors_over_time, ref, est,
+                                     self.centers)
 
 
 class TMatFroConvergence(Convergence):
@@ -259,8 +257,8 @@ class TMatFro(CentroidConvergenceChecker):
     """Frobenius norm."""
 
     def check_convergence(self, model, params):
-        est = model.full_tmat.todense()
-        ref = self.ref_msm.transmat_.todense()
+        est = model.full_tmat
+        ref = self.ref_msm.transmat_
 
         errorval = scipy.linalg.norm(est - ref, ord='fro')
         self.errors_over_time += [errorval]
@@ -269,8 +267,6 @@ class TMatFro(CentroidConvergenceChecker):
                   self.tolerance)
 
         converged = errorval < self.tolerance
-        return TMatFroConvergence(
-            converged, self.errors_over_time
-        )
+        return TMatFroConvergence(converged, self.errors_over_time)
 
 

@@ -1,6 +1,7 @@
 """Deal with parameters."""
 
 import logging
+import pickle
 
 log = logging.getLogger(__name__)
 
@@ -11,6 +12,15 @@ class AdaptiveParams(object):
         self.spt = spt
         self.run_id = run_id
 
+    def save(self, fn):
+        fn = "{}.pickl".format(fn)
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, fn):
+        with open(fn, 'rb') as f:
+            return pickle.load(f)
 
     @property
     def post_converge(self):
@@ -34,4 +44,8 @@ class AdaptiveParams(object):
     def pretty_desc(self):
         """A description e.g. for plot titles."""
         return self.dirname
+
+    @property
+    def paramfn(self):
+        return "params"
 
