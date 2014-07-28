@@ -14,6 +14,7 @@ import mdtraj.io
 
 import maccelerator as maccel
 from maccelerator.adapt import SStates
+from maccelerator.model import Model
 from maccelerator.testing.utils import get_folder, get_fn
 
 
@@ -76,9 +77,19 @@ class TestRun(TestCase):
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
 
-    @unittest.skip
     def test_msm_files(self):
-        return False
+        nrounds = len(self.run.trajs)
+        for round_i in range(nrounds * 2):
+            should_exist = round_i < nrounds
+            with self.subTest(round_i=round_i, should_exist=should_exist):
+                msmfn = 'msm-{round_i}.pickl'.format(round_i=round_i)
+                msmfn = pjoin(self.rundir, 'msms', msmfn)
+                if should_exist:
+                    self.assertTrue(os.path.exists(msmfn))
+                    model = Model.load(msmfn)
+                    self.assertEqual(model.tot_n_states, 20)
+                else:
+                    self.assertFalse(os.path.exists(msmfn))
 
 
 if __name__ == "__main__":

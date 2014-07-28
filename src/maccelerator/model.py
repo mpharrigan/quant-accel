@@ -41,6 +41,11 @@ class Model:
         with open(fn, 'wb') as f:
             pickle.dump(self, f)
 
+    @classmethod
+    def load(cls, fn):
+        with open(fn, 'rb') as f:
+            return pickle.load(f)
+
     @property
     def n_states(self):
         return self._msm.n_states_
