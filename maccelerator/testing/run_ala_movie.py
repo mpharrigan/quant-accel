@@ -3,7 +3,6 @@ __author__ = 'harrigan'
 import logging
 
 from maccelerator.testing import run_alanine
-from maccelerator.testing.utils import get_fn
 import maccelerator as maccel
 from os.path import join as pjoin
 

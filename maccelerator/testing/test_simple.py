@@ -14,7 +14,7 @@ import logging
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from maccelerator.test_utils import get_folder
+from maccelerator.testing.test_utils import get_folder
 import maccelerator as maccel
 
 

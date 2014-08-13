@@ -5,7 +5,7 @@ import os
 import logging
 
 import maccelerator as maccel
-from maccelerator.test_utils import get_folder, get_fn
+from maccelerator.testing.test_utils import get_folder, get_fn
 
 # Disable logging during test
 logging.captureWarnings(True)

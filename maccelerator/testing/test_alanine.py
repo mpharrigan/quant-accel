@@ -16,8 +16,8 @@ import maccelerator as maccel
 from maccelerator.adapt import SStates
 from maccelerator.model import Model
 from maccelerator.param import AdaptiveParams
-from maccelerator.test_utils import get_folder, get_fn
-from maccelerator.make_reference_data import make_alanine_reference_data
+from maccelerator.testing.test_utils import get_folder, get_fn
+#from maccelerator.make_reference_data import make_alanine_reference_data
 
 
 # Disable logging during test

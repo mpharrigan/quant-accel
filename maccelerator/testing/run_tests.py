@@ -2,7 +2,8 @@ __author__ = 'harrigan'
 
 import unittest
 import argparse
-from maccelerator.test_utils import get_fn
+
+from pkg_resources import resource_filename
 
 
 def parse():
@@ -17,7 +18,7 @@ def main(verbosity=1):
     """Discover and run tests."""
     runner = unittest.TextTestRunner(verbosity=verbosity)
     suite = unittest.defaultTestLoader.discover(
-        get_fn('../../testing/'))
+        resource_filename('maccelerator', 'testing/'))
     runner.run(suite)
 
 

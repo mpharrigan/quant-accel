@@ -3,7 +3,7 @@ __author__ = 'harrigan'
 import logging
 
 import maccelerator as maccel
-from maccelerator.testing.utils import get_fn, get_folder
+from maccelerator.testing.test_utils import get_fn, get_folder
 
 
 def run():

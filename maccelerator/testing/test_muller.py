@@ -11,10 +11,10 @@ from numpy.testing import assert_array_equal
 from simtk import unit
 
 import maccelerator as maccel
-from maccelerator.configurations.muller import generate_muller_sysint, \
-    make_traj_from_coords
+from maccelerator.configurations.muller import (generate_muller_sysint,
+                                                make_traj_from_coords)
 from maccelerator.simulate import serialize_openmm
-from maccelerator.test_utils import get_folder
+from maccelerator.testing.test_utils import get_folder
 
 
 
