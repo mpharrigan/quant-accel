@@ -9,18 +9,39 @@ import logging
 import numpy as np
 from numpy.testing import assert_array_equal
 from simtk import unit
-
 import maccelerator as maccel
 from maccelerator.configurations.muller import (generate_muller_sysint,
                                                 make_traj_from_coords)
 from maccelerator.simulate import OpenMMSimulator
 from maccelerator.testing.test_utils import get_folder
 
-
+from maccelerator.msmtoys import MullerForce
 
 # Disable logging during test
 logging.captureWarnings(True)
 logging.disable(logging.WARNING)
+
+
+class TestMullerPotential(TestCase):
+    def setUp(self):
+        pass
+
+    def test_muller_potential(self):
+        xx, yy = MullerForce.get_grid(resolution=10)
+        zz1 = MullerForce.potential(xx, yy).reshape(-1)
+
+        # Use openmm
+        zz2 = []
+        system, integrator = generate_muller_sysint()
+        for x, y, in zip(xx, yy):
+            system.context.setPositions([[x, y, 0]])
+            zz2.append(
+                system.context.getState(getEnergy=True)
+                .getPotentialEnergy()
+                .value_in_unit_system(unit.md_unit_system)
+            )
+
+        np.testing.assert_array_almost_equal(zz1, zz2)
 
 
 class TestMullerPrep(TestCase):
