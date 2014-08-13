@@ -9,3 +9,4 @@ htmlcov
 
 maccelerator.egg-info
 build
+dist
