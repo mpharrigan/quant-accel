@@ -46,6 +46,9 @@ class PlotMaker():
         converge = Convergence.load("{}.pickl".format(file.conv_fn(round_i)))
         return converge, self.run.params, file.plot_fn(round_i)
 
+    def load_convergences(self):
+        return [self._get_for_parallel(i)[0] for i in range(self.run.n_rounds)]
+
 
 def _plot_helper(args):
     """Can be mapped."""
