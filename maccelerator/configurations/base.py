@@ -16,7 +16,7 @@ class Configuration(object):
         # the other objects.
         self.file = FileStructure(self)
 
-    def get_param_grid(self):
+    def get_param_grid(self, run_id):
         raise NotImplementedError
 
     @property

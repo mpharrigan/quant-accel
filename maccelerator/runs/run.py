@@ -65,7 +65,6 @@ class MAccelRun(object):
         sstate.save(file.sstate_fn(-1))
 
         while True:
-            log.info("Doing round %d", round_i)
 
             # Do fancy IPython.parallel stuff to parallelize simulation
             traj_is = range(params.tpr)
@@ -89,6 +88,9 @@ class MAccelRun(object):
 
             if self.plot:
                 converge.plot_and_save(params, sstate, file.plot_fn(round_i))
+
+            log.info("Doing round %3d.\tConverged: %5s\tRounds left: %2d",
+                     round_i, converge.converged, rounds_left)
 
             # Keep track of progress
             # Note: if we dip in and out of convergence it doesn't decrement

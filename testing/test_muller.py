@@ -14,7 +14,7 @@ import maccelerator as maccel
 from maccelerator.configurations.muller import generate_muller_sysint, \
     make_traj_from_coords
 from maccelerator.simulate import serialize_openmm
-from maccelerator.testing.utils import get_folder
+from maccelerator.test_utils import get_folder
 
 
 

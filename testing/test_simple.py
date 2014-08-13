@@ -14,7 +14,7 @@ import logging
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from maccelerator.testing.utils import get_folder
+from maccelerator.test_utils import get_folder
 import maccelerator as maccel
 
 
@@ -173,8 +173,9 @@ class TestGridNoParallel(TestGrid):
     def setUp(self):
         configuration = maccel.SimpleConfiguration()
         self.griddir = get_folder('s5')
-        self.grid = maccel.MAccelGrid(configuration, self.griddir)
-        self.grid.grid_noparallel()
+        self.grid = maccel.MAccelGrid(configuration, self.griddir,
+                                      parallel=False)
+        self.grid.grid()
 
 
 if __name__ == "__main__":

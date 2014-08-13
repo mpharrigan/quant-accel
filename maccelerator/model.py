@@ -104,7 +104,8 @@ class ClusterModeller(Modeller):
         clusterer.fit(trajs_vec)
 
         log.info("Building MSM")
-        msm = MarkovStateModel(lag_time=self.lagtime(params), n_timescales=10)
+        msm = MarkovStateModel(lag_time=self.lagtime(params), n_timescales=10,
+                               verbose=log.level > logging.DEBUG)
         msm.fit(clusterer.labels_)
 
         return ClusterModel(msm, clusterer)
@@ -148,7 +149,8 @@ class TMatModeller(Modeller):
 
         """
 
-        msm = MarkovStateModel(lag_time=self.lagtime(params))
+        msm = MarkovStateModel(lag_time=self.lagtime(params),
+                               verbose=log.level > logging.DEBUG)
         msm.fit(self.load_trajs(traj_fns))
 
         log.debug("Number of untrimmed States: %d", msm.n_states_)

@@ -3,9 +3,10 @@ from os.path import join as pjoin
 
 BASE = '/home/harrigan/projects/quant-accel/'
 
+# TODO: Use pkg_resource?
 
 def get_fn(relative_name):
-    return pjoin(BASE, 'reference-newmsm', relative_name)
+    return pjoin(BASE, 'maccelerator', 'reference', relative_name)
 
 
 def get_folder(prefix):

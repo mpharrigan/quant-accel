@@ -137,6 +137,6 @@ class SimpleConfiguration(Configuration):
         self.convchecker = SimpleConvchecker()
         self.simulator = SimpleSimulator()
 
-    def get_param_grid(self):
+    def get_param_grid(self, run_id=0):
         """Do two parameter configurations."""
         return [SimpleParams(spt=10, tpr=10), SimpleParams(spt=20, tpr=10)]
