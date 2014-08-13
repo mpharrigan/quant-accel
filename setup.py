@@ -6,4 +6,4 @@ setup(name='maccelerator',
       packages=find_packages(),
       scripts=['scripts/maccel.py'],
       zip_safe=False,
-      package_date={'reference':['*']})
+      package_data={'maccelerator':['reference/*.*']})
