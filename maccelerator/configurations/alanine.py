@@ -1,4 +1,5 @@
 import pickle
+import logging
 
 import mdtraj.io
 from mixtape.markovstatemodel import MarkovStateModel
@@ -11,11 +12,22 @@ from ..adapt import RandomAdapter, SStates
 from .base import TMatConfiguration
 from ..convergence.hybrid import TMatConvergenceChecker
 from ..param import AdaptiveParams
-import itertools
-
-import logging
 
 log = logging.getLogger(__name__)
+
+_AlANINE_TEMPLATE = """
+class MyAlanineConfiguration(maccel.AlanineConfiguration):
+    def __init__(self):
+        super().__init__(maccel.get_fn('ala.msm.pickl'),
+                         maccel.get_fn('ala.centers.h5'))
+
+    def get_param_grid(self, run_id):
+        spts = [10, 100]
+        tprs = [10, 100]
+
+        for spt, tpr in itertools.product(spts, tprs):
+            yield maccel.AlanineParams(spt=spt, tpr=tpr, run_id=run_id)
+"""
 
 
 def generate_alanine_msm(ala):
@@ -84,6 +96,12 @@ class AlanineParams(AdaptiveParams):
 
 
 class AlanineConfiguration(TMatConfiguration):
+    @classmethod
+    def get_template(cls, grid_manager_name):
+        fmt_dict = dict(grid_manager=grid_manager_name,
+                        other_config=_AlANINE_TEMPLATE)
+        return super().get_template(grid_manager_name).format(**fmt_dict)
+
     def __init__(self, ref_msm_fn, centers_fn):
         super().__init__()
 
@@ -101,24 +119,6 @@ class AlanineConfiguration(TMatConfiguration):
         self.adapter = AlanineAdapter()
 
     def get_param_grid(self, run_id=0):
-
-        debug_config = [
-            [200, 1],
-            [100, 5]
-        ]
-        spts = [2 ** i for i in range(2, 10)]
-        tprs = [10 ** i for i in range(4)]
-
-        configs = itertools.product(spts, tprs)
-        # configs = debug_config
-
-        for spt, tpr in configs:
-            if spt * tpr < 20:
-                log.debug('Skipping spt = %d\ttpr = %d.', spt, tpr)
-                continue
-
-            log.debug('Yielding param: spt = %d\ttpr=%d', spt, tpr)
-            yield AlanineParams(spt=spt, tpr=tpr, run_id=run_id)
-        pass
+        raise NotImplementedError()
 
 

@@ -1,82 +1,82 @@
 __author__ = 'harrigan'
 
 import argparse
-import maccelerator as maccel
-import os
-from os.path import join as pjoin
-from pkg_resources import resource_filename
-import shutil
-import glob
-
 import logging
+
+import maccelerator as maccel
+
 
 logging.basicConfig(level=logging.INFO)
 
-SHM = '/dev/shm/'
+
+def config_entry(args):
+    """Entry point for argparse."""
+    print('Writing some sample configuration files. Make sure you look at')
+    print('them before blindly executing! They will need modification.')
+    config(args.out_fn, args.n_copy, args.cluster, args.config, args.parallel)
 
 
-def get_fn(fn):
-    return resource_filename('maccelerator', 'reference/{}'.format(fn))
+def config(out_fn, n_copy, cluster, config_name, parallel):
+    cluster_dict = dict(pbs=maccel.PBSCluster)
+    config_dict = dict(alanine=maccel.AlanineConfiguration)
+    grid_manager_name = 'MaccelGridShm'  # TODO: Make general
 
+    clust = cluster_dict[cluster](n_copy=n_copy, parallel=parallel)
+    config = config_dict[config_name]
 
-def alanine_entry(args):
-    """Entry point for argparse.
+    job_out = "{}.{}".format(out_fn, clust.job_script_ext)
+    py_out = "{}.py".format(out_fn)
 
-    :param args: argparse Namespace or similar
-    """
-    run_alanine(args.run_id, args.parallel)
+    with open(job_out, 'w') as job_f:
+        job_f.write(clust.make_job_script(py_out))
 
-
-def run_alanine(run_id, parallel):
-    """Run a grid of alanine configurations
-
-    :param run_id: A label for this copy of a run. Will be used as folder name
-    :param parallel: How parallel to do it.
-    """
-    griddir = 'copy-{}'.format(run_id)
-    shm_griddir = pjoin(SHM, griddir)
-
-    # Do it in shared memory
-    assert not os.path.exists(griddir)
-    os.mkdir(shm_griddir)
-
-    # Set up configuration
-    config = maccel.AlanineConfiguration(get_fn('ala.msm.pickl'),
-                                         get_fn('ala.centers.h5'))
-
-    grid = maccel.MAccelGrid(config, shm_griddir, run_id, parallel=parallel)
-    grid.grid()
-
-    for traj_dir in glob.iglob(pjoin(shm_griddir, '*/trajs/')):
-        logging.info('Archiving %s', traj_dir)
-        shutil.make_archive(base_name=pjoin(traj_dir, '..', 'trajs'),
-                            format='gztar',
-                            root_dir=pjoin(traj_dir, '..'), base_dir='trajs')
-        shutil.rmtree(traj_dir)
-
-    shutil.copytree(shm_griddir, griddir)
-    shutil.rmtree(shm_griddir)
+    with open(py_out, 'w') as py_f:
+        py_f.write(config.get_template(grid_manager_name))
 
 
 def parse():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--parallel', action='store_true', default=False)
 
-    sp = parser.add_subparsers()
+    sp = parser.add_subparsers(dest='command')
+    sp.required = True
 
-    alanine = sp.add_parser('alanine')
-    alanine.add_argument('--run_id', '-i', help='Run ID',
-                         type=int, default=0)
-    alanine.set_defaults(func=alanine_entry)
+
+    # ----------------------------------------------------
+    config = sp.add_parser('config',
+                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    config.set_defaults(func=config_entry)
+    config.add_argument('--cluster', '-c',
+                        help="""Write a job file conforming to this cluster.
+                        Options: ['pbs']""",
+                        default='pbs')
+    config.add_argument('--parallel', '-p',
+                        help="""How to do parallel.
+                        Options: 'parallel': use GNU parallel
+                                 'serial': Do things serially""",
+                        default='parallel')
+    config.add_argument('--out_fn', '-o',
+                        help="""Prefix for files to write.""",
+                        default='maccel')
+    config.add_argument('--n_copy', '-n',
+                        help="""Number of copies to run.""",
+                        type=int,
+                        default=1)
+
+    config_sp = config.add_subparsers(dest='config_type')
+    config_sp.required = True
+
+    config_ala = config_sp.add_parser('alanine')
+    config_ala.set_defaults(config='alanine')
 
     args = parser.parse_args()
-    print(args)
 
-    try:
-        args.func(args)
-    except AttributeError:
-        parser.parse_args(['-h'])
+    print('--------------')
+    for k, v in vars(args).items():
+        print("{}:\t{}".format(k, v))
+    print('--------------\n')
+
+    args.func(args)
 
 
 if __name__ == "__main__":

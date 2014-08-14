@@ -14,8 +14,38 @@ __author__ = 'harrigan'
 from os.path import join as pjoin
 import os
 import logging
+import pickle
+
+from pkg_resources import resource_filename
+
 
 log = logging.getLogger(__name__)
+
+
+def get_fn(fn):
+    return resource_filename('maccelerator', 'reference/{}'.format(fn))
+
+
+class ConfigUnpickler(pickle.Unpickler):
+    """Deal with custom subclasses."""
+
+    def find_class(self, module, name):
+        """If the main script defines a subclass whose name begins with My:
+        load the class whose name lacks the 'My'
+        """
+        if module == '__main__' and 'My' in name and name[:2] == 'My':
+            return super().find_class('maccelerator', name[2:])
+        else:
+            return super().find_class(module, name)
+
+
+def special_pickle_load(fn):
+    """Wrapper to use ConfigUnpickler
+
+    :param fn: Filename. We take care of opening the file.
+    """
+    with open(fn, 'rb') as f:
+        return ConfigUnpickler(f).load()
 
 
 class FileStructure():
