@@ -1,8 +1,12 @@
 *.py[cod]
 .idea
 
-reference
+maccelerator/reference
 tmp
 htmlcov
 
 .coverage
+
+maccelerator.egg-info
+build
+dist
