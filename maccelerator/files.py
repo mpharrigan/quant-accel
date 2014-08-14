@@ -114,10 +114,13 @@ class FileStructure():
         return pjoin(self.msms_dir,
                      self.config.modeller.modelfn.format(round_i=round_i))
 
-    def conv_fn(self, round_i):
+    def conv_fn(self, round_i, rel=False):
         """Return a convergence filename for each round."""
-        return pjoin(self.convs_dir,
-                     self.config.convchecker.convfn.format(round_i=round_i))
+        relname = self.config.convchecker.convfn.format(round_i=round_i)
+        if rel:
+            return pjoin(self.convs_base, relname)
+        else:
+            return pjoin(self.convs_dir, relname)
 
     def param_fn(self, param):
         """Return a filename to save param info."""

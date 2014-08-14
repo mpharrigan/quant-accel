@@ -2,6 +2,7 @@
 __author__ = 'harrigan'
 
 import logging
+from os.path import join as pjoin
 
 from IPython.parallel import Client
 
@@ -19,8 +20,9 @@ class PlotMaker():
     :param parallel: Whether to use IPython parallel api
     """
 
-    def __init__(self, run, parallel=True):
+    def __init__(self, run, parallel=True, load_dir='.'):
         self.run = run
+        self.load_dir = load_dir
         if parallel:
             try:
                 c = Client()
@@ -43,7 +45,9 @@ class PlotMaker():
     def _get_for_parallel(self, round_i):
         """Create a tuple of arguments for parallel helper."""
         file = self.run.config.file
-        converge = Convergence.load("{}.pickl".format(file.conv_fn(round_i)))
+        rel_conv_fn = "{}.pickl".format(file.conv_fn(round_i, rel=True))
+        rel_conv_fn = pjoin(self.load_dir, rel_conv_fn)
+        converge = Convergence.load(rel_conv_fn)
         return converge, self.run.params, file.plot_fn(round_i)
 
     def load_convergences(self):
