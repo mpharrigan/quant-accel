@@ -47,8 +47,12 @@ class AlanineSimulator(TMatSimulator):
 
 
 class AlanineModeller(TMatModeller):
-    def load_trajs(self, traj_fns):
-        trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
+    def load_trajs(self, traj_fns, up_to=None):
+        if up_to is not None:
+            trajs = [mdtraj.io.loadh(fn, 'state_traj')[:up_to] for fn in
+                     traj_fns]
+        else:
+            trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
         return trajs
 
     def lagtime(self, params):

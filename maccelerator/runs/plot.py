@@ -23,6 +23,8 @@ class PlotMaker():
     def __init__(self, run, parallel=True, load_dir='.'):
         self.run = run
         self.load_dir = load_dir
+
+        # Set up optional parallelization
         if parallel:
             try:
                 c = Client()
