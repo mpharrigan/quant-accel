@@ -44,12 +44,15 @@ class PlotMaker():
         self.lbv.map(_plot_helper,
                      [self._get_for_parallel(i) for i in range(n_rounds)])
 
-    def _get_for_parallel(self, round_i):
+    def _get_for_parallel(self, round_i, rel=False):
         """Create a tuple of arguments for parallel helper."""
         file = self.run.config.file
-        rel_conv_fn = "{}.pickl".format(file.conv_fn(round_i, rel=True))
-        rel_conv_fn = pjoin(self.load_dir, rel_conv_fn)
-        converge = Convergence.load(rel_conv_fn)
+        if rel:
+            conv_fn = "{}.pickl".format(file.conv_fn(round_i, rel=True))
+            conv_fn = pjoin(self.load_dir, conv_fn)
+        else:
+            conv_fn = "{}.pickl".format(file.conv_fn(round_i, rel=False))
+        converge = Convergence.load(conv_fn)
         return converge, self.run.params, file.plot_fn(round_i)
 
     def load_convergences(self):
