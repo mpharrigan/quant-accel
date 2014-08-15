@@ -64,7 +64,10 @@ class MAccelGrid:
                              itertools.repeat(self.griddir),
                              self.config.get_param_grid(self.run_id),
                              itertools.repeat(self.run_parallel)):
-            _launch(arg_tuple)
+            try:
+                _launch(arg_tuple)
+            except Exception as e:
+                log.error(str(e))
 
 
 def _launch(arg_tuple):
