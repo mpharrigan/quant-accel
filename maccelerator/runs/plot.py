@@ -56,7 +56,7 @@ class PlotMaker():
         return converge, self.run.params, file.plot_fn(round_i)
 
     def load_convergences(self):
-        return [self._get_for_parallel(i)[0] for i in range(self.run.n_rounds)]
+        return [self._get_for_parallel(i, rel=True)[0] for i in range(self.run.n_rounds)]
 
 
 def _plot_helper(args):
