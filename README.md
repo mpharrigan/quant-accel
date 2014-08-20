@@ -7,7 +7,7 @@ each state. These raw counts are used to estimate reversible transition
 probabilities. Theoretically, these raw counts can also be used to estimate
 uncertainty in the model and select optimal states from which we can spawn
 additional simulation. In practice, many design choices can affect the
-speed-up due to adaptive sampling.
+speed-up gained from adaptive sampling.
 
 ## Tunable parameters for investigation
  - :white_check_mark: Adaptive frequency -- length of each trajectory before
@@ -36,9 +36,10 @@ speed-up due to adaptive sampling.
 
 # Software Design
 
-This package takes a very object-oriented approach to the problem. Each
+This package takes a very object-oriented approach in its design. Each
 combination of [toy system, adaptive scheme] is enclosed in a 
 `Configuration` object. Each `Configuration` has a
+
     - Method that yields a number of `AdaptiveParam`
       objects which contain tunable parameters.
     - `Simulator` object
@@ -62,6 +63,7 @@ copy the reference data to the install location.
 
 ## Running
 the script `maccel.py` can be used via command line to generate
+
     - A sample python configuration script
     - A sample job script to be used for `qsub`
 
