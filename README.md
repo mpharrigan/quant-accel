@@ -40,12 +40,12 @@ This package takes a very object-oriented approach in its design. Each
 combination of [toy system, adaptive scheme] is enclosed in a 
 `Configuration` object. Each `Configuration` has a
 
-    - Method that yields a number of `AdaptiveParam`
-      objects which contain tunable parameters.
-    - `Simulator` object
-    - `Modeller` object
-    - `ConvergenceChecker` object
-    - `Adapter` object
+- Method that yields a number of `AdaptiveParam`
+  objects which contain tunable parameters.
+- `Simulator` object
+- `Modeller` object
+- `ConvergenceChecker` object
+- `Adapter` object
 
 ## Installing
 
@@ -64,8 +64,8 @@ copy the reference data to the install location.
 ## Running
 the script `maccel.py` can be used via command line to generate
 
-    - A sample python configuration script
-    - A sample job script to be used for `qsub`
+- A sample python configuration script
+- A sample job script to be used for `qsub`
 
 The python script controlls any final details of a system before running.
 For example, it makes sense to define the "grid" of tunable parameters
