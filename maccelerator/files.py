@@ -134,10 +134,13 @@ class FileStructure():
         return pjoin(self.config.file.sstate_dir,
                      self.config.adapter.sstatefn.format(round_i=round_i + 1))
 
-    def plot_fn(self, round_i):
+    def plot_fn(self, round_i, rel=False):
         """Return a plot filename."""
-        return pjoin(self.figs_dir,
-                     self.config.convchecker.plotfn.format(round_i=round_i))
+        relname = self.config.convchecker.plotfn.format(round_i=round_i)
+        if rel:
+            return pjoin(self.figs_base, relname)
+        else:
+            return pjoin(self.figs_dir, relname)
 
     def model_fn(self, round_i):
         """Return a model filename for each round."""
