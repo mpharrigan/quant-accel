@@ -74,7 +74,7 @@ class MAccelRun(object):
             self.trajs[round_i] = traj_outs
 
             # Model with all trajectories from this round and previous
-            trajs_till_now = le_than(self.trajs, round_i)
+            trajs_till_now = self.le_than(round_i)
             model = config.model(trajs_till_now, params)
             model.save(file.model_fn(round_i))
 
@@ -136,18 +136,18 @@ class MAccelRun(object):
         return len(self.trajs)
 
 
-def le_than(traj_dict, round_i):
-    """Pick trajectories whose round is less than or equal to round_i.
+    def le_than(self, round_i):
+        """Pick trajectories whose round is less than or equal to round_i.
 
-    :param traj_dict: key: round index (int); value: list of file names
-    :param round_i: Index of round to get less than or equal to
-    """
+        :param round_i: Index of round to get less than or equal to
+        """
+        traj_dict = self.trajs
 
-    all_trajs = []
-    for ri in traj_dict.keys():
-        if ri <= round_i:
-            all_trajs += traj_dict[ri]
-    return all_trajs
+        all_trajs = []
+        for ri in traj_dict.keys():
+            if ri <= round_i:
+                all_trajs += traj_dict[ri]
+        return all_trajs
 
 
 class NoParallelView:

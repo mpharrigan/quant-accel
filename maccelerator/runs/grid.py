@@ -4,6 +4,8 @@ from os.path import join as pjoin
 import itertools
 import os
 import logging
+import glob
+import shutil
 
 from IPython.parallel import Client
 
@@ -11,9 +13,10 @@ from .run import MAccelRun
 
 
 log = logging.getLogger(__name__)
+SHM = '/dev/shm/'
 
 
-class MAccelGrid(object):
+class MAccelGrid:
     """Run many parameter configurations.
 
     :param parallel: [True, False] or ['full', 'semi', 'non']
@@ -61,7 +64,10 @@ class MAccelGrid(object):
                              itertools.repeat(self.griddir),
                              self.config.get_param_grid(self.run_id),
                              itertools.repeat(self.run_parallel)):
-            _launch(arg_tuple)
+            try:
+                _launch(arg_tuple)
+            except Exception as e:
+                log.error(str(e))
 
 
 def _launch(arg_tuple):
@@ -78,3 +84,37 @@ def _launch(arg_tuple):
     log.info('Launching run %s', params.pretty_desc)
     run = MAccelRun(config, params, rundir, parallel)
     run.run()
+
+
+class MaccelGridShm:
+    """Use /dev/shm/ to reduce disk io."""
+
+    def __init__(self, config, run_id):
+        self.config = config
+        self.run_id = run_id
+
+    def __enter__(self):
+        self.griddir = 'copy-{}'.format(self.run_id)
+        self.shm_griddir = pjoin(SHM, self.griddir)
+
+        # Do it in shared memory
+        assert not os.path.exists(self.griddir)
+        os.mkdir(self.shm_griddir)
+
+        # Initialize
+        self.grid = MAccelGrid(self.config, self.shm_griddir, self.run_id,
+                               parallel=False)
+        return self.grid
+
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for traj_dir in glob.iglob(pjoin(self.shm_griddir, '*/trajs/')):
+            logging.info('Archiving %s', traj_dir)
+            shutil.make_archive(base_name=pjoin(traj_dir, '..', 'trajs'),
+                                format='gztar',
+                                root_dir=pjoin(traj_dir, '..'),
+                                base_dir='trajs')
+            shutil.rmtree(traj_dir)
+
+        shutil.copytree(self.shm_griddir, self.griddir)
+        shutil.rmtree(self.shm_griddir)

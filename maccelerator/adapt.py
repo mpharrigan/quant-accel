@@ -57,7 +57,6 @@ class SortCountsAdapter(Adapter):
     in order
     """
 
-
     def adapt(self, model, params):
         """From a counts matrix, pick the best states from which to start.
 
@@ -100,7 +99,6 @@ class RandomAdapter(Adapter):
         :returns: Indices of new states
         """
         sstate = SStates(np.random.randint(0, model.tot_n_states, params.tpr))
-
         return sstate
 
 

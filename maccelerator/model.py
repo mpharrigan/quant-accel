@@ -21,7 +21,17 @@ log = logging.getLogger(__name__)
 class Modeller:
     """Base class for constructing models."""
 
-    def model(self, traj_fns, params):
+    def __init__(self):
+        self.n_builds = 1
+
+    def multi_model(self, traj_fns, params, step_res=None):
+        """Build several models for one round."""
+        n_builds = params.spt // step_res
+        assert params.spt % step_res == 0, 'Must divide evenly'
+        up_tos = (np.arange(n_builds) + 1) * step_res
+        return [self.model(traj_fns, params, up_to=up_to) for up_to in up_tos]
+
+    def model(self, traj_fns, params, up_to=None):
         """Create a model.
 
         :param traj_fns: Trajectory filenames from which we build the model
@@ -82,7 +92,7 @@ class ClusterModeller(Modeller):
         return params.build_lt
 
 
-    def model(self, traj_fns, params):
+    def model(self, traj_fns, params, up_to=None):
         """Cluster using kmeans and build an MSM
 
 
@@ -132,7 +142,7 @@ class TMatModel(Model):
 class TMatModeller(Modeller):
     """Model from transition matrix trajectories. (No clustering)"""
 
-    def load_trajs(self, traj_fns):
+    def load_trajs(self, traj_fns, up_to=None):
         raise NotImplementedError
 
     def lagtime(self, params):
@@ -142,16 +152,16 @@ class TMatModeller(Modeller):
         super().__init__()
         self.tot_n_states = tot_n_states
 
-    def model(self, traj_fns, params):
+
+    def model(self, traj_fns, params, up_to=None):
         """Build a model from the result of a transition matrix simulations
 
         We take care of only returning states which we have 'discovered'
 
         """
 
-        msm = MarkovStateModel(lag_time=self.lagtime(params),
-                               verbose=log.level > logging.DEBUG)
-        msm.fit(self.load_trajs(traj_fns))
+        msm = MarkovStateModel(lag_time=self.lagtime(params), verbose=False)
+        msm.fit(self.load_trajs(traj_fns, up_to))
 
         log.debug("Number of untrimmed States: %d", msm.n_states_)
 

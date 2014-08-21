@@ -2,6 +2,7 @@
 __author__ = 'harrigan'
 
 import logging
+from os.path import join as pjoin
 
 from IPython.parallel import Client
 
@@ -19,8 +20,11 @@ class PlotMaker():
     :param parallel: Whether to use IPython parallel api
     """
 
-    def __init__(self, run, parallel=True):
+    def __init__(self, run, parallel=True, load_dir='.'):
         self.run = run
+        self.load_dir = load_dir
+
+        # Set up optional parallelization
         if parallel:
             try:
                 c = Client()
@@ -38,16 +42,26 @@ class PlotMaker():
 
         log.debug('Making %d frames', n_rounds)
         self.lbv.map(_plot_helper,
-                     [self._get_for_parallel(i) for i in range(n_rounds)])
+                     [self._get_for_parallel(i, rel=True) for i in
+                      range(n_rounds)])
 
-    def _get_for_parallel(self, round_i):
+    def _get_for_parallel(self, round_i, rel=False):
         """Create a tuple of arguments for parallel helper."""
+
         file = self.run.config.file
-        converge = Convergence.load("{}.pickl".format(file.conv_fn(round_i)))
-        return converge, self.run.params, file.plot_fn(round_i)
+        out_fn = file.plot_fn(round_i, rel=rel)
+        conv_fn = "{}.pickl".format(file.conv_fn(round_i, rel=rel))
+
+        if rel:
+            conv_fn = pjoin(self.load_dir, conv_fn)
+            out_fn = pjoin(self.load_dir, out_fn)
+
+        converge = Convergence.load(conv_fn)
+        return converge, self.run.params, out_fn
 
     def load_convergences(self):
-        return [self._get_for_parallel(i)[0] for i in range(self.run.n_rounds)]
+        return [self._get_for_parallel(i, rel=True)[0] for i in
+                range(self.run.n_rounds)]
 
 
 def _plot_helper(args):

@@ -17,7 +17,7 @@ from maccelerator.adapt import SStates
 from maccelerator.model import Model
 from maccelerator.param import AdaptiveParams
 from maccelerator.testing.test_utils import get_folder, get_fn
-#from maccelerator.make_reference_data import make_alanine_reference_data
+# from maccelerator.make_reference_data import make_alanine_reference_data
 
 
 # Disable logging during test
@@ -90,6 +90,12 @@ class TestRun(TestCase):
         self.assertEqual(run.config.file.plot_fn(1),
                          pjoin(self.rundir, 'figs', figfn))
 
+    def test_partial_load(self):
+        trajs = self.run.config.modeller.load_trajs(self.run.le_than(0), 555)
+        self.assertEqual(len(trajs), 3)
+        for i, traj in enumerate(trajs):
+            with self.subTest(traj_i=i):
+                self.assertEqual(len(traj), 555)
 
     def test_trajectory_files(self):
         # Make sure files exist where they should and don't where they shouldn't

@@ -14,8 +14,38 @@ __author__ = 'harrigan'
 from os.path import join as pjoin
 import os
 import logging
+import pickle
+
+from pkg_resources import resource_filename
+
 
 log = logging.getLogger(__name__)
+
+
+def get_fn(fn):
+    return resource_filename('maccelerator', 'reference/{}'.format(fn))
+
+
+class ConfigUnpickler(pickle.Unpickler):
+    """Deal with custom subclasses."""
+
+    def find_class(self, module, name):
+        """If the main script defines a subclass whose name begins with My:
+        load the class whose name lacks the 'My'
+        """
+        if module == '__main__' and 'My' in name and name[:2] == 'My':
+            return super().find_class('maccelerator', name[2:])
+        else:
+            return super().find_class(module, name)
+
+
+def special_pickle_load(fn):
+    """Wrapper to use ConfigUnpickler
+
+    :param fn: Filename. We take care of opening the file.
+    """
+    with open(fn, 'rb') as f:
+        return ConfigUnpickler(f).load()
 
 
 class FileStructure():
@@ -104,20 +134,26 @@ class FileStructure():
         return pjoin(self.config.file.sstate_dir,
                      self.config.adapter.sstatefn.format(round_i=round_i + 1))
 
-    def plot_fn(self, round_i):
+    def plot_fn(self, round_i, rel=False):
         """Return a plot filename."""
-        return pjoin(self.figs_dir,
-                     self.config.convchecker.plotfn.format(round_i=round_i))
+        relname = self.config.convchecker.plotfn.format(round_i=round_i)
+        if rel:
+            return pjoin(self.figs_base, relname)
+        else:
+            return pjoin(self.figs_dir, relname)
 
     def model_fn(self, round_i):
         """Return a model filename for each round."""
         return pjoin(self.msms_dir,
                      self.config.modeller.modelfn.format(round_i=round_i))
 
-    def conv_fn(self, round_i):
+    def conv_fn(self, round_i, rel=False):
         """Return a convergence filename for each round."""
-        return pjoin(self.convs_dir,
-                     self.config.convchecker.convfn.format(round_i=round_i))
+        relname = self.config.convchecker.convfn.format(round_i=round_i)
+        if rel:
+            return pjoin(self.convs_base, relname)
+        else:
+            return pjoin(self.convs_dir, relname)
 
     def param_fn(self, param):
         """Return a filename to save param info."""
