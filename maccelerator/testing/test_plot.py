@@ -25,7 +25,7 @@ class TestPlot(TestCase):
 
         # Use loaded run
         self.run = maccel.MAccelRun.load(pjoin(run.rundir, 'run.pickl'))
-        movie = maccel.PlotMaker(run)
+        movie = maccel.PlotMaker(run, load_dir=self.rundir)
         movie.make_plots()
 
     def test_files(self):
