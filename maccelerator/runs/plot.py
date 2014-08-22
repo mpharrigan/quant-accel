@@ -40,7 +40,7 @@ class PlotMaker():
         """Make plots for all rounds."""
         n_rounds = self.run.n_rounds
 
-        log.debug('Making %d frames', n_rounds)
+        log.info('Making %d frames', n_rounds)
         self.lbv.map(_plot_helper,
                      [self._get_for_parallel(i, rel=True) for i in
                       range(n_rounds)])

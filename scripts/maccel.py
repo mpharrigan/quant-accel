@@ -2,6 +2,7 @@ __author__ = 'harrigan'
 
 import argparse
 import logging
+import os
 
 import maccelerator as maccel
 
@@ -34,12 +35,31 @@ def config(out_fn, n_copy, cluster, config_name, parallel):
         py_f.write(config.get_template(grid_manager_name))
 
 
+def plot_entry(args):
+    plot(args.run_fn, parallel=False)
+
+
+def plot(run_fn, parallel):
+    load_dir = os.path.dirname(run_fn)
+    run = maccel.special_pickle_load(run_fn)
+    pm = maccel.PlotMaker(run, load_dir=load_dir, parallel=parallel)
+    pm.make_plots()
+
+
 def parse():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     sp = parser.add_subparsers(dest='command')
     sp.required = True
+
+    plot = sp.add_parser('plot',
+                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    plot.set_defaults(func=plot_entry)
+    plot.add_argument('--run_fn', '-r',
+                      help="""Path to run.pickl to make plots for.""",
+                      default="run.pickl")
+
 
 
     # ----------------------------------------------------
