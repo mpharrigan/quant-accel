@@ -25,8 +25,6 @@ class MAccelRun(object):
         self.trajs = defaultdict(list)
         self.rundir = rundir
 
-        self.plot = False
-
         if parallel:
             try:
                 c = Client()
@@ -45,6 +43,7 @@ class MAccelRun(object):
         params = self.params
         config = self.config
         file = self.config.file
+        config.convchecker.reset()
 
         # Check IPython.parallel
         if self.lbv is None:
@@ -85,9 +84,6 @@ class MAccelRun(object):
             # Check convergence
             converge = config.check_convergence(model, params)
             converge.save(file.conv_fn(round_i))
-
-            if self.plot:
-                converge.plot_and_save(params, sstate, file.plot_fn(round_i))
 
             log.info("Doing round %3d.\tConverged: %5s\tRounds left: %2d",
                      round_i, converge.converged, rounds_left)

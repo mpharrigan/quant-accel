@@ -28,6 +28,16 @@ class ConvergenceChecker:
         self.errors_over_time = []
         self.tolerance = tolerance
 
+    def reset(self):
+        """Call this method when starting a new run.
+
+        If one configuration is used in a grid of runs, the errors_over_time
+        list keeps growing.
+
+        Will this have an effect on parallel runs? Hopefully not.
+        """
+        self.errors_over_time = []
+
     def check_convergence(self, model, params):
         """Check convergence
 
@@ -128,6 +138,10 @@ class HybridConvergenceChecker(ConvergenceChecker):
         super().__init__(tolerance=-1)
         self.checkers = checkers
         self.n_checkers = len(checkers)
+
+    def reset(self):
+        for c in self.checkers:
+            c.reset()
 
     def check_convergence(self, model, params):
         """Check the convergence of each checker combining with logical and
