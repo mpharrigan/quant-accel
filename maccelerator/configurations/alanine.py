@@ -100,7 +100,8 @@ class AlanineConfiguration(TMatConfiguration):
     def get_template(cls, grid_manager_name):
         fmt_dict = dict(grid_manager=grid_manager_name,
                         other_config=_AlANINE_TEMPLATE)
-        return super().get_template(grid_manager_name).format(**fmt_dict)
+        temp = super().get_template(grid_manager_name)
+        return temp.format(**fmt_dict)
 
     def __init__(self, ref_msm_fn, centers_fn):
         super().__init__()
