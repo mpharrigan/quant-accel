@@ -15,8 +15,7 @@ from ..param import AdaptiveParams
 
 log = logging.getLogger(__name__)
 
-_AlANINE_TEMPLATE = """
-class MyAlanineConfiguration(maccel.AlanineConfiguration):
+_AlANINE_TEMPLATE = """class MyAlanineConfiguration(maccel.AlanineConfiguration):
     def __init__(self):
         super().__init__(maccel.get_fn('ala.msm.pickl'),
                          maccel.get_fn('ala.centers.h5'))
