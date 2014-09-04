@@ -40,16 +40,19 @@ class TimescaleDistance(ConvergenceChecker):
     def __init__(self, tolerance, ref_msm, n_timescales=1):
         super().__init__(tolerance)
         self.ref_msm = ref_msm
+        self.log_diff = True
 
     def check_convergence(self, model, params):
         est_timescales = model.timescales / model.lagtime
         ref_timescales = self.ref_msm.timescales_ / self.ref_msm.lag_time
 
-        # TODO: Take the difference of the logs
-
         # TODO: Include more than one timescale
         est = est_timescales[0]
         ref = ref_timescales[0]
+
+        if self.log_diff:
+            est = np.log(est)
+            ref = np.log(ref)
 
         errorval = np.abs(est - ref)
         self.errors_over_time += [errorval]

@@ -21,5 +21,5 @@ class TMatConvergenceChecker(HybridConvergenceChecker):
             EigenvecCentroid(tolerance_scale * 0.01, centers, ref_msm),
             EigenvecL2(tolerance_scale * 0.08, centers, ref_msm),
             TMatFro(tolerance_scale * 0.5, centers, ref_msm),
-            TimescaleDistance(tolerance_scale * 20, ref_msm)
+            TimescaleDistance(tolerance_scale * 0.2, ref_msm)
         )
