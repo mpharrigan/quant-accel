@@ -16,8 +16,8 @@ from ..param import AdaptiveParams
 class SimpleSimulator(Simulator):
     """A simple simulation for testing."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config):
+        super().__init__(config)
 
     def simulate(self, sstate, params, traj_out_fn):
         """Output a list of numbers.
@@ -47,8 +47,8 @@ class SimpleModel(Model):
 class SimpleModeller(Modeller):
     """A simple modeller for testing."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config):
+        super().__init__(config)
         self.trajs = []
 
     def model(self, traj_fns, params):
@@ -112,22 +112,8 @@ class SimpleParams(AdaptiveParams):
     """Parameters for testing."""
 
     def __init__(self, spt, tpr):
-        super().__init__(spt, tpr, run_id=0)
-
-    @property
-    def post_converge(self):
-        """Do 4 rounds after convergence."""
-        return 4
-
-    @property
-    def adapt_lt(self):
-        """Dummy value."""
-        return 1
-
-    @property
-    def build_lt(self):
-        """Dummy value."""
-        return 1
+        super().__init__(spt, tpr, run_id=0, adapt_lt=1, build_lt=1,
+                         post_converge=4)
 
 
 class SimpleConfiguration(Configuration):
@@ -136,10 +122,10 @@ class SimpleConfiguration(Configuration):
     def __init__(self):
         super().__init__()
 
-        self.modeller = SimpleModeller()
-        self.adapter = SimpleAdapter()
-        self.convchecker = SimpleConvchecker()
-        self.simulator = SimpleSimulator()
+        self.modeller = SimpleModeller(self)
+        self.adapter = SimpleAdapter(self)
+        self.convchecker = SimpleSupConvchecker(self)
+        self.simulator = SimpleSimulator(self)
 
     def get_param_grid(self, run_id=0):
         """Do two parameter configurations."""

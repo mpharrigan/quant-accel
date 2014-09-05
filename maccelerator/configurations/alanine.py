@@ -44,7 +44,10 @@ def generate_alanine_msm(ala):
 
 class AlanineParams(AdaptiveParams):
     """Returned by get_param_grid which must be implemented."""
-    pass
+
+    def __init__(self, spt, tpr, adapt_lt=1, build_lt=1, post_converge=10,
+                 run_id=0):
+        super().__init__(spt, tpr, adapt_lt, build_lt, post_converge, run_id)
 
 
 class AlanineConfiguration(TMatConfiguration):
@@ -52,15 +55,6 @@ class AlanineConfiguration(TMatConfiguration):
         super().__init__(get_fn('ala.msm.pickl'), get_fn('ala.centers.h5'))
 
     def defaults(config):
-        # Lag time to build the model
-        setattr(AlanineParams, 'build_lt', property(lambda self: 1))
-
-        # Lag time to generate counts for adapting
-        setattr(AlanineParams, 'adapt_lt', property(lambda self: 1))
-
-        # Number of rounds to do after convergence is reached
-        setattr(AlanineParams, 'post_converge', property(lambda self: 10))
-
         # Simulator
         config.simulator_class = TMatSimulator
 

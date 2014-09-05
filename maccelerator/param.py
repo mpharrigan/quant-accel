@@ -7,10 +7,15 @@ log = logging.getLogger(__name__)
 
 
 class AdaptiveParams(object):
-    def __init__(self, spt, tpr, run_id=0):
+    def __init__(self, spt, tpr, adapt_lt=0, build_lt=0, post_converge=0,
+                 run_id=0):
         self.tpr = tpr
         self.spt = spt
         self.run_id = run_id
+
+        self.adapt_lt = adapt_lt
+        self.build_lt = build_lt
+        self.post_converge = post_converge
 
     def save(self, fn):
         fn = "{}.pickl".format(fn)
@@ -21,18 +26,6 @@ class AdaptiveParams(object):
     def load(cls, fn):
         with open(fn, 'rb') as f:
             return pickle.load(f)
-
-    @property
-    def post_converge(self):
-        raise NotImplementedError
-
-    @property
-    def adapt_lt(self):
-        raise NotImplementedError
-
-    @property
-    def build_lt(self):
-        raise NotImplementedError
 
     @property
     def dirname(self):
