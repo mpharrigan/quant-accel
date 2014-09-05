@@ -144,7 +144,7 @@ class EigenvecCentroidConvergence(Convergence):
         ref = self.ref_eigenv
 
         scatter_eigenvector(top, self.centers, est, ref)
-        top.set_title('$<\phi_1 | \hat{T} \circ \phi_1>$')
+        top.set_title(r'$<\phi_1 | \hat{T} \circ \phi_1>$')
 
         self._plot_bottom(bot)
 

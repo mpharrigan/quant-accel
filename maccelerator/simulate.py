@@ -1,4 +1,4 @@
-'''
+"""
 Created on Mar 5, 2014
 
 @author: harrigan
@@ -6,7 +6,8 @@ Created on Mar 5, 2014
 Code for running rounds of simulation
 
 Code copied from rmcgibbo
-'''
+"""
+
 
 import os
 import logging
@@ -74,7 +75,6 @@ class OpenMMSimulator(Simulator):
         self.system = None
         self.integrator = None
 
-
     def deserialize(self, system_xml, integrator_xml):
         """Deserialize system and integrators.
 
@@ -82,25 +82,30 @@ class OpenMMSimulator(Simulator):
         :param integrator_xml: Path to integrator.xml file
         """
 
-        # load up the system and integrator files
-        with open(system_xml) as f:
+        # Load system
+        with open(system_xml, 'r') as f:
             system = XmlSerializer.deserialize(f.read())
-            # reset the random number seed for any random
-            # forces (andersen thermostat, montecarlo barostat)
-            for i in range(system.getNumForces()):
-                force = system.getForce(i)
-                if hasattr(force, 'setRandomNumberSeed'):
-                    force.setRandomNumberSeed(random_seed())
-        with open(integrator_xml) as f:
+
+        # reset the random number seed for any random forces
+        for i in range(system.getNumForces()):
+            force = system.getForce(i)
+            try:
+                force.setRandomNumberSeed(random_seed())
+            except AttributeError:
+                pass
+
+        # Load integrator
+        with open(integrator_xml, 'r') as f:
             integrator = XmlSerializer.deserialize(f.read())
 
-            # reset the random number seed for a stochastic integrator
-            if hasattr(integrator, 'setRandomNumberSeed'):
-                integrator.setRandomNumberSeed(random_seed())
+        # reset the random number seed for a stochastic integrator
+        try:
+            integrator.setRandomNumberSeed(random_seed())
+        except AttributeError:
+            pass
 
         self.system = system
         self.integrator = integrator
-
 
     def _simulate(self, sstate, n_steps, traj_out_fn, minimize,
                   random_initial_velocities):
