@@ -6,7 +6,7 @@ import logging
 import unittest
 
 import maccelerator as maccel
-from maccelerator.testing.test_utils import get_folder, get_fn
+from maccelerator.testing.test_utils import get_folder
 
 
 # Disable logging during test

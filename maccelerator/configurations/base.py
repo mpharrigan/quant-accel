@@ -38,6 +38,9 @@ with {grid_manager}(config, run_id=args.i) as grid:
 class ClusterConfig:
     """Base class for configuring supercomputer clusters."""
 
+    def __init__(self):
+        pass
+
     @property
     def job_script_ext(self):
         raise NotImplementedError

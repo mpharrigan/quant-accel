@@ -1,14 +1,13 @@
 __author__ = 'harrigan'
 
-import os
+import itertools
 
 from simtk import unit
-from msmtoys import muller
 import mdtraj as md
 import numpy as np
 from simtk import openmm
-import itertools
 
+from msmtoys import muller
 from ..simulate import OpenMMSimulator
 from ..files import get_fn
 from ..model import ClusterModeller

@@ -147,6 +147,9 @@ class MAccelRun(object):
 
 
 class NoParallelView:
+    def __init__(self):
+        pass
+
     def map(self, func, *args):
         for a1 in zip(*args):
             func(*a1)

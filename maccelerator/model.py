@@ -22,6 +22,7 @@ class Modeller:
     """Base class for constructing models."""
 
     def __init__(self, config):
+        # pycharm: disable=unused-argument
         self.n_builds = 1
 
     def multi_model(self, traj_fns, params, step_res=None):
