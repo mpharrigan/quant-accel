@@ -27,7 +27,7 @@ class TestSimpleStartingStates(TestCase):
     """Make sure starting state generation is working."""
 
     def setUp(self):
-        self.config = maccel.SimpleConfiguration()
+        self.config = maccel.SimpleConfiguration().apply_configuration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=8)
         rundir = get_folder('s1')
         self.out_fn = pjoin(rundir, 'test_sstate')
@@ -53,7 +53,7 @@ class TestSimpleSample(TestCase):
     """Make sure sampling (trajectory generation) is working."""
 
     def setUp(self):
-        self.config = maccel.SimpleConfiguration()
+        self.config = maccel.SimpleConfiguration().apply_configuration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=2)
         rundir = get_folder('s2')
         self.out_fn = pjoin(rundir, 'test_sample.npy')
@@ -69,13 +69,16 @@ class TestSimpleSample(TestCase):
 class TestRun(TestCase):
     """Test features related to doing one adaptive run."""
 
+    do_parallel = False
+
     def setUp(self):
-        configuration = maccel.SimpleConfiguration()
+        configuration = maccel.SimpleConfiguration().apply_configuration()
         param = maccel.SimpleParams(spt=10, tpr=10)
         rundir = get_folder('s3')
         self.rundir = rundir
 
-        self.run = maccel.MAccelRun(configuration, param, rundir)
+        self.run = maccel.MAccelRun(configuration, param, rundir,
+                                    parallel=self.do_parallel)
         self.run.run()
 
     def test_num_rounds(self):
@@ -122,23 +125,20 @@ class TestRun(TestCase):
 
 class TestRunNoParallel(TestRun):
     def setUp(self):
-        configuration = maccel.SimpleConfiguration()
-        param = maccel.SimpleParams(spt=10, tpr=10)
-        rundir = get_folder('s3np')
-        self.rundir = rundir
-
-        self.run = maccel.MAccelRun(configuration, param, rundir,
-                                    parallel=False)
-        self.run.run()
+        self.do_parallel = False
+        super().setUp()
 
 
 class TestGrid(TestCase):
     """Test features related to doing a collection of adaptive runs."""
 
+    do_parallel = True
+
     def setUp(self):
-        configuration = maccel.SimpleConfiguration()
+        configuration = maccel.SimpleConfiguration().apply_configuration()
         self.griddir = get_folder('s4')
-        self.grid = maccel.MAccelGrid(configuration, self.griddir)
+        self.grid = maccel.MAccelGrid(configuration, self.griddir,
+                                      parallel=self.do_parallel)
         self.grid.grid()
 
     def test_name_folders(self):
@@ -155,7 +155,7 @@ class TestGrid(TestCase):
             with self.subTest(outdir=od):
                 # See if it has the right number of subfolders
                 # Figs/, msms/, sstates/, trajs/
-                self.assertTrue(len(os.listdir(pjoin(self.griddir, od))), 4)
+                self.assertEqual(len(os.listdir(pjoin(self.griddir, od))), 7)
 
     def test_griddir_attribute(self):
         self.assertEqual(self.griddir, self.grid.griddir)
@@ -171,11 +171,8 @@ class TestGrid(TestCase):
 
 class TestGridNoParallel(TestGrid):
     def setUp(self):
-        configuration = maccel.SimpleConfiguration()
-        self.griddir = get_folder('s5')
-        self.grid = maccel.MAccelGrid(configuration, self.griddir,
-                                      parallel=False)
-        self.grid.grid()
+        self.do_parallel = False
+        super().setUp()
 
 
 if __name__ == "__main__":

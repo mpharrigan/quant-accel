@@ -84,7 +84,6 @@ class ClusterModel(Model):
 class ClusterModeller(Modeller):
     """Cluster and then build a model from cluster labels."""
 
-
     def load_trajs(self, traj_fns):
         raise NotImplementedError
 

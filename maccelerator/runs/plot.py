@@ -6,7 +6,7 @@ from os.path import join as pjoin
 
 from IPython.parallel import Client
 
-from ..convergence.base import Convergence
+from ..convergence.base import SupConvergence
 from .run import NoParallelView
 
 
@@ -56,7 +56,7 @@ class PlotMaker():
             conv_fn = pjoin(self.load_dir, conv_fn)
             out_fn = pjoin(self.load_dir, out_fn)
 
-        converge = Convergence.load(conv_fn)
+        converge = SupConvergence.load(conv_fn)
         return converge, self.run.params, out_fn
 
     def load_convergences(self):

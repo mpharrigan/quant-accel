@@ -12,6 +12,8 @@ from ..model import Modeller
 from ..convergence import SupConvergenceChecker
 from ..adapt import Adapter
 
+from ..simulate import OpenMMSimulator
+
 
 _GENERAL_TEMPLATE = """from maccelerator import *
 import itertools
@@ -72,6 +74,8 @@ class Configuration(object):
         self.convchecker = self.convchecker_class(self)
         self.adapter = self.adapter_class(self)
 
+        return self
+
     def get_param_grid(self, run_id):
         raise NotImplementedError
 
@@ -130,7 +134,21 @@ class Configuration(object):
 
 
 class OpenMMConfiguration(Configuration):
-    pass
+    def __init__(self, system_xml, integrator_xml):
+        super().__init__()
+
+        system, integrator = OpenMMSimulator.deserialize(system_xml,
+                                                         integrator_xml)
+
+        self.system = system
+        self.integrator = integrator
+        self.report_stride = 0
+
+        self.minimize = True
+        self.random_initial_velocities = True
+
+        # TODO: Load a reference MSM
+        self.ref_msm = None
 
 
 class TMatConfiguration(Configuration):

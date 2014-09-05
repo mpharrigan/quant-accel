@@ -57,8 +57,7 @@ class TestRun(TestCase):
     do_parallel = True
 
     def setUp(self):
-        configuration = maccel.AlanineConfiguration()
-        configuration.apply_configuration()
+        configuration = maccel.AlanineConfiguration().apply_configuration()
         self.tpr = 3
         self.spt = 1000
         param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr)
