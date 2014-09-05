@@ -1,32 +1,22 @@
-import pickle
 import logging
+import itertools
 
-import mdtraj.io
 from mixtape.markovstatemodel import MarkovStateModel
+
 from mixtape.cluster import KMeans
 from mixtape.featurizer import DihedralFeaturizer
 
 from ..simulate import TMatSimulator
+
 from ..model import TMatModeller
-from ..adapt import RandomAdapter, SStates
+from ..adapt import RandomAdapter
 from .base import TMatConfiguration
 from ..convergence.hybrid import TMatConvergenceChecker
 from ..param import AdaptiveParams
+from ..files import get_fn
+
 
 log = logging.getLogger(__name__)
-
-_AlANINE_TEMPLATE = """class MyAlanineConfiguration(maccel.AlanineConfiguration):
-    def __init__(self):
-        super().__init__(maccel.get_fn('ala.msm.pickl'),
-                         maccel.get_fn('ala.centers.h5'))
-
-    def get_param_grid(self, run_id):
-        spts = [10, 100]
-        tprs = [10, 100]
-
-        for spt, tpr in itertools.product(spts, tprs):
-            yield maccel.AlanineParams(spt=spt, tpr=tpr, run_id=run_id)
-"""
 
 
 def generate_alanine_msm(ala):
@@ -53,72 +43,54 @@ def generate_alanine_msm(ala):
     return msm, kmeans
 
 
-class AlanineSimulator(TMatSimulator):
-    pass
-
-
-class AlanineModeller(TMatModeller):
-    def load_trajs(self, traj_fns, up_to=None):
-        if up_to is not None:
-            trajs = [mdtraj.io.loadh(fn, 'state_traj')[:up_to] for fn in
-                     traj_fns]
-        else:
-            trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
-        return trajs
-
-    def lagtime(self, params):
-        return params.adapt_lt
-
-
-class AlanineAdapter(RandomAdapter):
-    def seed_states(self, params):
-        indices = [0] * params.tpr
-        return SStates(indices)
-
-
-class AlanineConvchecker(TMatConvergenceChecker):
-    pass
-
-
 class AlanineParams(AdaptiveParams):
-    @property
-    def build_lt(self):
-        return 1
-
-    @property
-    def adapt_lt(self):
-        return 1
-
-    @property
-    def post_converge(self):
-        return 10
+    """Returned by get_param_grid which must be implemented."""
+    pass
 
 
 class AlanineConfiguration(TMatConfiguration):
-    @classmethod
-    def get_template(cls, grid_manager_name):
-        fmt_dict = dict(grid_manager=grid_manager_name,
-                        other_config=_AlANINE_TEMPLATE)
-        temp = super().get_template(grid_manager_name)
-        return temp.format(**fmt_dict)
+    def __init__(self):
+        super().__init__(get_fn('ala.msm.pickl'), get_fn('ala.centers.h5'))
 
-    def __init__(self, ref_msm_fn, centers_fn):
-        super().__init__()
+    def defaults(config):
+        # Lag time to build the model
+        setattr(AlanineParams, 'build_lt', property(lambda self: 1))
 
-        # Load reference MSM
-        with open(ref_msm_fn, 'rb') as ref_msm_f:
-            ref_msm = pickle.load(ref_msm_f)
+        # Lag time to generate counts for adapting
+        setattr(AlanineParams, 'adapt_lt', property(lambda self: 1))
 
-        # Load cluster centers for visualization
-        centers = mdtraj.io.loadh(centers_fn, 'cluster_centers')
+        # Number of rounds to do after convergence is reached
+        setattr(AlanineParams, 'post_converge', property(lambda self: 10))
 
-        # Set fields
-        self.simulator = AlanineSimulator(ref_msm.transmat_)
-        self.modeller = AlanineModeller(tot_n_states=ref_msm.n_states_)
-        self.convchecker = AlanineConvchecker(centers, ref_msm)
-        self.adapter = AlanineAdapter()
+        # Simulator
+        config.simulator_class = TMatSimulator
 
-    def get_param_grid(self, run_id=0):
-        raise NotImplementedError()
+        # Modeller
+        config.modeller_class = TMatModeller
+
+        # Convergence checker
+        config.convchecker_class = TMatConvergenceChecker
+
+        # Adapter
+        config.adapter_class = RandomAdapter
+
+        # Define a function to yield combinations of parameters
+        def get_param_grid(run_id):
+            spts = [10, 100]
+            tprs = [1, 10]
+
+            for spt, tpr in itertools.product(spts, tprs):
+                yield AlanineParams(spt=spt, tpr=tpr, run_id=run_id)
+
+        config.get_param_grid = get_param_grid
+
+
+    def apply_configuration(self):
+        # TODO: Make all of these things just take in "config" and duck
+
+        self.simulator = self.simulator_class(self.ref_msm.transmat_)
+        self.modeller = self.modeller_class(tot_n_states=self.ref_msm.n_states_)
+        self.convchecker = self.convchecker_class(self.centers, self.ref_msm)
+        self.adapter = self.adapter_class()
 
 

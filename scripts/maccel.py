@@ -53,37 +53,37 @@ def parse():
     sp = parser.add_subparsers(dest='command')
     sp.required = True
 
-    plot = sp.add_parser('plot',
-                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    plot.set_defaults(func=plot_entry)
-    plot.add_argument('--run_fn', '-r',
-                      help="""Path to run.pickl to make plots for.""",
-                      default="run.pickl")
+    plot_p = sp.add_parser('plot',
+                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    plot_p.set_defaults(func=plot_entry)
+    plot_p.add_argument('--run_fn', '-r',
+                        help="""Path to run.pickl to make plots for.""",
+                        default="run.pickl")
 
 
 
     # ----------------------------------------------------
-    config = sp.add_parser('config',
-                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    config.set_defaults(func=config_entry)
-    config.add_argument('--cluster', '-c',
-                        help="""Write a job file conforming to this cluster.
-                        Options: ['pbs']""",
-                        default='pbs')
-    config.add_argument('--parallel', '-p',
-                        help="""How to do parallel.
-                        Options: 'parallel': use GNU parallel
+    config_p = sp.add_parser('config',
+                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    config_p.set_defaults(func=config_entry)
+    config_p.add_argument('--cluster', '-c',
+                          help="""Write a job file conforming to this cluster.
+                          Options: ['pbs']""",
+                          default='pbs')
+    config_p.add_argument('--parallel', '-p',
+                          help="""How to do parallel.
+                          Options: 'parallel': use GNU parallel
                                  'serial': Do things serially""",
-                        default='parallel')
-    config.add_argument('--out_fn', '-o',
-                        help="""Prefix for files to write.""",
-                        default='maccel')
-    config.add_argument('--n_copy', '-n',
-                        help="""Number of copies to run.""",
-                        type=int,
-                        default=1)
+                          default='parallel')
+    config_p.add_argument('--out_fn', '-o',
+                          help="""Prefix for files to write.""",
+                          default='maccel')
+    config_p.add_argument('--n_copy', '-n',
+                          help="""Number of copies to run.""",
+                          type=int,
+                          default=1)
 
-    config_sp = config.add_subparsers(dest='config_type')
+    config_sp = config_p.add_subparsers(dest='config_type')
     config_sp.required = True
 
     config_ala = config_sp.add_parser('alanine')

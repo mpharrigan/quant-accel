@@ -12,8 +12,8 @@ import pickle
 import numpy as np
 from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
+import mdtraj
 
-log = logging.getLogger(__name__)
 
 log = logging.getLogger(__name__)
 
@@ -143,10 +143,15 @@ class TMatModeller(Modeller):
     """Model from transition matrix trajectories. (No clustering)"""
 
     def load_trajs(self, traj_fns, up_to=None):
-        raise NotImplementedError
+        if up_to is not None:
+            trajs = [mdtraj.io.loadh(fn, 'state_traj')[:up_to] for fn in
+                     traj_fns]
+        else:
+            trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
+        return trajs
 
     def lagtime(self, params):
-        raise NotImplementedError
+        return params.adapt_lt
 
     def __init__(self, tot_n_states):
         super().__init__()

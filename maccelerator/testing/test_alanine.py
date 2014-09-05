@@ -54,14 +54,17 @@ class TestAlaninePrep(TestCase):
 class TestRun(TestCase):
     """Test features related to doing one adaptive run."""
 
+    do_parallel = True
+
     def setUp(self):
-        configuration = maccel.AlanineConfiguration(get_fn('ala.msm.pickl'),
-                                                    get_fn('ala.centers.h5'))
+        configuration = maccel.AlanineConfiguration()
+        configuration.apply_configuration()
         self.tpr = 3
         self.spt = 1000
         param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr)
         self.rundir = get_folder('ala')
-        self.run = maccel.MAccelRun(configuration, param, self.rundir)
+        self.run = maccel.MAccelRun(configuration, param, self.rundir,
+                                    parallel=self.do_parallel)
         self.run.run()
 
     def test_num_trajs(self):
@@ -144,6 +147,12 @@ class TestRun(TestCase):
                     self.assertEqual(model.tot_n_states, 20)
                 else:
                     self.assertFalse(os.path.exists(msmfn))
+
+
+class TestRunNoParallel(TestRun):
+    def setUp(self):
+        self.do_parallel = False
+        super().setUp()
 
 
 if __name__ == "__main__":
