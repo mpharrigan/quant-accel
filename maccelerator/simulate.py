@@ -8,7 +8,6 @@ Code for running rounds of simulation
 Code copied from rmcgibbo
 """
 
-
 import os
 import logging
 
@@ -50,7 +49,10 @@ def serialize_openmm(system, integrator, sys_fn, int_fn):
         int_f.write(XmlSerializer.serialize(integrator))
 
 
-class Simulator(object):
+class Simulator:
+    def __init__(self, config):
+        pass
+
     def simulate(self, sstate, params, traj_out_fn):
         """Run a simulation
 
@@ -164,13 +166,10 @@ class TMatSimulator(Simulator):
     def trajfn(self):
         return "traj-{traj_i}.h5"
 
-    def __init__(self, t_matrix):
-        # Load transition matrix
-        # t_matrix = scipy.io.mmread(tmat_fn)
-        # t_matrix = t_matrix.tocsr()
+    def __init__(self, config):
 
-        # TODO: Change to dense
-        self.t_matrix = scipy.sparse.csr_matrix(t_matrix)
+        # TODO: Change to sampling from dense matrix
+        self.t_matrix = scipy.sparse.csr_matrix(config.ref_msm.transmat_)
         log.info('Using transition matrix of shape %s', self.t_matrix.shape)
 
     def simulate(self, sstate, params, traj_out_fn):

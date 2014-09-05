@@ -7,11 +7,10 @@ from mixtape.cluster import KMeans
 from mixtape.featurizer import DihedralFeaturizer
 
 from ..simulate import TMatSimulator
-
 from ..model import TMatModeller
 from ..adapt import RandomAdapter
 from .base import TMatConfiguration
-from ..convergence.hybrid import TMatConvergenceChecker
+from ..convergence import TMatConvergenceChecker
 from ..param import AdaptiveParams
 from ..files import get_fn
 
@@ -84,13 +83,8 @@ class AlanineConfiguration(TMatConfiguration):
 
         config.get_param_grid = get_param_grid
 
+        # Tolerance scaling factor
+        config.tolerance_scale = 1.0
 
-    def apply_configuration(self):
-        # TODO: Make all of these things just take in "config" and duck
-
-        self.simulator = self.simulator_class(self.ref_msm.transmat_)
-        self.modeller = self.modeller_class(tot_n_states=self.ref_msm.n_states_)
-        self.convchecker = self.convchecker_class(self.centers, self.ref_msm)
-        self.adapter = self.adapter_class()
 
 

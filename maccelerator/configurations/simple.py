@@ -7,7 +7,8 @@ import numpy as np
 from ..simulate import Simulator
 from ..model import Modeller, Model
 from ..adapt import Adapter, SStates
-from ..convergence.base import ConvergenceChecker, Convergence
+from ..convergence.base import SubConvergenceChecker, SubConvergence, \
+    SupConvergenceChecker, SupConvergence
 from .base import Configuration
 from ..param import AdaptiveParams
 
@@ -60,11 +61,14 @@ class SimpleModeller(Modeller):
         return SimpleModel(trajs)
 
 
-class SimpleConvchecker(ConvergenceChecker):
-    """A simple check for convergence."""
+class SimpleSupConvchecker(SupConvergenceChecker):
+    @classmethod
+    def get_sub_checkers(cls, config):
+        return [SimpleSubConvchecker(tolerance=40)]
 
-    def __init__(self):
-        super().__init__(tolerance=40)
+
+class SimpleSubConvchecker(SubConvergenceChecker):
+    """A simple check for convergence."""
 
     def check_convergence(self, model, params):
         """If we have enough trajectories, we're converged.
@@ -74,7 +78,7 @@ class SimpleConvchecker(ConvergenceChecker):
         """
         self.errors_over_time += [len(model.trajs)]
         converged = len(model.trajs) >= self.tolerance
-        return Convergence(converged, self.errors_over_time)
+        return SubConvergence(converged, self.errors_over_time)
 
     @property
     def n_plots(self):

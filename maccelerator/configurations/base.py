@@ -1,10 +1,17 @@
 """Configure types of runs."""
 
-from ..files import FileStructure
 import pickle
-import mdtraj
 import re
 import inspect
+
+import mdtraj
+
+from ..files import FileStructure
+from ..simulate import Simulator
+from ..model import Modeller
+from ..convergence import SupConvergenceChecker
+from ..adapt import Adapter
+
 
 _GENERAL_TEMPLATE = """from maccelerator import *
 import itertools
@@ -44,10 +51,12 @@ class Configuration(object):
         self.convchecker = None
         self.adapter = None
 
-        self.simulator_class = None
-        self.modeller_class = None
-        self.convchecker_class = None
-        self.adapter_class = None
+        self.simulator_class = Simulator
+        self.modeller_class = Modeller
+        self.convchecker_class = SupConvergenceChecker
+        self.adapter_class = Adapter
+
+        self.tolerance_scale = 1.0
 
         # Right now, all configurations use the same file structure.
         # If we want to introduce new file structure in the future,
@@ -58,8 +67,10 @@ class Configuration(object):
         self.defaults()
 
     def apply_configuration(self):
-        # TODO: Apply here after ducking every object to take "config"
-        raise NotImplementedError
+        self.simulator = self.simulator_class(self)
+        self.modeller = self.modeller_class(self)
+        self.convchecker = self.convchecker_class(self)
+        self.adapter = self.adapter_class(self)
 
     def get_param_grid(self, run_id):
         raise NotImplementedError

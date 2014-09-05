@@ -11,8 +11,12 @@ __author__ = 'harrigan'
 log = logging.getLogger(__name__)
 
 
-class Adapter(object):
+class Adapter:
     """Base class for an object that chooses where to start new simulation."""
+
+    def __init__(self, config):
+        # pylint: disable=unused-argument
+        pass
 
     def adapt(self, model, params):
         """Return a state from which to start.

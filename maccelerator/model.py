@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 class Modeller:
     """Base class for constructing models."""
 
-    def __init__(self):
+    def __init__(self, config):
         self.n_builds = 1
 
     def multi_model(self, traj_fns, params, step_res=None):
@@ -142,6 +142,10 @@ class TMatModel(Model):
 class TMatModeller(Modeller):
     """Model from transition matrix trajectories. (No clustering)"""
 
+    def __init__(self, config):
+        super().__init__(config)
+        self.tot_n_states = config.ref_msm.n_states_
+
     def load_trajs(self, traj_fns, up_to=None):
         if up_to is not None:
             trajs = [mdtraj.io.loadh(fn, 'state_traj')[:up_to] for fn in
@@ -152,10 +156,6 @@ class TMatModeller(Modeller):
 
     def lagtime(self, params):
         return params.adapt_lt
-
-    def __init__(self, tot_n_states):
-        super().__init__()
-        self.tot_n_states = tot_n_states
 
 
     def model(self, traj_fns, params, up_to=None):

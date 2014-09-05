@@ -1,12 +1,12 @@
 """General convergence criteria."""
 
-from .base import ConvergenceChecker, Convergence
+from .base import SubConvergenceChecker, SubConvergence
 import numpy as np
 
 __author__ = 'harrigan'
 
 
-class TimescaleDistanceConvergence(Convergence):
+class TimescaleDistanceConvergence(SubConvergence):
     def __init__(self, converged, est_timescales, ref_timescales,
                  errors_over_time):
         super().__init__(converged, errors_over_time)
@@ -36,8 +36,8 @@ class TimescaleDistanceConvergence(Convergence):
         return 2
 
 
-class TimescaleDistance(ConvergenceChecker):
-    def __init__(self, tolerance, ref_msm, n_timescales=1):
+class TimescaleDistance(SubConvergenceChecker):
+    def __init__(self, tolerance, ref_msm):
         super().__init__(tolerance)
         self.ref_msm = ref_msm
         self.log_diff = True
