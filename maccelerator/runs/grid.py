@@ -93,6 +93,10 @@ class MaccelGridShm:
         self.config = config
         self.run_id = run_id
 
+        self.grid = None
+        self.griddir = ""
+        self.shm_griddir = ""
+
     def __enter__(self):
         self.griddir = 'copy-{}'.format(self.run_id)
         self.shm_griddir = pjoin(SHM, self.griddir)

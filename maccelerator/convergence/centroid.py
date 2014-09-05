@@ -205,7 +205,7 @@ class EigenvecL2Convergence(Convergence):
         est = self.est_eigenv
 
         scatter_eigenvector(top, self.centers, est, ref)
-        top.set_title('$||\hat{\phi}_1-\phi_1||$')
+        top.set_title(r'$||\hat{\phi}_1-\phi_1||$')
 
         self._plot_bottom(bot)
 
