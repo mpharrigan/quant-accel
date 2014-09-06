@@ -1,4 +1,4 @@
-'''
+"""
 Created on Mar 5, 2014
 
 @author: harrigan
@@ -6,7 +6,7 @@ Created on Mar 5, 2014
 Code for running rounds of simulation
 
 Code copied from rmcgibbo
-'''
+"""
 
 import os
 import logging
@@ -15,7 +15,6 @@ from mdtraj.reporters import HDF5Reporter
 from simtk.openmm import XmlSerializer
 from simtk.openmm.app import Simulation
 from simtk.openmm.app import StateDataReporter
-from simtk import openmm
 import scipy.sparse
 import numpy as np
 
@@ -25,31 +24,10 @@ from mdtraj import io
 log = logging.getLogger(__name__)
 
 
-def generate_openmm_sysint(mass, temperature, friction, timestep):
-    """Template for generating openmm files.
+class Simulator:
+    def __init__(self, config):
+        pass
 
-    Run this outside of the loop. It is not pickleable so IPython.parallel
-    complains
-    """
-
-    # Prepare the system
-    system = openmm.System()
-
-    # And integrator
-    integrator = openmm.LangevinIntegrator(temperature, friction, timestep)
-
-    return system, integrator
-
-
-def serialize_openmm(system, integrator, sys_fn, int_fn):
-    with open(sys_fn, 'w') as sys_f:
-        sys_f.write(XmlSerializer.serialize(system))
-
-    with open(int_fn, 'w') as int_f:
-        int_f.write(XmlSerializer.serialize(integrator))
-
-
-class Simulator(object):
     def simulate(self, sstate, params, traj_out_fn):
         """Run a simulation
 
@@ -65,65 +43,75 @@ class Simulator(object):
 
 
 class OpenMMSimulator(Simulator):
-    def __init__(self, system_xml, integrator_xml, report_stride):
-        super(OpenMMSimulator, self).__init__()
+    def __init__(self, config):
+        super().__init__(config)
 
-        self.report_stride = report_stride
-        self.system_xml = system_xml
-        self.integrator_xml = integrator_xml
-        self.system = None
-        self.integrator = None
+        self.report_stride = config.report_stride
+        self.system = config.system
+        self.integrator = config.integrator
 
+        self.minimize = config.minimize
+        self.random_initial_velocities = config.random_initial_velocities
 
-    def deserialize(self, system_xml, integrator_xml):
+    @classmethod
+    def serialize(cls, system, integrator, sys_fn, int_fn):
+        """Serialize Openmm system and integrator to files."""
+        with open(sys_fn, 'w') as sys_f:
+            sys_f.write(XmlSerializer.serialize(system))
+
+        with open(int_fn, 'w') as int_f:
+            int_f.write(XmlSerializer.serialize(integrator))
+
+    @classmethod
+    def deserialize(cls, system_xml, integrator_xml):
         """Deserialize system and integrators.
 
         :param system_xml: Path to system.xml file
         :param integrator_xml: Path to integrator.xml file
         """
 
-        # load up the system and integrator files
-        with open(system_xml) as f:
+        # Load system
+        with open(system_xml, 'r') as f:
             system = XmlSerializer.deserialize(f.read())
-            # reset the random number seed for any random
-            # forces (andersen thermostat, montecarlo barostat)
-            for i in range(system.getNumForces()):
-                force = system.getForce(i)
-                if hasattr(force, 'setRandomNumberSeed'):
-                    force.setRandomNumberSeed(random_seed())
-        with open(integrator_xml) as f:
+
+        # reset the random number seed for any random forces
+        for i in range(system.getNumForces()):
+            force = system.getForce(i)
+            try:
+                force.setRandomNumberSeed(random_seed())
+            except AttributeError:
+                pass
+
+        # Load integrator
+        with open(integrator_xml, 'r') as f:
             integrator = XmlSerializer.deserialize(f.read())
 
-            # reset the random number seed for a stochastic integrator
-            if hasattr(integrator, 'setRandomNumberSeed'):
-                integrator.setRandomNumberSeed(random_seed())
+        # reset the random number seed for a stochastic integrator
+        try:
+            integrator.setRandomNumberSeed(random_seed())
+        except AttributeError:
+            pass
 
-        self.system = system
-        self.integrator = integrator
+        return system, integrator
 
+    def simulate(self, sstate, params, traj_out_fn):
+        """Run a simulation
 
-    def _simulate(self, sstate, n_steps, traj_out_fn, minimize,
-                  random_initial_velocities):
-        """Simulate."""
+        :param sstate: Starting state
+        :param params: Parameter object that contains number of steps to take
+        :param traj_out_fn: Where to save the trajectory
+        """
 
-        if self.system is None or self.integrator is None:
-            log.debug('Loading system and integrator xmls')
-            self.deserialize(self.system_xml, self.integrator_xml)
-            log.debug('Xml files loaded. Setting up simulation')
-        else:
-            log.debug('Xml files were already loaded. Setting up simulation')
-
-        platform = None
         simulation = Simulation(sstate.topology.to_openmm(), self.system,
-                                self.integrator, platform)
+                                self.integrator)
         simulation.context.setPositions(sstate.openmm_positions(0))
         sanity_check(simulation)
 
-        if minimize:
+        if self.minimize:
             log.debug('minimizing...')
             simulation.minimizeEnergy()
 
-        if random_initial_velocities:
+        if self.random_initial_velocities:
             try:
                 temp = simulation.integrator.getTemperature()
                 simulation.context.setVelocitiesToTemperature(temp)
@@ -131,18 +119,18 @@ class OpenMMSimulator(Simulator):
                 raise ValueError("I don't know what temperature to use")
 
         log.debug('adding reporters...')
-        add_reporters(simulation, traj_out_fn, self.report_stride, n_steps)
+        add_reporters(simulation, traj_out_fn, self.report_stride,
+                      params.spt * self.report_stride)
 
-        # run dynamics!
+        # Run dynamics!
         log.debug('Starting dynamics')
-        simulation.step(n_steps * self.report_stride)
+        simulation.step(params.spt * self.report_stride)
 
         for reporter in simulation.reporters:
             # explicitly delete the reporters to close file handles
             del reporter
 
         return True
-
 
     @property
     def trajfn(self):
@@ -159,13 +147,11 @@ class TMatSimulator(Simulator):
     def trajfn(self):
         return "traj-{traj_i}.h5"
 
-    def __init__(self, t_matrix):
-        # Load transition matrix
-        # t_matrix = scipy.io.mmread(tmat_fn)
-        # t_matrix = t_matrix.tocsr()
+    def __init__(self, config):
+        super().__init__(config)
 
-        # TODO: Change to dense
-        self.t_matrix = scipy.sparse.csr_matrix(t_matrix)
+        # TODO: Change to sampling from dense matrix
+        self.t_matrix = scipy.sparse.csr_matrix(config.ref_msm.transmat_)
         log.info('Using transition matrix of shape %s', self.t_matrix.shape)
 
     def simulate(self, sstate, params, traj_out_fn):
@@ -260,7 +246,7 @@ class CallbackReporter(StateDataReporter):
         self.f.close()
 
 
-def add_reporters(simulation, outfn, report_stride, n_spt):
+def add_reporters(simulation, outfn, report_stride, total_steps):
     "Add reporters to a simulation"
 
     def reporter_callback(report):
@@ -270,7 +256,7 @@ def add_reporters(simulation, outfn, report_stride, n_spt):
     callback_reporter = CallbackReporter(reporter_callback, report_stride,
                                          step=True, potentialEnergy=True,
                                          temperature=True, time=True,
-                                         total_steps=n_spt * report_stride)
+                                         total_steps=total_steps)
 
     h5_reporter = HDF5Reporter(outfn, report_stride, coordinates=True,
                                time=True, cell=True, potentialEnergy=True,

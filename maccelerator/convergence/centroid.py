@@ -8,7 +8,7 @@ from matplotlib.pyplot import Normalize
 import scipy.sparse
 import scipy.linalg
 
-from .base import ConvergenceChecker, Convergence
+from .base import SubConvergenceChecker, SubConvergence
 from .base import distribution_norm_tvd
 
 log = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def scatter_eigenvector(ax, centers, est, ref, scale=2e3):
                facecolors='none', edgecolors='b', s=-scale * est[eneg])
 
 
-class CentroidConvergenceChecker(ConvergenceChecker):
+class CentroidConvergenceChecker(SubConvergenceChecker):
     """For when we have consistent state decompositions."""
 
     def __init__(self, tolerance, centers, ref_msm):
@@ -54,7 +54,7 @@ class CentroidConvergenceChecker(ConvergenceChecker):
         self.ref_msm = ref_msm
 
 
-class PopulationCentroidTVDConvergence(Convergence):
+class PopulationCentroidTVDConvergence(SubConvergence):
     """Convergence object for PopulationCentroidTVD."""
 
     def __init__(self, converged, errors_over_time, est, ref, centers):
@@ -119,7 +119,7 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
                                                 self.centers)
 
 
-class EigenvecCentroidConvergence(Convergence):
+class EigenvecCentroidConvergence(SubConvergence):
     """Return object corresponding to EigenvecCentroid."""
 
     def __init__(self, converged, errors_over_time, applied_eigenv, ref_eigenv,
@@ -144,7 +144,7 @@ class EigenvecCentroidConvergence(Convergence):
         ref = self.ref_eigenv
 
         scatter_eigenvector(top, self.centers, est, ref)
-        top.set_title('$<\phi_1 | \hat{T} \circ \phi_1>$')
+        top.set_title(r'$<\phi_1 | \hat{T} \circ \phi_1>$')
 
         self._plot_bottom(bot)
 
@@ -188,7 +188,7 @@ class EigenvecCentroid(CentroidConvergenceChecker):
                                            applied_eigenv, ref, self.centers)
 
 
-class EigenvecL2Convergence(Convergence):
+class EigenvecL2Convergence(SubConvergence):
     """Return object corresponding to EigenvecL2"""
 
     def __init__(self, converged, errors_over_time, ref_eigenv, est_eigenv,
@@ -205,7 +205,7 @@ class EigenvecL2Convergence(Convergence):
         est = self.est_eigenv
 
         scatter_eigenvector(top, self.centers, est, ref)
-        top.set_title('$||\hat{\phi}_1-\phi_1||$')
+        top.set_title(r'$||\hat{\phi}_1-\phi_1||$')
 
         self._plot_bottom(bot)
 
@@ -235,7 +235,7 @@ class EigenvecL2(CentroidConvergenceChecker):
                                      self.centers)
 
 
-class TMatFroConvergence(Convergence):
+class TMatFroConvergence(SubConvergence):
     """Return object corresponding to TMatFro"""
 
     def __init__(self, converged, errors_over_time):

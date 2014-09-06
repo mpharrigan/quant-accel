@@ -11,8 +11,12 @@ __author__ = 'harrigan'
 log = logging.getLogger(__name__)
 
 
-class Adapter(object):
+class Adapter:
     """Base class for an object that chooses where to start new simulation."""
+
+    def __init__(self, config):
+        # pylint: disable=unused-argument
+        pass
 
     def adapt(self, model, params):
         """Return a state from which to start.
@@ -98,7 +102,9 @@ class RandomAdapter(Adapter):
         :param params: So we know how many new states to return
         :returns: Indices of new states
         """
-        sstate = SStates(np.random.randint(0, model.tot_n_states, params.tpr))
-        return sstate
+        return SStates(np.random.randint(0, model.tot_n_states, params.tpr))
+
+    def seed_states(self, params):
+        return SStates([0] * params.tpr)
 
 

@@ -21,7 +21,31 @@ def distribution_norm_tvd(p, q):
     return res
 
 
-class ConvergenceChecker:
+class Convergence:
+    """Interface for a convergence."""
+
+    def plot_and_save(self, params, sstate, plot_fn):
+        raise NotImplementedError
+
+    def plot(self, axs, sstate):
+        raise NotImplementedError
+
+    def save(self, conv_fn):
+        fn = "{}.pickl".format(conv_fn)
+        with open(fn, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, fn):
+        with open(fn, 'rb') as f:
+            return pickle.load(f)
+
+    @property
+    def converged(self):
+        raise NotImplementedError
+
+
+class SubConvergenceChecker:
     """Base class for checking convergence and visualizing."""
 
     def __init__(self, tolerance):
@@ -46,40 +70,8 @@ class ConvergenceChecker:
         """
         raise NotImplementedError
 
-    @property
-    def convfn(self):
-        return "convergence-{round_i}"
 
-    @property
-    def plotfn(self):
-        return "plot-{round_i:04d}"
-
-
-class IConvergence:
-    """Interface only."""
-
-    def plot_and_save(self, params, sstate, plot_fn):
-        raise NotImplementedError
-
-    def plot(self, axs, sstate):
-        raise NotImplementedError
-
-    def save(self, conv_fn):
-        fn = "{}.pickl".format(conv_fn)
-        with open(fn, 'wb') as f:
-            pickle.dump(self, f)
-
-    @classmethod
-    def load(cls, fn):
-        with open(fn, 'rb') as f:
-            return pickle.load(f)
-
-    @property
-    def converged(self):
-        raise NotImplementedError
-
-
-class Convergence(IConvergence):
+class SubConvergence(Convergence):
     def __init__(self, converged, errors_over_time):
         self._converged = converged
         self.errors_over_time = errors_over_time
@@ -131,13 +123,19 @@ class Convergence(IConvergence):
         raise NotImplementedError
 
 
-class HybridConvergenceChecker(ConvergenceChecker):
+class SupConvergenceChecker:
     """Combine two convergence checkers with logical and"""
 
-    def __init__(self, *checkers):
-        super().__init__(tolerance=-1)
-        self.checkers = checkers
-        self.n_checkers = len(checkers)
+    def __init__(self, config):
+        self.checkers = self.get_sub_checkers(config)
+
+    @classmethod
+    def get_sub_checkers(cls, config):
+        raise NotImplementedError
+
+    @property
+    def n_checkers(self):
+        return len(self.checkers)
 
     def reset(self):
         for c in self.checkers:
@@ -155,10 +153,18 @@ class HybridConvergenceChecker(ConvergenceChecker):
             # Might bite you
             convergences += [checker.check_convergence(model, params)]
 
-        return HybridConvergence(convergences)
+        return SupConvergence(convergences)
+
+    @property
+    def convfn(self):
+        return "convergence-{round_i}"
+
+    @property
+    def plotfn(self):
+        return "plot-{round_i:04d}"
 
 
-class HybridConvergence(IConvergence):
+class SupConvergence(Convergence):
     def __init__(self, convergences):
         super().__init__()
         self.convergences = convergences

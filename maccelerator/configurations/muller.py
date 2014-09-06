@@ -1,17 +1,19 @@
 __author__ = 'harrigan'
 
-import os
+import itertools
 
 from simtk import unit
-from msmtoys import muller
 import mdtraj as md
 import numpy as np
+from simtk import openmm
 
-from ..simulate import OpenMMSimulator, generate_openmm_sysint
+from msmtoys import muller
+from ..simulate import OpenMMSimulator
+from ..files import get_fn
 from ..model import ClusterModeller
 from ..adapt import SortCountsAdapter
 from .base import OpenMMConfiguration
-from ..convergence.projection import PopulationProjectionTVD, Volume
+from ..convergence import Volume, OpenMMConvergenceChecker
 from ..param import AdaptiveParams
 
 
@@ -22,14 +24,16 @@ def generate_muller_sysint():
     temperature = 750 * unit.kelvin
     friction = 100 / unit.picosecond
     timestep = 10.0 * unit.femtosecond
-    system, integrator = generate_openmm_sysint(mass, temperature, friction,
-                                                timestep)
 
     # Prepare the system
+    system = openmm.System()
     mullerforce = muller.MullerForce()
     system.addParticle(mass)
     mullerforce.addParticle(0, [])
     system.addForce(mullerforce)
+
+    # Prepare the integrator
+    integrator = openmm.LangevinIntegrator(temperature, friction, timestep)
 
     return system, integrator
 
@@ -51,19 +55,8 @@ def make_traj_from_coords(xyz):
     return traj
 
 
-class MullerSimulator(OpenMMSimulator):
-    def __init__(self, system_xml, integrator_xml):
-        super().__init__(system_xml, integrator_xml, report_stride=10)
-
-    def simulate(self, sstate, params, traj_out_fn):
-        return super()._simulate(sstate, params.spt, traj_out_fn,
-                                 minimize=False, random_initial_velocities=True)
-
-
 class MullerModeller(ClusterModeller):
-    def __init__(self):
-        super().__init__()
-
+    """Model only with x, y"""
 
     def load_trajs(self, traj_fns):
         """Load only the xy coordinates of an mdtraj trajectory.
@@ -74,17 +67,8 @@ class MullerModeller(ClusterModeller):
         return trajs
 
 
-class MullerConvchecker(PopulationProjectionTVD):
-    def __init__(self):
-        # volume = Volume([-1.5, 1.2], [-0.2, 3.0])
-        volume = Volume([-1.0, 1.0], [-0.1, 2.0])
-        grid = Volume.get_grid(volume, resolution=200)
-
-        super().__init__(tolerance=0.6, grid=grid,
-                         potentialfunc=muller.MullerForce.potential, temp=750)
-
-
 class MullerAdapter(SortCountsAdapter):
+    # TODO: Generalize
     def adapt(self, params, sstate_out_fn):
         state_indices = super()._adapt(params)
         sstate_positions = self.modeller.clusterer.cluster_centers_[
@@ -109,29 +93,58 @@ class MullerAdapter(SortCountsAdapter):
 
 
 class MullerParams(AdaptiveParams):
-    @property
-    def post_converge(self):
-        return 10
-
-    @property
-    def adapt_lt(self):
-        return 20
-
-    @property
-    def build_lt(self):
-        return 20
+    def __init__(self, spt, tpr, adapt_lt=20, build_lt=20, post_converge=10,
+                 run_id=0):
+        super().__init__(spt, tpr, adapt_lt, build_lt, post_converge, run_id)
 
 
 class MullerConfiguration(OpenMMConfiguration):
-    def __init__(self, system_xml, integrator_xml):
-        super().__init__()
+    def defaults(config):
+        """Set defaults."""
 
-        system_xml = os.path.abspath(system_xml)
-        integrator_xml = os.path.abspath(integrator_xml)
+        # Simulation report stride
+        config.report_stride = 10
 
-        self.simulator = MullerSimulator(system_xml, integrator_xml)
-        self.modeller = MullerModeller()
-        self.convchecker = MullerConvchecker()
-        self.adapter = MullerAdapter()
+        # Whether to perform minimization
+        config.minimize = False
+
+        # Start with random initial velocities
+        config.random_initial_velocities = True
+
+        # Grid for projection for convergence
+        volume = Volume([-1.0, 1.0], [-0.1, 2.0])
+        config.grid = Volume.get_grid(volume, resolution=200)
+
+        # Simulator
+        config.simulator_class = OpenMMSimulator
+
+        # Modeller
+        config.modeller_class = MullerModeller
+
+        # Convergence checker
+        config.convchecker_class = OpenMMConvergenceChecker
+
+        # Adapter
+        # TODO: Generalize
+        config.adapter_class = MullerAdapter
+
+        # Define a function to yield combinations of parameters
+        def get_param_grid(run_id):
+            spts = [10, 100]
+            tprs = [1, 10]
+
+            for spt, tpr in itertools.product(spts, tprs):
+                yield MullerParams(spt=spt, tpr=tpr, run_id=run_id)
+
+        config.get_param_grid = get_param_grid
+
+
+    def __init__(self):
+        super().__init__(get_fn('muller_sys.xml'), get_fn('muller_int.xml'))
+
+        self.grid = None
+        self.temp = 750
+        self.potentialfunc = muller.MullerForce.potential
+
 
 

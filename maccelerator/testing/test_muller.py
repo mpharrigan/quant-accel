@@ -13,7 +13,7 @@ from simtk import unit
 import maccelerator as maccel
 from maccelerator.configurations.muller import (generate_muller_sysint,
                                                 make_traj_from_coords)
-from maccelerator.simulate import serialize_openmm
+from maccelerator.simulate import OpenMMSimulator
 from maccelerator.testing.test_utils import get_folder
 
 
@@ -39,13 +39,21 @@ class TestMullerPrep(TestCase):
         sysfn = pjoin(self.tdir, 'muller_sys.xml')
         intfn = pjoin(self.tdir, 'muller_int.xml')
 
-        serialize_openmm(system, integrator, sysfn, intfn)
+        OpenMMSimulator.serialize(system, integrator, sysfn, intfn)
 
         self.assertTrue(os.path.exists(pjoin(self.tdir, 'muller_sys.xml')))
+        self.assertTrue(os.path.exists(pjoin(self.tdir, 'muller_int.xml')))
 
-        config = maccel.MullerConfiguration(sysfn, intfn)
-        config.simulator.deserialize(config.simulator.system_xml,
-                                     config.simulator.integrator_xml)
+        system, integrator = OpenMMSimulator.deserialize(sysfn, intfn)
+        self.assertFalse(system is None)
+        self.assertFalse(integrator is None)
+        self.assertEqual(len(system.getForces()), 1)
+        self.assertEqual(integrator.getTemperature().value_in_unit(unit.kelvin),
+                         750.0)
+
+
+    def test_reference(self):
+        config = maccel.MullerConfiguration().apply_configuration()
         self.assertEqual(len(config.simulator.system.getForces()), 1)
         self.assertEqual(
             config.simulator.integrator.getTemperature().value_in_unit(

@@ -5,7 +5,7 @@ import logging
 import numpy as np
 from scipy import interpolate
 
-from .base import ConvergenceChecker
+from .base import SubConvergenceChecker
 from .base import distribution_norm_tvd
 
 
@@ -17,7 +17,7 @@ KB = 0.0083145
 log = logging.getLogger(__name__)
 
 
-class PopulationProjectionTVD(ConvergenceChecker):
+class PopulationProjectionTVD(SubConvergenceChecker):
     """Project equilibrium populations onto a grid and compute TVD.
 
     :param modeller: Contains the estimated model
