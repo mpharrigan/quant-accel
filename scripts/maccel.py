@@ -36,7 +36,7 @@ def config(out_fn, n_copy, cluster, config_name, parallel):
 
 
 def plot_entry(args):
-    plot(args.run_fn, parallel=False)
+    plot(args.run_fn, parallel=args.parallel)
 
 
 def plot(run_fn, parallel):
@@ -59,6 +59,8 @@ def parse():
     plot_p.add_argument('--run_fn', '-r',
                         help="""Path to run.pickl to make plots for.""",
                         default="run.pickl")
+    plot_p.add_argument('--parallel', '-p', action='store_true', default=False,
+                        help="""Do Parallel plotting.""")
 
 
 
@@ -77,7 +79,7 @@ def parse():
                           default='parallel')
     config_p.add_argument('--out_fn', '-o',
                           help="""Prefix for files to write.""",
-                          default='maccel')
+                          default='accelerate')
     config_p.add_argument('--n_copy', '-n',
                           help="""Number of copies to run.""",
                           type=int,

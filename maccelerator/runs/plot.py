@@ -3,6 +3,7 @@ __author__ = 'harrigan'
 
 import logging
 from os.path import join as pjoin
+import os
 
 from IPython.parallel import Client
 
@@ -57,7 +58,7 @@ class PlotMaker():
             out_fn = pjoin(self.load_dir, out_fn)
 
         converge = SupConvergence.load(conv_fn)
-        return converge, self.run.params, out_fn
+        return converge, self.run.params, os.path.abspath(out_fn)
 
     def load_convergences(self):
         return [self._get_for_parallel(i, rel=True)[0] for i in
