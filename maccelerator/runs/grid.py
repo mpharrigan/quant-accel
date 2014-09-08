@@ -6,6 +6,7 @@ import os
 import logging
 import glob
 import shutil
+import traceback
 
 from IPython.parallel import Client
 
@@ -68,6 +69,7 @@ class MAccelGrid:
                 _launch(arg_tuple)
             except Exception as e:
                 log.error(str(e))
+                log.error(traceback.format_exc())
 
 
 def _launch(arg_tuple):
