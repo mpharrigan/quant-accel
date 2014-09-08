@@ -228,7 +228,8 @@ class ClusterModeller(Modeller):
 class TMatModel(Model):
     def __init__(self, params):
         super().__init__(params)
-        self.kept_states = None
+        self.found_states = None
+        self.adapt_mapping = None
 
 
 class TMatModeller(Modeller):
