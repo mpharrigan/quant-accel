@@ -13,6 +13,7 @@ import numpy as np
 from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
 import mdtraj
+import scipy.sparse
 
 
 log = logging.getLogger(__name__)
@@ -46,8 +47,21 @@ class Modeller:
 
 
 class Model:
-    def __init__(self, msm):
-        self._msm = msm
+    def __init__(self, params):
+        self._n_states = 0
+        self._tmat = np.zeros((0, 0))
+        self._populations = np.zeros(0)
+        self._timescales = np.zeros(0)
+        self._eigenvectors = np.zeros((0, 0))
+        self._eigenvalues = np.zeros(0)
+        self._adapt_counts = np.zeros((0, 0))
+        self._full_counts = np.zeros((0, 0))
+
+        self.params = params
+
+        self._is_consistent = True
+        self._dirty = False
+
 
     def save(self, fn):
         fn = "{}.pickl".format(fn)
@@ -59,27 +73,117 @@ class Model:
         with open(fn, 'rb') as f:
             return pickle.load(f)
 
-    @property
-    def n_states(self):
-        return self._msm.n_states_
+    def _debug(self):
+        newd = dict()
+        for k, v in self.__dict__.items():
+            if k.startswith('_'):
+                try:
+                    newd[k] = len(v)
+                except:
+                    pass
+        return newd
+
+
+    def _check_consistency(self):
+        """Check that each item has the same number of states
+
+        Ignored: number of columns in eigenvectors
+                 adapt_counts
+        """
+        if self._is_consistent and not self._dirty:
+            return
+        elif not self._is_consistent and not self._dirty:
+            raise AssertionError("Inconsistent number of states")
+
+        ns = [self._tmat.shape[0], self._tmat.shape[1], len(self._populations),
+              self._eigenvectors.shape[0], self._full_counts.shape[0],
+              self._full_counts.shape[1]]
+        assert all(
+            n == ns[0] for n in ns), "Inconsistent number of states: {}".format(
+            self._debug())
+        self._is_consistent = True
+        self._dirty = False
+        self._n_states = ns[0]
 
     @property
-    def counts(self):
-        return self._msm.raw_counts_
+    def n_states(self):
+        self._check_consistency()
+        return self._n_states
+
+    @property
+    def tmat(self):
+        self._check_consistency()
+        return self._tmat
+
+    @tmat.setter
+    def tmat(self, value):
+        self._tmat = value
+        self._dirty = True
+
+    @property
+    def populations(self):
+        self._check_consistency()
+        return self._populations
+
+    @populations.setter
+    def populations(self, value):
+        self._populations = value
+        self._dirty = True
 
     @property
     def timescales(self):
-        return self._msm.timescales_
+        self._check_consistency()
+        return self._timescales
+
+    @timescales.setter
+    def timescales(self, value):
+        self._timescales = value
+        self._dirty = True
 
     @property
-    def lagtime(self):
-        return self._msm.lag_time
+    def eigenvectors(self):
+        self._check_consistency()
+        return self._eigenvectors
+
+    @eigenvectors.setter
+    def eigenvectors(self, value):
+        self._eigenvectors = value
+        self._dirty = True
+
+    @property
+    def eigenvalues(self):
+        self._check_consistency()
+        return self._eigenvalues
+
+    @eigenvalues.setter
+    def eigenvalues(self, value):
+        self._eigenvalues = value
+        self._dirty = True
+
+    @property
+    def adapt_counts(self):
+        self._check_consistency()
+        return self._adapt_counts
+
+    @adapt_counts.setter
+    def adapt_counts(self, value):
+        self._adapt_counts = value
+        self._dirty = True
+
+    @property
+    def full_counts(self):
+        self._check_consistency()
+        return self._full_counts
+
+    @full_counts.setter
+    def full_counts(self, value):
+        self._full_counts = value
+        self._dirty = True
 
 
 class ClusterModel(Model):
-    def __init__(self, msm, clusterer):
-        super().__init__(msm)
-        self._clusterer = clusterer
+    # TODO: Implement
+    pass
 
 
 class ClusterModeller(Modeller):
@@ -122,21 +226,9 @@ class ClusterModeller(Modeller):
 
 
 class TMatModel(Model):
-    def __init__(self, msm, full_tmat, full_populations, full_eigenvec,
-                 found_states):
-        super().__init__(msm)
-        self.full_tmat = full_tmat
-        self.full_populations = full_populations
-        self.full_eigenvec = full_eigenvec
-        self.found_states = found_states
-        self.tot_n_states = len(full_populations)
-
-    @property
-    def timescales(self):
-        if self._msm.n_states_ >= 2:
-            return self._msm.timescales_
-        else:
-            return np.asarray([0])
+    def __init__(self, params):
+        super().__init__(params)
+        self.kept_states = None
 
 
 class TMatModeller(Modeller):
@@ -154,9 +246,6 @@ class TMatModeller(Modeller):
             trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
         return trajs
 
-    def lagtime(self, params):
-        return params.adapt_lt
-
 
     def model(self, traj_fns, params, up_to=None):
         """Build a model from the result of a transition matrix simulations
@@ -164,43 +253,68 @@ class TMatModeller(Modeller):
         We take care of only returning states which we have 'discovered'
 
         """
+        ret_model = TMatModel(params)
+        trajs = self.load_trajs(traj_fns, up_to)
 
-        msm = MarkovStateModel(lag_time=self.lagtime(params), verbose=False)
-        msm.fit(self.load_trajs(traj_fns, up_to))
+        # -----------------------------------------------------------
+        # Do building for adaptive
+        # -----------------------------------------------------------
+        msm_adapt = MarkovStateModel(lag_time=params.adapt_lt, verbose=False,
+                                     ergodic_cutoff=0, prior_counts=1,
+                                     reversible_type='none')
+        msm_adapt.fit(trajs)
+        ret_model.adapt_counts = msm_adapt.countsmat_
+        ret_model.adapt_mapping = msm_adapt.mapping_
 
-        log.debug("Number of untrimmed States: %d", msm.n_states_)
+        if msm_adapt.n_states_ < self.tot_n_states:
+            counts = np.zeros((self.tot_n_states, self.tot_n_states))
+            kept = np.array(msm_adapt.state_labels_)
+            counts[np.ix_(kept, kept)] = msm_adapt.countsmat_
+            ret_model.full_counts = counts
+        else:
+            ret_model.full_counts = msm_adapt.countsmat_
+
+        # Get found states
+        ret_model.found_states = msm_adapt.state_labels_
+
+        # -----------------------------------------------------------
+        # Do building for checking convergence
+        # -----------------------------------------------------------
+        msm_build = MarkovStateModel(lag_time=params.build_lt, verbose=False)
+        msm_build.fit(trajs)
+
+        log.debug("Number of untrimmed States: %d", msm_build.n_states_)
 
         # Back out full-sized populations
-        if msm.n_states_ < self.tot_n_states:
+        if msm_build.n_states_ < self.tot_n_states:
             populations = np.zeros(self.tot_n_states)
             eigenvec = np.zeros(self.tot_n_states)
             tmat = np.zeros((self.tot_n_states, self.tot_n_states))
 
-            kept = np.array(msm.state_labels_)
+            kept = np.array(msm_build.state_labels_)
 
             # Be super explicit about minimum state requirements
-            if msm.n_states_ >= 1:
-                populations[kept] = msm.populations_
-                tmat[np.ix_(kept, kept)] = msm.transmat_
+            if msm_build.n_states_ >= 1:
+                populations[kept] = msm_build.populations_
+                tmat[np.ix_(kept, kept)] = msm_build.transmat_
+            else:
+                raise ValueError(
+                    "{} states? What is this?".format(msm_build.n_states_))
 
-            if msm.n_states_ >= 2:
-                eigenvec[kept] = msm.left_eigenvectors_[:, 1]
+            if msm_build.n_states_ >= 2:
+                eigenvec[kept] = msm_build.left_eigenvectors_[:, 1]
 
         else:
-            populations = msm.populations_
-            eigenvec = msm.left_eigenvectors_[:, 1]
-            tmat = msm.transmat_
+            populations = msm_build.populations_
+            eigenvec = msm_build.left_eigenvectors_[:, 1]
+            tmat = msm_build.transmat_
 
-        # Get found states
-        # Those which have at least one transition to or from
-        # Note: We can't just sample from states with zero 'from' counts
-        # This would neglect states visited at the ends of trajectories.
-        # These are probably pretty important for adaptive sampling
-        # countscoo = msm.rawcounts_.tocoo()
-        # found_states = np.hstack((countscoo.row, countscoo.col))
-        # found_states = np.unique(found_states)
-        # TODO
-        found_states = None
+        ret_model.tmat = tmat
+        ret_model.populations = populations
+        ret_model.timescales = msm_build.timescales_
+        ret_model.eigenvectors = eigenvec
+        ret_model.eigenvalues = msm_build.eigenvalues_
 
-        return TMatModel(msm, tmat, populations, eigenvec, found_states)
+        return ret_model
+
 
