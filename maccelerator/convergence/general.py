@@ -43,11 +43,15 @@ class TimescaleDistance(SubConvergenceChecker):
         self.log_diff = True
 
     def check_convergence(self, model, params):
-        est_timescales = model.timescales / model.lagtime
+        est_timescales = model.timescales / model.params.build_lt
         ref_timescales = self.ref_msm.timescales_ / self.ref_msm.lag_time
 
         # TODO: Include more than one timescale
-        est = est_timescales[0]
+        try:
+            est = est_timescales[0]
+        except IndexError:
+            # If there is only one state, there is no timescale
+            est = 0
         ref = ref_timescales[0]
 
         if self.log_diff:

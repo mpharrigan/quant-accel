@@ -104,7 +104,7 @@ class PopulationCentroidTVD(CentroidConvergenceChecker):
         :param params: Parameters
         """
 
-        est = model.full_populations
+        est = model.populations
         ref = self.ref_msm.populations_
 
         errorval = self.distribution_norm(ref, est)
@@ -169,7 +169,7 @@ class EigenvecCentroid(CentroidConvergenceChecker):
         """
         ref = self.ref_msm.left_eigenvectors_[:, 1]
         refs = scipy.sparse.csr_matrix(ref)
-        tmat = model.full_tmat
+        tmat = model.tmat
 
         ref_val = self.ref_msm.eigenvalues_[1]
 
@@ -219,7 +219,7 @@ class EigenvecL2(CentroidConvergenceChecker):
 
     def check_convergence(self, model, params):
         ref = self.ref_msm.left_eigenvectors_[:, 1]
-        est = model.full_eigenvec
+        est = model.eigenvectors
 
         # Only relative sign matters, pick the best.
         diff1 = ref - est
@@ -257,7 +257,7 @@ class TMatFro(CentroidConvergenceChecker):
     """Frobenius norm."""
 
     def check_convergence(self, model, params):
-        est = model.full_tmat
+        est = model.tmat
         ref = self.ref_msm.transmat_
 
         errorval = scipy.linalg.norm(est - ref, ord='fro')

@@ -102,7 +102,7 @@ class RandomAdapter(Adapter):
         :param params: So we know how many new states to return
         :returns: Indices of new states
         """
-        return SStates(np.random.randint(0, model.tot_n_states, params.tpr))
+        return SStates(np.random.randint(0, model.n_states, params.tpr))
 
     def seed_states(self, params):
         return SStates([0] * params.tpr)
