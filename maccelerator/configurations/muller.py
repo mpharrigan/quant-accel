@@ -46,8 +46,8 @@ def make_traj_from_coords(xyz):
 
     top = md.Topology()
     chain = top.add_chain()
-    resi = top.add_residue('NA', chain)
-    top.add_atom('C', md.element.carbon, resi)
+    resi = top.add_residue(None, chain)
+    top.add_atom(None, None, resi)
 
     xyz = np.asarray(xyz)
     xyz = xyz[:, np.newaxis, :]
