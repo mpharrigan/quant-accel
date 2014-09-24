@@ -4,11 +4,13 @@ __author__ = 'harrigan'
 import logging
 from os.path import join as pjoin
 import os
-import pandas as pd
+import itertools
+import pickle
 
+import pandas as pd
+import numpy as np
 from IPython.parallel import Client
 
-from ..convergence.base import SupConvergence
 from .run import NoParallelView
 
 
@@ -60,12 +62,40 @@ class PlotMaker():
         file = self.run.config.file
         conv_fn = "{}.pickl".format(file.conv_fn(round_i, rel=rel))
         conv_fn = pjoin(self.load_dir, conv_fn)
-        converge = SupConvergence.load(conv_fn)
+
+        with open(conv_fn, 'rb') as conv_f:
+            converge = pickle.load(conv_f)
         return converge
 
     def load_convergences(self):
         """Load all convergences"""
         return [self.load_convergence(i) for i in range(self.run.n_rounds)]
+
+    def convergence_dataframe(self):
+        """Get a dataframe of convergences over time."""
+        round_is = range(self.run.n_rounds)
+        substeps = self.run.params.subbuild_uptos
+        coords = np.array(list(itertools.product(round_is, substeps)))
+        steps = self.run.params.spt * coords[:, 0] + coords[:, 1]
+
+        conv_vals = np.asarray(
+            [[c.converged for c in cs] for cs in self.load_convergences()]
+        ).reshape(-1)
+
+        df = pd.DataFrame(dict(
+            round_i=coords[:, 0], steps=steps, converged=conv_vals
+        )).set_index('steps')
+
+        return df
+
+    def find_first_convergence(self, window=4, cutoff=0.5):
+        """Use a rolling average to find step and round of first convergence.
+        """
+        conv_df = self.convergence_dataframe()
+        rolling_df = pd.rolling_mean(conv_df['converged'], window).fillna(0)
+        steps = (rolling_df >= cutoff).argmax()
+        rounds = conv_df['round_i'].loc[steps] + 1
+        return steps, rounds
 
 
 def _plot_helper(args):

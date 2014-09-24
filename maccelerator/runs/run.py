@@ -1,7 +1,6 @@
 """Code to handle the adaptive loop."""
 
 import logging
-from collections import defaultdict
 import pickle
 
 from IPython.parallel import Client
@@ -22,7 +21,7 @@ class MAccelRun(object):
     def __init__(self, configuration, params, rundir, parallel=True):
         self.config = configuration
         self.params = params
-        self.trajs = defaultdict(list)
+        self.trajs = dict()
         self.rundir = rundir
 
         if parallel:
@@ -76,18 +75,27 @@ class MAccelRun(object):
             )
             self.trajs[round_i] = traj_outs
 
-            # Model with all trajectories from this round and previous
-            trajs_till_now = self.le_than(round_i)
-            model = config.model(trajs_till_now, params)
-            model.save(file.model_fn(round_i))
+            # Make lots of models and check lots of convergence
+            models = []
+            converges = []
+            for sub_i, up_to in enumerate(params.subbuild_uptos):
+                model = config.model(self.trajs, params, up_to=up_to)
+                converge = config.check_convergence(model, params)
+
+                models.append(model)
+                converges.append(converge)
+
+            model_fn = "{}.pickl".format(file.model_fn(round_i))
+            with open(model_fn, 'wb') as model_f:
+                pickle.dump(models, model_f)
+
+            conv_fn = "{}.pickl".format(file.conv_fn(round_i))
+            with open(conv_fn, 'wb') as conv_f:
+                pickle.dump(converges, conv_f)
 
             # Get a new starting state
             sstate = config.adapt(model, params)
             sstate.save(file.sstate_fn(round_i))
-
-            # Check convergence
-            converge = config.check_convergence(model, params)
-            converge.save(file.conv_fn(round_i))
 
             log.info("Doing round %3d.\tConverged: %5s\tRounds left: %2d",
                      round_i, converge.converged, rounds_left)
@@ -134,20 +142,6 @@ class MAccelRun(object):
     @property
     def n_rounds(self):
         return len(self.trajs)
-
-
-    def le_than(self, round_i):
-        """Pick trajectories whose round is less than or equal to round_i.
-
-        :param round_i: Index of round to get less than or equal to
-        """
-        traj_dict = self.trajs
-
-        all_trajs = []
-        for ri in traj_dict.keys():
-            if ri <= round_i:
-                all_trajs += traj_dict[ri]
-        return all_trajs
 
 
 class NoParallelView:

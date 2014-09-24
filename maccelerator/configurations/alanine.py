@@ -45,9 +45,11 @@ def generate_alanine_msm(ala):
 class AlanineParams(AdaptiveParams):
     """Returned by get_param_grid which must be implemented."""
 
-    def __init__(self, spt, tpr, adapt_lt=1, build_lt=1, post_converge=10,
-                 run_id=0):
-        super().__init__(spt, tpr, adapt_lt, build_lt, post_converge, run_id)
+    def __init__(self, spt, tpr, adapt_lt=1, build_lt=1,
+                 post_converge=10, run_id=0, step_res=8):
+        super().__init__(spt=spt, tpr=tpr, adapt_lt=adapt_lt, build_lt=build_lt,
+                         post_converge=post_converge, run_id=run_id,
+                         step_res=step_res)
 
 
 class AlanineConfiguration(TMatConfiguration):
