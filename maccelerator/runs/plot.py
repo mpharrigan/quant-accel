@@ -4,6 +4,7 @@ __author__ = 'harrigan'
 import logging
 from os.path import join as pjoin
 import os
+import pandas as pd
 
 from IPython.parallel import Client
 
@@ -42,27 +43,29 @@ class PlotMaker():
         n_rounds = self.run.n_rounds
 
         log.info('Making %d frames', n_rounds)
-        self.lbv.map(_plot_helper,
-                     [self._get_for_parallel(i, rel=True) for i in
-                      range(n_rounds)])
+        args = [self._get_for_parallel(i) for i in range(n_rounds)]
+        self.lbv.map(_plot_helper, args)
 
-    def _get_for_parallel(self, round_i, rel=False):
+    def _get_for_parallel(self, round_i, rel=True):
         """Create a tuple of arguments for parallel helper."""
-
         file = self.run.config.file
         out_fn = file.plot_fn(round_i, rel=rel)
+        out_fn = pjoin(self.load_dir, out_fn)
+        out_fn = os.path.abspath(out_fn)
+
+        return self.load_convergence(round_i), self.run.params, out_fn
+
+    def load_convergence(self, round_i, rel=True):
+        """Load a convergence object for a particular round."""
+        file = self.run.config.file
         conv_fn = "{}.pickl".format(file.conv_fn(round_i, rel=rel))
-
-        if rel:
-            conv_fn = pjoin(self.load_dir, conv_fn)
-            out_fn = pjoin(self.load_dir, out_fn)
-
+        conv_fn = pjoin(self.load_dir, conv_fn)
         converge = SupConvergence.load(conv_fn)
-        return converge, self.run.params, os.path.abspath(out_fn)
+        return converge
 
     def load_convergences(self):
-        return [self._get_for_parallel(i, rel=True)[0] for i in
-                range(self.run.n_rounds)]
+        """Load all convergences"""
+        return [self.load_convergence(i) for i in range(self.run.n_rounds)]
 
 
 def _plot_helper(args):
