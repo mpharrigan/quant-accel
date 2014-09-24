@@ -95,12 +95,11 @@ class Model:
         elif not self._is_consistent and not self._dirty:
             raise AssertionError("Inconsistent number of states")
 
+        debug_msg = "Inconsistent number of states: {}".format(self._debug())
         ns = [self._tmat.shape[0], self._tmat.shape[1], len(self._populations),
               self._eigenvectors.shape[0], self._full_counts.shape[0],
               self._full_counts.shape[1]]
-        assert all(
-            n == ns[0] for n in ns), "Inconsistent number of states: {}".format(
-            self._debug())
+        assert all(n == ns[0] for n in ns), debug_msg
         self._is_consistent = True
         self._dirty = False
         self._n_states = ns[0]

@@ -68,8 +68,12 @@ class MAccelRun(object):
             # Do fancy IPython.parallel stuff to parallelize simulation
             traj_is = range(params.tpr)
             traj_outs = file.make_traj_fns(round_i, traj_is)
-            self.lbv.map(config.simulate, sstate.items(), [params] * params.tpr,
-                         traj_outs)
+            self.lbv.map(
+                config.simulate,
+                sstate.items(),
+                [params] * params.tpr,
+                traj_outs
+            )
             self.trajs[round_i] = traj_outs
 
             # Model with all trajectories from this round and previous
