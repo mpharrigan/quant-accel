@@ -13,7 +13,8 @@ import numpy as np
 from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
 import mdtraj
-import scipy.sparse
+import itertools
+from mdtraj.io import loadh
 
 
 log = logging.getLogger(__name__)
@@ -33,11 +34,12 @@ class Modeller:
         up_tos = (np.arange(n_builds) + 1) * step_res
         return [self.model(traj_fns, params, up_to=up_to) for up_to in up_tos]
 
-    def model(self, traj_fns, params, up_to=None):
+    def model(self, traj_dict, params, up_to=None):
         """Create a model.
 
-        :param traj_fns: Trajectory filenames from which we build the model
+        :param traj_dict: Dictionary round_i -> list of trajectory filenames
         :param params: Simulation parameters.
+        :param up_to: Model up-to a certain step in the most recent round
         """
         raise NotImplementedError
 
@@ -95,12 +97,11 @@ class Model:
         elif not self._is_consistent and not self._dirty:
             raise AssertionError("Inconsistent number of states")
 
+        debug_msg = "Inconsistent number of states: {}".format(self._debug())
         ns = [self._tmat.shape[0], self._tmat.shape[1], len(self._populations),
               self._eigenvectors.shape[0], self._full_counts.shape[0],
               self._full_counts.shape[1]]
-        assert all(
-            n == ns[0] for n in ns), "Inconsistent number of states: {}".format(
-            self._debug())
+        assert all(n == ns[0] for n in ns), debug_msg
         self._is_consistent = True
         self._dirty = False
         self._n_states = ns[0]
@@ -204,6 +205,8 @@ class ClusterModeller(Modeller):
         http://en.wikipedia.org/wiki
         /Determining_the_number_of_clusters_in_a_data_set#Rule_of_thumb
         """
+
+        # TODO: Change to traj_dict
         log.debug("Loading trajectories")
         trajs_vec = self.load_trajs(traj_fns)
 
@@ -239,23 +242,38 @@ class TMatModeller(Modeller):
         super().__init__(config)
         self.tot_n_states = config.ref_msm.n_states_
 
-    def load_trajs(self, traj_fns, up_to=None):
+    def load_trajs(self, traj_dict, up_to=None):
+        """Load trajectories from a dictionary of filenames
+
+        :param traj_dict: Dictionary of round_i -> list of filenames
+        :param up_to: Optionally, only load a fraction of the last round's
+                        Trajectories
+        """
         if up_to is not None:
-            trajs = [mdtraj.io.loadh(fn, 'state_traj')[:up_to] for fn in
-                     traj_fns]
+            # Load complete trajectories for not-the-first-round
+            round_is = sorted(traj_dict)
+            trajs = []
+            for ri in round_is[:-1]:
+                trajs += [loadh(fn, 'state_traj') for fn in traj_dict[ri]]
+
+            # Only load partial trajectories for the last round.
+            last_fns = traj_dict[round_is[-1]]
+            trajs += [loadh(fn, 'state_traj')[:up_to] for fn in last_fns]
         else:
+            # Load everything
+            traj_fns = itertools.chain(*traj_dict.values())
             trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
         return trajs
 
 
-    def model(self, traj_fns, params, up_to=None):
+    def model(self, traj_dict, params, up_to=None):
         """Build a model from the result of a transition matrix simulations
 
         We take care of only returning states which we have 'discovered'
 
         """
         ret_model = TMatModel(params)
-        trajs = self.load_trajs(traj_fns, up_to)
+        trajs = self.load_trajs(traj_dict, up_to)
 
         # -----------------------------------------------------------
         # Do building for adaptive
