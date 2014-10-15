@@ -9,6 +9,9 @@ import maccelerator as maccel
 
 logging.basicConfig(level=logging.INFO)
 
+CLUSTER_DICT = dict(pbs=maccel.PBSCluster, slurm=maccel.SlurmCluster)
+CONFIG_DICT = dict(alanine=maccel.AlanineConfiguration)
+
 
 def config_entry(args):
     """Entry point for argparse."""
@@ -18,12 +21,10 @@ def config_entry(args):
 
 
 def config(out_fn, n_copy, cluster, config_name, parallel):
-    cluster_dict = dict(pbs=maccel.PBSCluster, slurm=maccel.SlurmCluster)
-    config_dict = dict(alanine=maccel.AlanineConfiguration)
     grid_manager_name = 'MaccelGridShm'  # TODO: Make general
 
-    clust = cluster_dict[cluster](n_copy=n_copy, parallel=parallel)
-    config = config_dict[config_name]
+    clust = CLUSTER_DICT[cluster](n_copy=n_copy, parallel=parallel)
+    config = CONFIG_DICT[config_name]
 
     job_out = "{}.{}".format(out_fn, clust.job_script_ext)
     py_out = "{}.py".format(out_fn)
@@ -70,7 +71,7 @@ def parse():
     config_p.set_defaults(func=config_entry)
     config_p.add_argument('--cluster', '-c',
                           help="""Write a job file conforming to this cluster.
-                          Options: ['pbs']""",
+                          Options: {}""".format(str(CLUSTER_DICT.keys())),
                           default='pbs')
     config_p.add_argument('--parallel', '-p',
                           help="""How to do parallel.
