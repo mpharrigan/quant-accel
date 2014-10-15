@@ -95,6 +95,31 @@ class SortCountsAdapter(Adapter):
         return SStates(states_to_sample)
 
 
+class UniformAdapter(Adapter):
+    """Return a random state, but only from states we've found"""
+
+    @classmethod
+    def _adapt(cls, found_states, tpr):
+        found_states = np.copy(found_states)
+        np.random.shuffle(found_states)  # In place
+
+        n_copy = tpr // len(found_states)
+        additional = found_states[:tpr % len(found_states)]
+        indices = np.concatenate([found_states] * n_copy + [additional])
+        return indices
+
+    def adapt(self, model, params):
+        """Random indices from states we've found.
+
+        :param params: So we know how many new states to return
+        :returns: Indices of new states
+        """
+        return SStates(self._adapt(model.found_states, params.tpr))
+
+    def seed_states(self, params):
+        return SStates([0] * params.tpr)
+
+
 class RandomAdapter(Adapter):
     def adapt(self, model, params):
         """Pick random indices
