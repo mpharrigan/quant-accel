@@ -80,12 +80,44 @@ def _launch(arg_tuple):
     # Make the directory for the run
     try:
         os.mkdir(rundir)
-    except OSError:
-        log.error('%s Already exists, skipping!', rundir)
+    except OSError as e:
+        log.error('Problem with %s: %s; skipping!', rundir, e)
 
     log.info('Launching run %s', params.pretty_desc)
     run = MAccelRun(config, params, rundir, parallel)
     run.run()
+
+
+def _archive_trajs(griddir):
+    for traj_dir in glob.iglob(pjoin(griddir, '*/trajs/')):
+        logging.info('Archiving %s', traj_dir)
+        shutil.make_archive(base_name=pjoin(traj_dir, '..', 'trajs'),
+                            format='gztar',
+                            root_dir=pjoin(traj_dir, '..'),
+                            base_dir='trajs')
+        shutil.rmtree(traj_dir)
+
+
+class MaccelGridFs:
+    """Use filesystem."""
+
+    def __init__(self, config, run_id):
+        self.config = config
+        self.run_id = run_id
+        self.grid = None
+
+    def __enter__(self):
+        self.griddir = 'copy-{}'.format(self.run_id)
+
+        assert not os.path.exists(self.griddir)
+        os.mkdir(self.griddir)
+
+        self.grid = MAccelGrid(self.config, self.griddir, self.run_id,
+                               parallel=False)
+        return self.grid
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _archive_trajs(self.griddir)
 
 
 class MaccelGridShm:
@@ -114,13 +146,6 @@ class MaccelGridShm:
 
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for traj_dir in glob.iglob(pjoin(self.shm_griddir, '*/trajs/')):
-            logging.info('Archiving %s', traj_dir)
-            shutil.make_archive(base_name=pjoin(traj_dir, '..', 'trajs'),
-                                format='gztar',
-                                root_dir=pjoin(traj_dir, '..'),
-                                base_dir='trajs')
-            shutil.rmtree(traj_dir)
-
+        _archive_trajs(self.shm_griddir)
         shutil.copytree(self.shm_griddir, self.griddir)
         shutil.rmtree(self.shm_griddir)
