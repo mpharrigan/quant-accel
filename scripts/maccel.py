@@ -18,7 +18,7 @@ def config_entry(args):
 
 
 def config(out_fn, n_copy, cluster, config_name, parallel):
-    cluster_dict = dict(pbs=maccel.PBSCluster)
+    cluster_dict = dict(pbs=maccel.PBSCluster, slurm=maccel.SlurmCluster)
     config_dict = dict(alanine=maccel.AlanineConfiguration)
     grid_manager_name = 'MaccelGridShm'  # TODO: Make general
 
