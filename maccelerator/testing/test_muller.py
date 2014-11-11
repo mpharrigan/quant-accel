@@ -5,6 +5,8 @@ from unittest import TestCase
 import os
 from os.path import join as pjoin
 import logging
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace as Sns
 
 import numpy as np
 from numpy.testing import assert_array_equal
@@ -13,9 +15,11 @@ import maccelerator as maccel
 from maccelerator.configurations.muller import (generate_muller_sysint,
                                                 make_traj_from_coords)
 from maccelerator.simulate import OpenMMSimulator
-from maccelerator.testing.test_utils import get_folder
+from maccelerator.configurations.muller import MullerAdapter
+from simtk.openmm import app
 
 from maccelerator.msmtoys import MullerForce
+
 
 # Disable logging during test
 logging.captureWarnings(True)
@@ -33,52 +37,57 @@ class TestMullerPotential(TestCase):
         # Use openmm
         zz2 = []
         system, integrator = generate_muller_sysint()
-        for x, y, in zip(xx, yy):
-            system.context.setPositions([[x, y, 0]])
+        top = MullerAdapter.seed_states(Sns(tpr=1))[0].topology.to_openmm()
+        sim = app.Simulation(top, system, integrator)
+        for x, y, in zip(xx.flat, yy.flat):
+            sim.context.setPositions([[x, y, 0]])
             zz2.append(
-                system.context.getState(getEnergy=True)
+                sim.context.getState(getEnergy=True)
                 .getPotentialEnergy()
                 .value_in_unit_system(unit.md_unit_system)
             )
 
-        np.testing.assert_array_almost_equal(zz1, zz2)
+        np.testing.assert_array_almost_equal(zz1, zz2, decimal=4)
 
 
 class TestMullerPrep(TestCase):
-    def setUp(self):
-        self.tdir = get_folder('mul_prep')
-
     def test_make(self):
         system, integrator = generate_muller_sysint()
 
         self.assertFalse(system is None)
         self.assertFalse(integrator is None)
         self.assertEqual(len(system.getForces()), 1)
-        self.assertEqual(integrator.getTemperature().value_in_unit(unit.kelvin),
-                         750.0)
+        self.assertEqual(
+            integrator.getTemperature()
+            .value_in_unit(unit.kelvin), 750.0
+        )
 
-        sysfn = pjoin(self.tdir, 'muller_sys.xml')
-        intfn = pjoin(self.tdir, 'muller_int.xml')
+        with TemporaryDirectory() as td:
+            sysfn = pjoin(td, 'muller_sys.xml')
+            intfn = pjoin(td, 'muller_int.xml')
+            OpenMMSimulator.serialize(system, integrator, sysfn, intfn)
 
-        OpenMMSimulator.serialize(system, integrator, sysfn, intfn)
+            self.assertTrue(os.path.exists(pjoin(td, 'muller_sys.xml')))
+            self.assertTrue(os.path.exists(pjoin(td, 'muller_int.xml')))
 
-        self.assertTrue(os.path.exists(pjoin(self.tdir, 'muller_sys.xml')))
-        self.assertTrue(os.path.exists(pjoin(self.tdir, 'muller_int.xml')))
+            system, integrator = OpenMMSimulator.deserialize(sysfn, intfn)
 
-        system, integrator = OpenMMSimulator.deserialize(sysfn, intfn)
         self.assertFalse(system is None)
         self.assertFalse(integrator is None)
         self.assertEqual(len(system.getForces()), 1)
-        self.assertEqual(integrator.getTemperature().value_in_unit(unit.kelvin),
-                         750.0)
+        self.assertEqual(
+            integrator.getTemperature()
+            .value_in_unit(unit.kelvin), 750.0
+        )
 
 
     def test_reference(self):
         config = maccel.MullerConfiguration().apply_configuration()
         self.assertEqual(len(config.simulator.system.getForces()), 1)
         self.assertEqual(
-            config.simulator.integrator.getTemperature().value_in_unit(
-                unit.kelvin), 750.0)
+            config.simulator.integrator.getTemperature()
+            .value_in_unit(unit.kelvin), 750.0
+        )
 
 
 class TestTrajFromNumpy(TestCase):

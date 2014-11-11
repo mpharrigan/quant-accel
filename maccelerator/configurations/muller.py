@@ -11,7 +11,7 @@ from ..msmtoys import MullerForce
 from ..simulate import OpenMMSimulator
 from ..files import get_fn
 from ..model import ClusterModeller
-from ..adapt import SortCountsAdapter
+from ..adapt import SortCountsAdapter, SStates
 from .base import OpenMMConfiguration
 from ..convergence import Volume, OpenMMConvergenceChecker
 from ..param import AdaptiveParams
@@ -47,7 +47,7 @@ def make_traj_from_coords(xyz):
     top = md.Topology()
     chain = top.add_chain()
     resi = top.add_residue(None, chain)
-    top.add_atom(None, None, resi)
+    top.add_atom("C", md.element.carbon, resi)
 
     xyz = np.asarray(xyz)
     xyz = xyz[:, np.newaxis, :]
@@ -82,14 +82,13 @@ class MullerAdapter(SortCountsAdapter):
 
         return sstate_traj
 
-    def seed_state(self, params, sstate_out_fn):
+    @classmethod
+    def seed_states(cls, params):
         """Start from the bottom right well.
 
         :param params: Make this many seed states. They will all be the same
         """
-        seed_state = make_traj_from_coords([[0.5, 0.0, 0.0]] * params.tpr)
-        seed_state.save(sstate_out_fn)
-        return seed_state
+        return SStates([make_traj_from_coords([[0.5, 0.0, 0.0]])] * params.tpr)
 
 
 class MullerParams(AdaptiveParams):
@@ -144,6 +143,7 @@ class MullerConfiguration(OpenMMConfiguration):
 
         self.grid = None
         self.temp = 750
+        self.force = MullerForce
 
 
 

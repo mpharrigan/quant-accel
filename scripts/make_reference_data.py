@@ -8,10 +8,8 @@ from os.path import join as pjoin
 import argparse
 import pickle
 
-import scipy.io
 import mdtraj.io
 from mixtape.datasets.alanine_dipeptide import fetch_alanine_dipeptide
-
 from maccelerator.configurations.muller import generate_muller_sysint
 from maccelerator.configurations.alanine import generate_alanine_msm
 from maccelerator.simulate import OpenMMSimulator
