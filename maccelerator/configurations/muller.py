@@ -7,7 +7,7 @@ import mdtraj as md
 import numpy as np
 from simtk import openmm
 
-from msmtoys import muller
+from ..msmtoys import MullerForce
 from ..simulate import OpenMMSimulator
 from ..files import get_fn
 from ..model import ClusterModeller
@@ -27,7 +27,7 @@ def generate_muller_sysint():
 
     # Prepare the system
     system = openmm.System()
-    mullerforce = muller.MullerForce()
+    mullerforce = MullerForce()
     system.addParticle(mass)
     mullerforce.addParticle(0, [])
     system.addForce(mullerforce)
@@ -144,7 +144,6 @@ class MullerConfiguration(OpenMMConfiguration):
 
         self.grid = None
         self.temp = 750
-        self.potentialfunc = muller.MullerForce.potential
 
 
 
