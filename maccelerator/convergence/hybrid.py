@@ -35,11 +35,11 @@ class OpenMMConvergenceChecker(SupConvergenceChecker):
         tolerance_scale = config.tolerance_scale
         ref_msm = config.ref_msm
         grid = config.grid
-        potentialfunc = config.potentialfunc
+        potentialfunc = config.force.potential
         temp = config.temp
 
         return [
-            PopulationProjectionTVD(tolerance_scale * 0.6, grid, potentialfunc,
-                                    temp),
+            PopulationProjectionTVD(tolerance_scale * 0.6, grid,
+                                    potentialfunc, temp),
             TimescaleDistance(tolerance_scale * 1.0, ref_msm)
         ]

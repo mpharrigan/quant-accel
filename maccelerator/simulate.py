@@ -13,8 +13,7 @@ import logging
 
 from mdtraj.reporters import HDF5Reporter
 from simtk.openmm import XmlSerializer
-from simtk.openmm.app import Simulation
-from simtk.openmm.app import StateDataReporter
+from simtk.openmm.app import Simulation, StateDataReporter
 import scipy.sparse
 import numpy as np
 
@@ -102,8 +101,8 @@ class OpenMMSimulator(Simulator):
         :param traj_out_fn: Where to save the trajectory
         """
 
-        simulation = Simulation(sstate.topology.to_openmm(), self.system,
-                                self.integrator)
+        simulation = Simulation(sstate.topology.to_openmm(),
+                                self.system, self.integrator)
         simulation.context.setPositions(sstate.openmm_positions(0))
         sanity_check(simulation)
 
@@ -247,7 +246,7 @@ class CallbackReporter(StateDataReporter):
 
 
 def add_reporters(simulation, outfn, report_stride, total_steps):
-    "Add reporters to a simulation"
+    """Add reporters to a simulation"""
 
     def reporter_callback(report):
         """Callback for processing reporter output"""

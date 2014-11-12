@@ -34,7 +34,7 @@ class Adapter:
         return "sstate-{round_i}"
 
 
-class SStates():
+class SStates:
     """Objects of this type will be returned from Adapter.adapt."""
 
     def __init__(self, indices):
@@ -43,6 +43,8 @@ class SStates():
     def items(self):
         return self.indices
 
+    def __getitem__(self, item):
+        return self.indices[item]
 
     def save(self, fn):
         """Save to a file."""
