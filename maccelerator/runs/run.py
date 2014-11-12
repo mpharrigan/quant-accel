@@ -85,6 +85,9 @@ class MAccelRun(object):
                 models.append(model)
                 converges.append(converge)
 
+            model = models[-1]
+            converge = converges[-1]
+
             model_fn = "{}.pickl".format(file.model_fn(round_i))
             with open(model_fn, 'wb') as model_f:
                 pickle.dump(models, model_f)

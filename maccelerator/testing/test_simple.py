@@ -10,16 +10,16 @@ from os.path import join as pjoin
 import unittest
 from unittest import TestCase
 import logging
+import shutil
 
 import numpy as np
 from numpy.testing import assert_array_equal
-
-from maccelerator.testing.test_utils import get_folder
 import maccelerator as maccel
 
+from maccelerator.testing.utils import get_folder
 
 
-# Disable logging during test
+logging.captureWarnings(True)
 logging.disable(logging.WARNING)
 
 
@@ -29,8 +29,8 @@ class TestSimpleStartingStates(TestCase):
     def setUp(self):
         self.config = maccel.SimpleConfiguration().apply_configuration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=8)
-        rundir = get_folder('s1')
-        self.out_fn = pjoin(rundir, 'test_sstate')
+        self.rundir = get_folder('s1')
+        self.out_fn = pjoin(self.rundir, 'test_sstate')
         self.sstate = self.config.seed_state(params)
         self.sstate.save(self.out_fn)
 
@@ -48,6 +48,9 @@ class TestSimpleStartingStates(TestCase):
 
         # TODO: Load
 
+    def tearDown(self):
+        shutil.rmtree(self.rundir)
+
 
 class TestSimpleSample(TestCase):
     """Make sure sampling (trajectory generation) is working."""
@@ -55,8 +58,8 @@ class TestSimpleSample(TestCase):
     def setUp(self):
         self.config = maccel.SimpleConfiguration().apply_configuration()
         params = maccel.configurations.SimpleParams(spt=10, tpr=2)
-        rundir = get_folder('s2')
-        self.out_fn = pjoin(rundir, 'test_sample.npy')
+        self.rundir = get_folder('s2')
+        self.out_fn = pjoin(self.rundir, 'test_sample.npy')
         self.traj = self.config.simulate(0, params, traj_out_fn=self.out_fn)
 
     def test_save_trajectories(self):
@@ -64,6 +67,9 @@ class TestSimpleSample(TestCase):
 
         traj = np.load(self.out_fn)
         assert_array_equal(traj, np.arange(10))
+
+    def tearDown(self):
+        shutil.rmtree(self.rundir)
 
 
 class TestRun(TestCase):
@@ -74,10 +80,9 @@ class TestRun(TestCase):
     def setUp(self):
         configuration = maccel.SimpleConfiguration().apply_configuration()
         param = maccel.SimpleParams(spt=10, tpr=10)
-        rundir = get_folder('s3')
-        self.rundir = rundir
+        self.rundir = get_folder('s3')
 
-        self.run = maccel.MAccelRun(configuration, param, rundir,
+        self.run = maccel.MAccelRun(configuration, param, self.rundir,
                                     parallel=self.do_parallel)
         self.run.run()
 
@@ -121,6 +126,9 @@ class TestRun(TestCase):
                                        9 * round_i + np.zeros(10))
                 else:
                     self.assertFalse(os.path.exists(sstatefn))
+
+    def tearDown(self):
+        shutil.rmtree(self.rundir)
 
 
 class TestRunNoParallel(TestRun):
@@ -167,6 +175,10 @@ class TestGrid(TestCase):
         for p in self.grid.config.get_param_grid():
             with self.subTest():
                 self.assertTrue(hasattr(p, 'spt'))
+
+
+    def tearDown(self):
+        shutil.rmtree(self.griddir)
 
 
 class TestGridNoParallel(TestGrid):

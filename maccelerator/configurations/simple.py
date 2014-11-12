@@ -12,6 +12,8 @@ from ..convergence.base import SubConvergenceChecker, SubConvergence, \
 from .base import Configuration
 from ..param import AdaptiveParams
 
+from itertools import chain
+
 
 class SimpleSimulator(Simulator):
     """A simple simulation for testing."""
@@ -41,8 +43,8 @@ class SimpleSimulator(Simulator):
 class SimpleModel(Model):
     """Just keep of the trajectories."""
 
-    def __init__(self, trajs):
-        super().__init__(msm=None)
+    def __init__(self, params, trajs):
+        super().__init__(params)
         self.trajs = trajs
 
 
@@ -60,8 +62,8 @@ class SimpleModeller(Modeller):
         :param traj_fns: Files to load
         :param up_to: Used for sub-modelling
         """
-        trajs = [np.load(tfn) for tfn in traj_fns]
-        return SimpleModel(trajs)
+        trajs = [np.load(tfn) for tfn in chain(*traj_fns.values())]
+        return SimpleModel(params, trajs)
 
 
 class SimpleSupConvchecker(SupConvergenceChecker):

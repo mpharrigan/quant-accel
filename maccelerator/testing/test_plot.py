@@ -4,12 +4,13 @@ from os.path import join as pjoin
 import os
 import logging
 import unittest
+import shutil
 
 import maccelerator as maccel
-from maccelerator.testing.test_utils import get_folder
+
+from maccelerator.testing.utils import get_folder
 
 
-# Disable logging during test
 logging.captureWarnings(True)
 logging.disable(logging.WARNING)
 
@@ -21,7 +22,8 @@ class TestPlot(TestCase):
         configuration = maccel.AlanineConfiguration().apply_configuration()
         self.tpr = 3
         self.spt = 4000
-        param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr)
+        param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr, step_res=-1,
+                                     post_converge=2)
         self.rundir = get_folder('plot')
         run = maccel.MAccelRun(configuration, param, self.rundir,
                                parallel=self.do_parallel)
@@ -44,6 +46,10 @@ class TestPlot(TestCase):
                     self.assertTrue(os.path.exists(plotfn))
                 else:
                     self.assertFalse(os.path.exists(plotfn))
+
+
+    def tearDown(self):
+        shutil.rmtree(self.rundir)
 
 
 class TestPlotNoParallel(TestPlot):

@@ -7,13 +7,14 @@ from os.path import join as pjoin
 import os
 import unittest
 import logging
+import shutil
 
 import mdtraj.io
 import maccelerator as maccel
 from maccelerator.adapt import SStates
 from maccelerator.model import Model
 from maccelerator.param import AdaptiveParams
-from maccelerator.testing.test_utils import get_folder
+from maccelerator.testing.utils import get_folder
 from mixtape.datasets.alanine_dipeptide import fetch_alanine_dipeptide
 from maccelerator.configurations.alanine import generate_alanine_msm
 
@@ -27,7 +28,7 @@ class TestAlaninePrep(TestCase):
         ala = fetch_alanine_dipeptide()
         msm, kmeans = generate_alanine_msm(ala)
 
-        self.assertEqual(len(kmeans.labels_), 20)
+        self.assertEqual(len(kmeans.cluster_centers_), 20)
         self.assertEqual(msm.transmat_.shape[1], 20)
 
 
@@ -40,7 +41,8 @@ class TestRun(TestCase):
         configuration = maccel.AlanineConfiguration().apply_configuration()
         self.tpr = 2
         self.spt = 2000
-        param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr)
+        param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr,
+                                     post_converge=2, step_res=-1)
         self.rundir = get_folder('ala')
         self.run = maccel.MAccelRun(configuration, param, self.rundir,
                                     parallel=self.do_parallel)
@@ -73,11 +75,14 @@ class TestRun(TestCase):
                          pjoin(self.rundir, 'figs', figfn))
 
     def test_partial_load(self):
-        trajs = self.run.config.modeller.load_trajs(self.run.le_than(0), 555)
-        self.assertEqual(len(trajs), self.tpr)
+        trajs = self.run.config.modeller.load_trajs(self.run.trajs, 555)
+        self.assertEqual(len(trajs), self.tpr * self.run.n_rounds)
         for i, traj in enumerate(trajs):
             with self.subTest(traj_i=i):
-                self.assertEqual(len(traj), 555)
+                if i < (len(trajs) - self.tpr):
+                    self.assertEqual(len(traj), self.spt)
+                else:
+                    self.assertEqual(len(traj), 555)
 
     def test_trajectory_files(self):
         # Make sure files exist where they should and don't where they shouldn't
@@ -122,10 +127,13 @@ class TestRun(TestCase):
                 msmfn = pjoin(self.rundir, 'msms', msmfn)
                 if should_exist:
                     self.assertTrue(os.path.exists(msmfn))
-                    model = Model.load(msmfn)
-                    self.assertEqual(model.tot_n_states, 20)
+                    model = Model.load(msmfn)[-1]
+                    self.assertEqual(model.n_states, 20)
                 else:
                     self.assertFalse(os.path.exists(msmfn))
+
+    def tearDown(self):
+        shutil.rmtree(self.rundir)
 
 
 class TestRunNoParallel(TestRun):

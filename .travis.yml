@@ -27,9 +27,8 @@ install:
 
 
 script:
-    - ipcluster start --n=2 --daemonize
-    - sleep 5s
-    - python maccelerator/testing/run_tests.py -vv
+    - ipcluster start --n=2 --daemonize && sleep 5s
+    - ./run_tests.sh -vv
 
 after_success:
     - ipcluster stop
