@@ -39,7 +39,7 @@ class TestRun(TestCase):
     def setUp(self):
         configuration = maccel.AlanineConfiguration().apply_configuration()
         self.tpr = 2
-        self.spt = 1000
+        self.spt = 2000
         param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr)
         self.rundir = get_folder('ala')
         self.run = maccel.MAccelRun(configuration, param, self.rundir,
@@ -74,7 +74,7 @@ class TestRun(TestCase):
 
     def test_partial_load(self):
         trajs = self.run.config.modeller.load_trajs(self.run.le_than(0), 555)
-        self.assertEqual(len(trajs), 3)
+        self.assertEqual(len(trajs), self.tpr)
         for i, traj in enumerate(trajs):
             with self.subTest(traj_i=i):
                 self.assertEqual(len(traj), 555)
