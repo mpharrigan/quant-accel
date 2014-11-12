@@ -7,48 +7,28 @@ from os.path import join as pjoin
 import os
 import unittest
 import logging
-import pickle
 
 import mdtraj.io
-import scipy.io
-
 import maccelerator as maccel
 from maccelerator.adapt import SStates
 from maccelerator.model import Model
 from maccelerator.param import AdaptiveParams
-from maccelerator.testing.test_utils import get_folder, get_fn
-# from maccelerator.make_reference_data import make_alanine_reference_data
+from maccelerator.testing.test_utils import get_folder
+from mixtape.datasets.alanine_dipeptide import fetch_alanine_dipeptide
+from maccelerator.configurations.alanine import generate_alanine_msm
 
 
-# Disable logging during test
 logging.captureWarnings(True)
 logging.disable(logging.WARNING)
 
 
 class TestAlaninePrep(TestCase):
-    def setUp(self):
-        self.rundir = get_folder('ala_prep')
-
-    @unittest.skip
     def test_make(self):
-        dirname = self.rundir
-        make_alanine_reference_data(dirname)
-        # Save cluster centers
-        centers = mdtraj.io.loadh(pjoin(dirname, 'ala.centers.h5'),
-                                  'cluster_centers')
+        ala = fetch_alanine_dipeptide()
+        msm, kmeans = generate_alanine_msm(ala)
 
-        self.assertEqual(len(centers), 20)
-
-        # Save transition matrix
-        tmat = scipy.io.mmread(pjoin(dirname, 'ala.mtx'))
-
-        self.assertEqual(tmat.shape[1], 20)
-
-        # Save MSM Object
-        with open(pjoin(dirname, 'ala.msm.pickl'), 'rb') as f:
-            msm = pickle.load(f)
-
-        self.assertIsNotNone(msm)
+        self.assertEqual(len(kmeans.labels_), 20)
+        self.assertEqual(msm.transmat_.shape[1], 20)
 
 
 class TestRun(TestCase):
@@ -58,7 +38,7 @@ class TestRun(TestCase):
 
     def setUp(self):
         configuration = maccel.AlanineConfiguration().apply_configuration()
-        self.tpr = 3
+        self.tpr = 2
         self.spt = 1000
         param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr)
         self.rundir = get_folder('ala')
