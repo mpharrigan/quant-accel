@@ -53,13 +53,11 @@ Running
 ```
 python setup.py install
 ```
-will install all relevant code, as well as the code needed to generate
-the reference data for the included toy systems. Use
-```
-make_reference_data.sh
-```
-to build the toy systems. You may need to run `setup.py` again to
-copy the reference data to the install location.
+will generate reference data and
+install all relevant code. 
+
+Requires Python 3.4+. Porting to older versions of python is unlikely
+due to extensive use of new language features.
 
 ## Running
 the script `maccel.py` can be used via command line to generate
