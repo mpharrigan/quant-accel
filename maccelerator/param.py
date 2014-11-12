@@ -47,6 +47,8 @@ class AdaptiveParams:
 
     @property
     def subbuild_uptos(self):
+        if self.step_res <= 0:
+            return np.asarray([self.spt])
         n_builds = self.spt // self.step_res
         assert self.spt % self.step_res == 0, 'Sub-build must divide'
         return (np.arange(n_builds) + 1) * self.step_res
