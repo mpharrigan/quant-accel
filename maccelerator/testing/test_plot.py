@@ -58,5 +58,28 @@ class TestPlotNoParallel(TestPlot):
         super().setUp()
 
 
+class TestConvergence(TestCase):
+    def setUp(self):
+        configuration = maccel.AlanineConfiguration().apply_configuration()
+        self.tpr = 3
+        self.spt = 4000
+        param = maccel.AlanineParams(spt=self.spt, tpr=self.tpr, step_res=-1,
+                                     post_converge=2)
+        self.rundir = get_folder('plot')
+        run = maccel.MAccelRun(configuration, param, self.rundir,
+                               parallel=False)
+        run.run()
+
+        self.runfn = pjoin(run.rundir, 'run.pickl')
+
+    def test_find_convergence_from_fn(self):
+        dd = maccel.find_convergence_from_filename(self.runfn)
+        self.assertEqual(dd['run_id'], 0)
+        self.assertEqual(dd['spt'], self.spt)
+        self.assertEqual(dd['tpr'], self.tpr)
+        self.assertTrue(dd['steps'] > 0)
+        self.assertTrue(dd['rounds'] > 0)
+
+
 if __name__ == "__main__":
     unittest.main()
