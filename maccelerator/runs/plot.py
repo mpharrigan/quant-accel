@@ -64,7 +64,7 @@ class PlotMaker():
         conv_fn = pjoin(self.load_dir, conv_fn)
 
         with open(conv_fn, 'rb') as conv_f:
-            converge = pickle.load(conv_f)
+            converge = pickle.load(conv_f)[-1]
         return converge
 
     def load_convergences(self):

@@ -3,7 +3,7 @@ import itertools
 
 from mixtape.markovstatemodel import MarkovStateModel
 
-from mixtape.cluster import KMeans
+from mixtape.cluster import MiniBatchKMeans
 from mixtape.featurizer import DihedralFeaturizer
 
 from ..simulate import TMatSimulator
@@ -32,11 +32,11 @@ def generate_alanine_msm(ala):
     feat_trajs = dihed.transform(ala['trajectories'])
 
     # Cluster
-    kmeans = KMeans(n_clusters=20, random_state=52)
+    kmeans = MiniBatchKMeans(n_clusters=20, random_state=52)
     kmeans.fit(feat_trajs)
 
     # Build MSM
-    msm = MarkovStateModel(lag_time=3)
+    msm = MarkovStateModel(lag_time=3, verbose=False)
     msm.fit(kmeans.labels_)
 
     return msm, kmeans

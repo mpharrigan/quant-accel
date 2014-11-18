@@ -1,5 +1,3 @@
-# TODO: Rename this file so it isn't used as a test
-
 import tempfile
 
 from pkg_resources import resource_filename

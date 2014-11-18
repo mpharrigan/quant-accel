@@ -21,7 +21,6 @@ from simtk.openmm import app
 from maccelerator.msmtoys import MullerForce
 
 
-# Disable logging during test
 logging.captureWarnings(True)
 logging.disable(logging.WARNING)
 

@@ -4,10 +4,9 @@ import unittest
 import logging
 
 import numpy as np
-
 import maccelerator as maccel
 
-# Disable logging during test
+
 logging.captureWarnings(True)
 logging.disable(logging.WARNING)
 
