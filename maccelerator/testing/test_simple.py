@@ -20,7 +20,6 @@ from maccelerator.testing.utils import get_folder
 
 
 logging.captureWarnings(True)
-logging.disable(logging.WARNING)
 
 
 class TestSimpleStartingStates(TestCase):
