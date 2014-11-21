@@ -20,34 +20,22 @@ SHM = '/dev/shm/'
 class MAccelGrid:
     """Run many parameter configurations.
 
-    :param parallel: [True, False] or ['full', 'semi', 'non']
-        'semi' will do parallel simulation but not parallel over grid
+    :param parallel: [True, False]
+        Whether to run each *run* as a parallel thing.
+        Support for running grids in parallel has been dropped.
     """
 
-    def __init__(self, configuration, griddir, run_id=0, parallel=True):
+    def __init__(self, configuration, griddir, run_id=0, parallel=False):
         self.config = configuration
         self.griddir = griddir
         self.run_id = run_id
+        self.grid = self._grid_noparallel
 
-        if parallel or parallel == 'full':
-            self.grid = self._grid_parallel
-            try:
-                c = Client()
-                self.lbv = c.load_balanced_view()
-                self.lbv.block = True
-            except FileNotFoundError as e:
-                log.error("Could not connect to parallel engine: %s", e)
-                self.lbv = None
-        else:
-            self.grid = self._grid_noparallel
-
-        if not parallel or parallel == 'non':
-            self.run_parallel = False
-        else:
-            self.run_parallel = True
+        self.run_parallel = parallel
 
     def _grid_parallel(self):
         """Launch several runs over a grid of parameters."""
+        log.warning("_grid_parallel is deprecated!")
 
         # Check
         if self.lbv is None:
@@ -60,7 +48,7 @@ class MAccelGrid:
                                   itertools.repeat(self.run_parallel)))
 
     def _grid_noparallel(self):
-        """Do runs serially (for debugging)."""
+        """Do runs serially"""
         for arg_tuple in zip(itertools.repeat(self.config),
                              itertools.repeat(self.griddir),
                              self.config.get_param_grid(self.run_id),

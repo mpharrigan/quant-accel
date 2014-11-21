@@ -55,7 +55,7 @@ class PlotMaker():
         out_fn = pjoin(self.load_dir, out_fn)
         out_fn = os.path.abspath(out_fn)
 
-        return self.load_convergence(round_i), self.run.params, out_fn
+        return self.load_convergence(round_i)[-1], self.run.params, out_fn
 
     def load_convergence(self, round_i, rel=True):
         """Load a convergence object for a particular round."""
@@ -64,7 +64,7 @@ class PlotMaker():
         conv_fn = pjoin(self.load_dir, conv_fn)
 
         with open(conv_fn, 'rb') as conv_f:
-            converge = pickle.load(conv_f)[-1]
+            converge = pickle.load(conv_f)
         return converge
 
     def load_convergences(self):
@@ -102,3 +102,19 @@ def _plot_helper(args):
     """Can be mapped."""
     converge, params, fn = args
     converge.plot_and_save(params, None, fn)
+
+
+def find_convergence_from_filename(run_fn):
+    """From a filename, return convergence data suitable for pandas
+
+    Use this from IPython.parallel map
+    """
+
+    with open(run_fn, 'rb') as run_f:
+        run = pickle.load(run_f)
+    pm = PlotMaker(run, load_dir=os.path.dirname(run_fn), parallel=False)
+    steps, rounds = pm.find_first_convergence()
+
+    return dict(run_fn=run_fn, run_id=run.params.run_id,
+                spt=run.params.spt, tpr=run.params.tpr,
+                steps=steps, rounds=rounds)
