@@ -144,7 +144,7 @@ class TMatSimulator(Simulator):
 
     @property
     def trajfn(self):
-        return "traj-{traj_i}.h5"
+        return "traj-{traj_i}.npy"
 
     def __init__(self, config):
         super().__init__(config)
@@ -187,7 +187,7 @@ class TMatSimulator(Simulator):
 
         # Write
         if traj_out_fn is not None:
-            io.saveh(traj_out_fn, state_traj=state_out)
+            np.save(traj_out_fn, state_out)
         log.debug('Finished TMat simulation.')
         return state_out
 

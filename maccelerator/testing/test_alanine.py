@@ -8,8 +8,8 @@ import os
 import unittest
 import logging
 import shutil
+import numpy as np
 
-import mdtraj.io
 import maccelerator as maccel
 from maccelerator.adapt import SStates
 from maccelerator.model import Model
@@ -21,7 +21,6 @@ from maccelerator.configurations.alanine import generate_alanine_msm
 
 logging.captureWarnings(True)
 logging.disable(logging.WARNING)
-
 
 class TestAlaninePrep(TestCase):
     def test_make(self):
@@ -94,12 +93,12 @@ class TestRun(TestCase):
                 should_exist = round_i < nrounds and traj_i < self.tpr
                 with self.subTest(round_i=round_i, traj_i=traj_i,
                                   should_exist=should_exist):
-                    trajoutfn = 'round-{round_i}/traj-{traj_i}.h5'.format(
+                    trajoutfn = 'round-{round_i}/traj-{traj_i}.npy'.format(
                         round_i=round_i, traj_i=traj_i)
                     trajoutfn = pjoin(self.rundir, 'trajs', trajoutfn)
                     if should_exist:
                         self.assertTrue(os.path.exists(trajoutfn))
-                        traj = mdtraj.io.loadh(trajoutfn, 'state_traj')
+                        traj = np.load(trajoutfn)
                         self.assertEqual(len(traj), self.spt)
                     else:
                         self.assertFalse(os.path.exists(trajoutfn))
