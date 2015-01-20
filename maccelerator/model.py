@@ -14,7 +14,6 @@ from mixtape.cluster import MiniBatchKMeans
 from mixtape.markovstatemodel import MarkovStateModel
 import mdtraj
 import itertools
-from mdtraj.io import loadh
 
 
 log = logging.getLogger(__name__)
@@ -254,15 +253,15 @@ class TMatModeller(Modeller):
             round_is = sorted(traj_dict)
             trajs = []
             for ri in round_is[:-1]:
-                trajs += [loadh(fn, 'state_traj') for fn in traj_dict[ri]]
+                trajs += [np.load(fn) for fn in traj_dict[ri]]
 
             # Only load partial trajectories for the last round.
             last_fns = traj_dict[round_is[-1]]
-            trajs += [loadh(fn, 'state_traj')[:up_to] for fn in last_fns]
+            trajs += [np.load(fn)[:up_to] for fn in last_fns]
         else:
             # Load everything
             traj_fns = itertools.chain(*traj_dict.values())
-            trajs = [mdtraj.io.loadh(fn, 'state_traj') for fn in traj_fns]
+            trajs = [np.load(fn) for fn in traj_fns]
         return trajs
 
 
