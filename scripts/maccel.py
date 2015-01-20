@@ -9,8 +9,14 @@ import maccelerator as maccel
 
 logging.basicConfig(level=logging.INFO)
 
-CLUSTER_DICT = dict(pbs=maccel.PBSCluster, slurm=maccel.SlurmCluster)
-CONFIG_DICT = dict(alanine=maccel.AlanineConfiguration)
+CLUSTER_DICT = dict(
+    pbs=maccel.PBSCluster,
+    slurm=maccel.SlurmCluster
+)
+CONFIG_DICT = dict(
+    alanine=maccel.AlanineConfiguration,
+    srckinase=maccel.SrcKinaseConfiguration
+)
 
 
 def config_entry(args):
@@ -91,6 +97,9 @@ def parse():
 
     config_ala = config_sp.add_parser('alanine')
     config_ala.set_defaults(config='alanine')
+
+    config_src = config_sp.add_parser('srckinase')
+    config_src.set_defaults(config='srckinase')
 
     args = parser.parse_args()
 
