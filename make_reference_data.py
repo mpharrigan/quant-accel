@@ -36,7 +36,26 @@ def get_src_kinase_data(dirname, cleanup=True):
         with open(pjoin(dirname, SRC_DIR, SRC_FILE), 'wb') as tmat_tar_f:
             tmat_tar_f.write(tmat_tar_url.read())
         with tarfile.open(pjoin(dirname, SRC_DIR, SRC_FILE)) as tmat_tar_f:
-            tmat_tar_f.extractall(pjoin(dirname, SRC_DIR))
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(tmat_tar_f, pjoin(dirname,SRC_DIR))
 
     # Load and convert
     msm, centers = generate_srckinase_msm(
